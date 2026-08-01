@@ -3,8 +3,9 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v1.0.0** (initial commit, 2026-08-01)
-- Belum pernah di-push ke GitHub — ini rilis pertama, repo belum ada.
+- **Versi terakhir selesai: v1.0.1** (fix build, 2026-08-01)
+- Belum pernah di-push ke GitHub — ini masih rilis pertama yang akan di-push
+  (v1.0.0 gagal build di CI sebelum sempat dipakai).
 - Belum pernah dites di device asli (belum ada feedback bug dari user).
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
@@ -41,8 +42,14 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
-- **2026-08-01**: Proyek dibuat dari nol. Tidak ada insiden pada batch ini
-  (belum ada riwayat rewrite/restore).
+- **2026-08-01 (v1.0.1)**: CI `compileReleaseKotlin` gagal —
+  `WhitelistScreen.kt` pakai import salah `androidx.compose.ui.graphics.
+  drawable.toBitmap` (package tidak punya fungsi ini). `toBitmap()` yang
+  benar berasal dari `androidx.core.graphics.drawable` (core-ktx). Sudah
+  diperbaiki. Pelajaran: saat pakai extension function dari core-ktx di
+  layar Compose, jangan asumsikan namespace-nya ikut `androidx.compose.*`.
+- **2026-08-01 (v1.0.0)**: Proyek dibuat dari nol. Tidak ada insiden pada
+  batch ini.
 
 ## Struktur package singkat
 

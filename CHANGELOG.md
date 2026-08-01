@@ -1,5 +1,14 @@
 # Changelog
 
+## v1.0.1 — Perbaikan build gagal (2026-08-01)
+
+- **Fix:** `WhitelistScreen.kt` gagal kompilasi di CI —
+  `Unresolved reference: toBitmap`. Penyebab: import salah
+  (`androidx.compose.ui.graphics.drawable.toBitmap`, package yang tidak
+  punya fungsi ini). Diperbaiki ke `androidx.core.graphics.drawable.toBitmap`
+  (dari dependency `core-ktx` yang memang sudah ada di `build.gradle.kts`).
+  Tidak ada perubahan behavior/fitur, murni perbaikan import.
+
 ## v1.0.0 — Rilis awal (2026-08-01)
 
 Arsitektur lengkap dari nol:
