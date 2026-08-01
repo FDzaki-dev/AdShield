@@ -3,9 +3,10 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v1.1.0** (matching presisi, 2026-08-01)
-- Belum pernah di-push ke GitHub — v1.0.0 gagal build, v1.0.1 fix belum
-  dikonfirmasi user sudah di-push atau belum saat v1.1.0 ini dibuat.
+- **Versi terakhir selesai: v1.2.0** (pematangan fitur, 2026-08-01)
+- Belum pernah di-push ke GitHub — v1.0.0 gagal build, belum ada konfirmasi
+  versi mana yang sudah user push. Sinkronkan status ini kalau user kasih
+  tau progress push-nya.
 - Belum pernah dites di device asli (belum ada feedback bug dari user).
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
@@ -38,19 +39,42 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    kalau domain itu 100% didedikasikan untuk ad-serving dan tidak mungkin
    dipakai app lain untuk fungsi legit.
 
-5. **Whitelist per-app BELUM terhubung ke UID paket nyata.**
-   `BlocklistManager.isAppWhitelisted()` dan `setWhitelistedApps()` sudah
-   ada tapi **belum dipanggil** dari packet loop di `AdBlockVpnService` —
-   karena mendapatkan UID pemilik query DNS lokal butuh
-   `ConnectivityManager.getConnectionOwnerUid()` (API 29+, butuh info
-   local+remote address/port UDP) yang belum diimplementasikan. Saat ini
-   whitelist per-app HANYA tersimpan di data layer tapi TIDAK BERPENGARUH ke
-   hasil blocking sungguhan. **Ini gap yang harus ditutup di batch
-   berikutnya — jangan asumsikan whitelist sudah berfungsi penuh sebelum
-   ini diperbaiki.**
+5. **Whitelist per-app kini terhubung ke UID nyata (SELESAI di v1.2.0).**
+   `AdBlockVpnService.isFromWhitelistedApp()` pakai
+   `ConnectivityManager.getConnectionOwnerUid()` (API 29+ saja — di bawah
+   itu OS tidak expose API ini, jadi whitelist per-app tidak berpengaruh
+   di Android <10, ini dijelaskan di UI bukan silent-fail). Kalau ada
+   laporan whitelist tidak berfungsi dari user, cek dulu versi Android
+   device-nya sebelum asumsikan ada bug baru.
+
+5b. **Critical allowlist (v1.2.0)**: `BlocklistManager.criticalAllowlist`
+   berisi domain esensial konektivitas (captive portal, time sync) yang
+   SELALU diizinkan, override semua blocklist/aturan kustom. JANGAN hapus
+   set ini walau kelihatan "tidak dipakai" — ini jaring pengaman terhadap
+   kelas bug "HP kelihatan tidak ada internet" yang sangat membingungkan
+   user untuk didiagnosis. Kalau nambah domain esensial baru ke sini,
+   dokumentasikan alasannya di komentar kode.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-01 (v1.2.0, ditemukan saat repackaging)**: Ketemu 3 direktori
+  sampah berisi nama literal `{a,b,c}` di `app/src/main/java/.../adshield/`
+  dan `app/src/main/res/` — sisa dari command `mkdir -p ... {a,b,c}` di
+  setup awal proyek yang brace-expansion-nya gagal (kemungkinan shell
+  environment tidak mendukung penuh). Direktori ini KOSONG (tidak ada
+  source file di dalamnya) jadi tidak pernah memengaruhi build, tapi sudah
+  ikut ter-zip di v1.0.0–v1.1.0 tanpa terdeteksi self-verifikasi
+  sebelumnya (checklist self-verifikasi saat itu cuma cek brace balance +
+  jumlah file, bukan nama direktori aneh). Sudah dibersihkan. Pelajaran:
+  self-verifikasi ke depan sebaiknya juga cek `find . -type d -name "*{*"`
+  atau semacamnya untuk artefak shell yang salah eksekusi.
+- **2026-08-01 (v1.2.0)**: User minta fokus pematangan, bukan fitur baru.
+  Ditutup: (1) whitelist per-app disambungkan ke UID nyata — sebelumnya
+  hanya separuh jalan, (2) critical allowlist ditambahkan untuk cegah
+  false-block domain esensial konektivitas, (3) DNS forward sekarang
+  fallback ke resolver kedua kalau yang pertama gagal. Bukan insiden/bug
+  ditemukan dari user — ini kerja pematangan proaktif atas gap yang sudah
+  tercatat sebelumnya.
 - **2026-08-01 (v1.1.0)**: User komplain matching parent-domain "kebablasan"
   memblokir host yang bukan seharusnya (mirip komplain umum terhadap
   hosts-file blocker naif). Diganti total ke exact-match + wildcard
@@ -78,16 +102,17 @@ util/          Constants (semua magic number/string terpusat di sini)
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-1. **Sambungkan per-app whitelist ke UID nyata** (lihat poin 5 di atas) —
-   ini fitur yang diminta user secara eksplisit ("Advanced: whitelist
-   per-app") tapi implementasinya baru separuh jalan.
-2. Uji di device fisik: apakah watchdog AlarmManager di XOS Ted benar-benar
+1. Uji di device fisik: apakah watchdog AlarmManager di XOS Ted benar-benar
    mencegah service dibunuh saat app di-swipe dari Recents.
+2. Uji whitelist per-app di device fisik Ted (Infinix XOS) — cek dulu versi
+   Android-nya di atas/di bawah 10 sebelum menyimpulkan bug kalau ada laporan.
 3. Belum ada unit test sama sekali — pertimbangkan test untuk `DnsPacket`
    parsing (paling kritis, paling gampang salah) dan `BlocklistManager`
-   parent-domain matching.
+   exact/wildcard matching (termasuk critical allowlist).
 4. Tidak ada `gradle-wrapper.jar` binary di repo ini (dibuat tanpa akses
    internet). CI pakai `gradle/actions/setup-gradle` (menginstal Gradle
    langsung, tidak butuh wrapper). Kalau user mau pakai `./gradlew` secara
    lokal, jalankan `gradle wrapper --gradle-version 8.7` sekali di
    Termux/device dengan Gradle terpasang untuk generate wrapper jar-nya.
+5. (Belum prioritas, jangan dikerjakan kecuali diminta): deteksi DoH,
+   import blocklist dari URL custom, statistik per-app.

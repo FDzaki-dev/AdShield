@@ -31,6 +31,28 @@ class BlocklistManager private constructor() {
     private val allowedExact = ConcurrentHashMap.newKeySet<String>()
     private val allowedWildcardBases = ConcurrentHashMap.newKeySet<String>()
 
+    /**
+     * Domain esensial untuk fungsi dasar konektivitas Android — captive
+     * portal detection, connectivity check, time sync. Ini SELALU diizinkan
+     * tanpa terkecuali, tidak bisa di-override oleh blocklist bawaan maupun
+     * aturan kustom user. Kalau domain semacam ini ikut terblokir (misal
+     * gara-gara typo di aturan kustom, atau update blocklist yang ceroboh),
+     * gejalanya membingungkan: HP terlihat "tidak ada internet" padahal
+     * cuma DNS captive-portal check yang gagal. Ini bukan fitur baru — ini
+     * jaring pengaman terhadap kelas false-positive yang paling merusak.
+     */
+    private val criticalAllowlist = setOf(
+        "connectivitycheck.gstatic.com",
+        "connectivitycheck.android.com",
+        "clients3.google.com",
+        "www.msftconnecttest.com",
+        "msftconnecttest.com",
+        "captive.apple.com",
+        "time.android.com",
+        "time.google.com",
+        "dns.google"
+    )
+
     private val whitelistedApps = ConcurrentHashMap.newKeySet<String>()
 
     private var customBlockedSnapshot: Set<Entry> = emptySet()
@@ -106,6 +128,10 @@ class BlocklistManager private constructor() {
     fun isAppWhitelisted(packageName: String?): Boolean =
         packageName != null && whitelistedApps.contains(packageName)
 
+    /** Lets the VPN packet loop skip the (relatively expensive) per-query
+     *  UID lookup entirely when no app is whitelisted. */
+    fun hasWhitelistedApps(): Boolean = whitelistedApps.isNotEmpty()
+
     /** True if `domain` equals `base` or is a subdomain of `base` (for wildcard matching only). */
     private fun matchesWildcardBase(domain: String, base: String): Boolean =
         domain == base || domain.endsWith(".$base")
@@ -125,6 +151,8 @@ class BlocklistManager private constructor() {
     fun isBlocked(domain: String): Boolean {
         val d = domain.trim().lowercase().removeSuffix(".")
         if (d.isEmpty()) return false
+
+        if (criticalAllowlist.contains(d)) return false
 
         if (allowedExact.contains(d)) return false
         if (allowedWildcardBases.isNotEmpty() && matchesAnyWildcard(d, allowedWildcardBases)) return false

@@ -4,10 +4,12 @@ import android.app.AlarmManager
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Intent
+import android.net.ConnectivityManager
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
 import android.os.SystemClock
+import android.system.OsConstants
 import androidx.core.app.NotificationCompat
 import com.fdzaki.adshield.MainActivity
 import com.fdzaki.adshield.R
@@ -41,6 +43,10 @@ class AdBlockVpnService : VpnService() {
     private lateinit var settingsRepository: SettingsRepository
     private val blocklist = BlocklistManager.getInstance()
 
+    // Small cache so repeated queries from the same app don't re-hit
+    // PackageManager every time; cleared each time the VPN restarts.
+    private val uidToPackageCache = java.util.concurrent.ConcurrentHashMap<Int, String?>()
+
     override fun onCreate() {
         super.onCreate()
         settingsRepository = SettingsRepository(applicationContext)
@@ -62,6 +68,8 @@ class AdBlockVpnService : VpnService() {
 
     private fun startVpn() {
         if (running.get()) return
+
+        uidToPackageCache.clear()
 
         serviceScope.launch {
             blocklist.loadDefaultList(applicationContext)
@@ -120,7 +128,12 @@ class AdBlockVpnService : VpnService() {
             val packetCopy = buffer.copyOf(length)
             val query = DnsPacket.parse(packetCopy, length) ?: continue
 
-            val blocked = blocklist.isBlocked(query.queryDomain)
+            // Whitelisted apps bypass blocking entirely. Only pay the UID
+            // lookup cost when at least one app is actually whitelisted —
+            // this keeps the hot path cheap for the common case (no whitelist).
+            val bypassForWhitelistedApp = blocklist.hasWhitelistedApps() && isFromWhitelistedApp(query)
+
+            val blocked = !bypassForWhitelistedApp && blocklist.isBlocked(query.queryDomain)
 
             if (blocked) {
                 writeBlockedResponse(output, query)
@@ -135,6 +148,31 @@ class AdBlockVpnService : VpnService() {
 
         try { input.close() } catch (_: Exception) {}
         try { output.close() } catch (_: Exception) {}
+    }
+
+    /**
+     * Resolves which installed app actually sent this DNS query (via
+     * ConnectivityManager.getConnectionOwnerUid, API 29+) and checks it
+     * against the user's per-app whitelist. Below API 29 this silently
+     * returns false — per-app whitelist just has no effect on older
+     * Android, since the OS doesn't expose this attribution API there.
+     */
+    private fun isFromWhitelistedApp(query: DnsPacket.ParsedQuery): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        return try {
+            val cm = getSystemService(ConnectivityManager::class.java) ?: return false
+            val local = InetSocketAddress(query.sourceAddress, query.sourcePort)
+            val remote = InetSocketAddress(query.destAddress, query.destPort)
+            val uid = cm.getConnectionOwnerUid(OsConstants.IPPROTO_UDP, local, remote)
+            if (uid <= 0) return false // includes android.os.Process.INVALID_UID (-1)
+
+            val packageName = uidToPackageCache.getOrPut(uid) {
+                runCatching { packageManager.getPackagesForUid(uid)?.firstOrNull() }.getOrNull()
+            }
+            blocklist.isAppWhitelisted(packageName)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     private fun writeBlockedResponse(output: FileOutputStream, query: DnsPacket.ParsedQuery) {
@@ -152,22 +190,41 @@ class AdBlockVpnService : VpnService() {
         try {
             socket = DatagramSocket()
             protect(socket) // exclude this socket from the VPN's own routing (avoid loop)
-            socket.soTimeout = 4000
+            socket.soTimeout = 2500
 
             val dnsRequest = buildForwardedRequest(query)
-            val upstream = InetSocketAddress(Constants.UPSTREAM_DNS_SERVERS.first(), Constants.DNS_PORT)
-            socket.send(DatagramPacket(dnsRequest, dnsRequest.size, upstream))
-
             val replyBuf = ByteArray(1500)
-            val replyPacket = DatagramPacket(replyBuf, replyBuf.size)
-            socket.receive(replyPacket)
 
-            val responsePacket = DnsPacket.wrapUpstreamReply(
-                query, replyBuf.copyOf(replyPacket.length)
-            )
-            synchronized(output) { output.write(responsePacket) }
+            // Try each configured resolver in order; if the first one (e.g.
+            // Cloudflare) times out or is unreachable, fall back to the next
+            // (e.g. Google) instead of just dropping the query. A dropped
+            // query looks identical to a blocked one from the requesting
+            // app's point of view — this is what stops a flaky/blocked
+            // upstream from masquerading as false-positive ad-blocking.
+            for (server in Constants.UPSTREAM_DNS_SERVERS) {
+                try {
+                    val upstream = InetSocketAddress(server, Constants.DNS_PORT)
+                    socket.send(DatagramPacket(dnsRequest, dnsRequest.size, upstream))
+
+                    val replyPacket = DatagramPacket(replyBuf, replyBuf.size)
+                    socket.receive(replyPacket)
+
+                    val responsePacket = DnsPacket.wrapUpstreamReply(
+                        query, replyBuf.copyOf(replyPacket.length)
+                    )
+                    synchronized(output) { output.write(responsePacket) }
+                    return
+                } catch (_: java.net.SocketTimeoutException) {
+                    // this resolver didn't answer in time, try the next one
+                } catch (_: java.io.IOException) {
+                    // network hiccup reaching this resolver, try the next one
+                }
+            }
+            // All configured resolvers failed: drop the query. The
+            // requesting app's own DNS client will retry, same as any
+            // ordinary network hiccup — this is not a block, just silence.
         } catch (_: Exception) {
-            // Upstream timeout/unreachable: silently drop, app's own DNS retry handles it.
+            // Socket creation/protect() failure: nothing more we can do for this query.
         } finally {
             socket?.close()
         }

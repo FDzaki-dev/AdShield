@@ -56,10 +56,17 @@ Alur satu query DNS:
   battery manager agresif (Infinix XOS dsb.), user WAJIB mengizinkan
   "No restrictions" / "Kecualikan dari optimasi baterai" — ada tombol
   shortcut untuk ini di Home screen.
+- **Whitelist per-app butuh Android 10 (API 29) ke atas** — OS baru
+  menyediakan API untuk mendeteksi app pengirim query DNS mulai versi itu.
+  Di Android lebih lama, toggle-nya tersimpan tapi tidak berpengaruh
+  (dijelaskan langsung di layar Whitelist, bukan gagal diam-diam).
 
 ## Status proyek
 
-- **v1.1.0** — matching domain diganti ke exact-match + wildcard eksplisit,
+- **v1.2.0** — pematangan: whitelist per-app benar-benar aktif (UID nyata),
+  critical allowlist domain esensial konektivitas, DNS forward fallback
+  multi-resolver
+- v1.1.0 — matching domain diganti ke exact-match + wildcard eksplisit,
   blocklist bawaan dikurasi ulang (lebih presisi, tidak over-block)
 - v1.0.1 — fix build gagal (salah import)
 - v1.0.0 — rilis awal, arsitektur lengkap

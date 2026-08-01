@@ -51,7 +51,9 @@ fun WhitelistScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     .padding(16.dp)
             )
             Text(
-                "Aplikasi yang di-whitelist tidak akan mengalami pemblokiran domain sama sekali.",
+                "Aplikasi yang di-whitelist tidak akan mengalami pemblokiran domain sama sekali. " +
+                    "Butuh Android 10 (API 29) ke atas — di versi lebih lama, whitelist per-app " +
+                    "belum bisa dideteksi sistem Android dan tidak akan berpengaruh.",
                 color = ShieldTextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp)

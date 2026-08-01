@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.2.0 — Pematangan fitur, fokus anti-salah-blokir (2026-08-01)
+
+Tidak ada fitur baru — murni menyelesaikan/mengeraskan fitur yang sudah
+diumumkan tapi belum tuntas, plus menutup kelas false-positive yang paling
+membingungkan:
+
+- **Critical allowlist**: domain esensial konektivitas Android (captive
+  portal check, connectivity check, time sync — `connectivitycheck.
+  gstatic.com`, `clients3.google.com`, `time.android.com`, dll) sekarang
+  SELALU diizinkan, tidak bisa ikut terblokir oleh blocklist bawaan maupun
+  aturan kustom apa pun. Ini menutup kelas bug paling membingungkan: HP
+  terlihat "tidak ada internet" padahal cuma DNS captive-portal check yang
+  gagal ke-resolve.
+- **Whitelist per-app benar-benar berfungsi sekarang.** Sebelumnya toggle
+  di WhitelistScreen tersimpan di data layer tapi TIDAK berpengaruh ke
+  hasil blocking sungguhan (lihat PROJECT_STATE.md v1.1.0). Sekarang
+  `AdBlockVpnService` resolve UID pengirim query lewat
+  `ConnectivityManager.getConnectionOwnerUid()` (API 29+, dengan cache
+  per-UID biar tidak query PackageManager berulang) dan benar-benar
+  melewatkan blocking untuk app yang di-whitelist. Di bawah Android 10,
+  fitur ini otomatis tidak aktif (dijelaskan di UI, bukan gagal diam-diam).
+- **DNS forwarding fallback multi-resolver.** Sebelumnya hanya mencoba
+  resolver pertama (1.1.1.1) — kalau timeout, query langsung di-drop dan
+  terlihat identik dengan "diblokir" dari sudut pandang app yang query.
+  Sekarang mencoba semua resolver di `Constants.UPSTREAM_DNS_SERVERS`
+  (1.1.1.1 → 8.8.8.8) sebelum menyerah, jadi resolver yang lagi bermasalah
+  tidak menyamar jadi "salah blokir".
+
+Tidak ada perubahan pada `DnsPacket`, UI screens (selain 1 baris penjelasan
+di WhitelistScreen), atau matching logic dari v1.1.0.
+
 ## v1.1.0 — Matching presisi ala Cloudflare 1.1.1.1 (2026-08-01)
 
 **Perubahan cara kerja inti (BlocklistManager) — bukan cuma bugfix:**
