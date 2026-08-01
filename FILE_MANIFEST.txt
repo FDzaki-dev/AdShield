@@ -1,0 +1,45 @@
+# FILE_MANIFEST.txt — output `git ls-files`, versi v1.0.0 (2026-08-01)
+# 39 file dilacak git. Regenerate tiap rilis dengan: git ls-files | sort
+.github/workflows/build.yml
+.gitignore
+CHANGELOG.md
+PROJECT_STATE.md
+README.md
+app/build.gradle.kts
+app/proguard-rules.pro
+app/src/main/AndroidManifest.xml
+app/src/main/java/com/fdzaki/adshield/AdShieldApp.kt
+app/src/main/java/com/fdzaki/adshield/MainActivity.kt
+app/src/main/java/com/fdzaki/adshield/data/BlocklistManager.kt
+app/src/main/java/com/fdzaki/adshield/data/InstalledAppsRepository.kt
+app/src/main/java/com/fdzaki/adshield/data/SettingsRepository.kt
+app/src/main/java/com/fdzaki/adshield/data/db/AppDatabase.kt
+app/src/main/java/com/fdzaki/adshield/data/db/DomainLogDao.kt
+app/src/main/java/com/fdzaki/adshield/data/db/DomainLogEntity.kt
+app/src/main/java/com/fdzaki/adshield/receiver/BootReceiver.kt
+app/src/main/java/com/fdzaki/adshield/receiver/RestartReceiver.kt
+app/src/main/java/com/fdzaki/adshield/ui/MainViewModel.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/RulesScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
+app/src/main/java/com/fdzaki/adshield/util/Constants.kt
+app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
+app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
+app/src/main/res/drawable/ic_launcher_foreground.xml
+app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
+app/src/main/res/raw/blocklist_default.txt
+app/src/main/res/values/colors.xml
+app/src/main/res/values/ic_launcher_background.xml
+app/src/main/res/values/strings.xml
+app/src/main/res/values/themes.xml
+build.gradle.kts
+gradle.properties
+settings.gradle.kts
+
+# TIDAK dilacak git (sengaja, lihat .gitignore):
+# app/release.keystore     - materi signing, disertakan di ZIP tapi tidak di-push
+# keystore.properties      - kredensial plaintext lokal

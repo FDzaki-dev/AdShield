@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">AdShield</string>
+    <string name="notif_channel_name">AdShield Protection</string>
+    <string name="notif_title_active">AdShield aktif</string>
+    <string name="notif_text_active">Melindungi perangkat dari iklan &amp; pelacak</string>
+</resources>

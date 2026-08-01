@@ -1,0 +1,120 @@
+# AdShield default blocklist — curated list of well-known ad/tracker domains.
+# Format: hosts-file style ("0.0.0.0 domain") or bare domain per line.
+# Blocking a domain here also blocks all of its subdomains (see BlocklistManager).
+
+# --- Google ad/tracking network ---
+0.0.0.0 doubleclick.net
+0.0.0.0 googlesyndication.com
+0.0.0.0 googleadservices.com
+0.0.0.0 google-analytics.com
+0.0.0.0 googletagmanager.com
+0.0.0.0 googletagservices.com
+0.0.0.0 admob.com
+0.0.0.0 adsense.com
+0.0.0.0 pagead2.googlesyndication.com
+0.0.0.0 crashlytics.com
+0.0.0.0 firebase-settings.crashlytics.com
+
+# --- Facebook / Meta ---
+0.0.0.0 graph.facebook.com
+0.0.0.0 connect.facebook.net
+0.0.0.0 an.facebook.com
+0.0.0.0 pixel.facebook.com
+
+# --- Major mobile ad SDKs ---
+0.0.0.0 unityads.unity3d.com
+0.0.0.0 applovin.com
+0.0.0.0 adcolony.com
+0.0.0.0 vungle.com
+0.0.0.0 chartboost.com
+0.0.0.0 ironsrc.com
+0.0.0.0 supersonicads.com
+0.0.0.0 mopub.com
+0.0.0.0 startapp.com
+0.0.0.0 inmobi.com
+0.0.0.0 tapjoy.com
+0.0.0.0 smaato.net
+0.0.0.0 mobfox.com
+0.0.0.0 adcash.com
+0.0.0.0 adjust.com
+0.0.0.0 appsflyer.com
+0.0.0.0 flurry.com
+0.0.0.0 kochava.com
+0.0.0.0 branch.io
+0.0.0.0 leanplum.com
+0.0.0.0 mixpanel.com
+0.0.0.0 amplitude.com
+0.0.0.0 taboola.com
+0.0.0.0 outbrain.com
+0.0.0.0 criteo.com
+0.0.0.0 pubmatic.com
+0.0.0.0 rubiconproject.com
+0.0.0.0 openx.net
+0.0.0.0 smartadserver.com
+0.0.0.0 adroll.com
+0.0.0.0 casalemedia.com
+0.0.0.0 adnxs.com
+0.0.0.0 rlcdn.com
+0.0.0.0 bidswitch.net
+0.0.0.0 contextweb.com
+0.0.0.0 media.net
+0.0.0.0 yieldmo.com
+0.0.0.0 sharethrough.com
+0.0.0.0 scorecardresearch.com
+0.0.0.0 quantserve.com
+0.0.0.0 moatads.com
+0.0.0.0 adform.net
+0.0.0.0 adsrvr.org
+0.0.0.0 mgid.com
+0.0.0.0 popads.net
+0.0.0.0 propellerads.com
+0.0.0.0 exoclick.com
+0.0.0.0 juicyads.com
+0.0.0.0 trafficjunky.com
+0.0.0.0 revcontent.com
+
+# --- Amazon ad network ---
+0.0.0.0 amazon-adsystem.com
+0.0.0.0 aax.amazon-adsystem.com
+
+# --- Microsoft ad network ---
+0.0.0.0 ads.msn.com
+0.0.0.0 adnexus.net
+0.0.0.0 bat.bing.com
+
+# --- Trackers / analytics (non-ad but privacy-invasive) ---
+0.0.0.0 app-measurement.com
+0.0.0.0 sentry.io
+0.0.0.0 bugsnag.com
+0.0.0.0 hotjar.com
+0.0.0.0 segment.io
+0.0.0.0 segment.com
+0.0.0.0 fullstory.com
+0.0.0.0 clicktale.net
+0.0.0.0 newrelic.com
+0.0.0.0 nr-data.net
+0.0.0.0 appsflyersdk.com
+0.0.0.0 onesignal.com
+0.0.0.0 urbanairship.com
+
+# --- Video pre-roll / in-app banner networks ---
+0.0.0.0 adtechus.com
+0.0.0.0 adtech.de
+0.0.0.0 spotxchange.com
+0.0.0.0 tremorhub.com
+0.0.0.0 innovid.com
+0.0.0.0 teads.tv
+0.0.0.0 freewheel.tv
+
+# --- Generic ad/telemetry subdomain patterns commonly seen in APK manifests ---
+0.0.0.0 ads.mopub.com
+0.0.0.0 ads.yahoo.com
+0.0.0.0 ads.pinterest.com
+0.0.0.0 ads.linkedin.com
+0.0.0.0 ads.tiktok.com
+0.0.0.0 analytics.tiktok.com
+0.0.0.0 log.byteoversea.com
+0.0.0.0 log.tiktokv.com
+
+# Users can extend this list from Aturan Kustom (Rules) screen without
+# needing an app update — those entries are merged in at runtime.
