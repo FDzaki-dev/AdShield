@@ -1,120 +1,111 @@
-# AdShield default blocklist — curated list of well-known ad/tracker domains.
-# Format: hosts-file style ("0.0.0.0 domain") or bare domain per line.
-# Blocking a domain here also blocks all of its subdomains (see BlocklistManager).
+# AdShield default blocklist — curated, precision-first (mirip pendekatan
+# Cloudflare 1.1.1.1 for Families / Pi-hole yang baik).
+#
+# ATURAN MATCHING:
+#   - "0.0.0.0 domain.com" atau baris polos "domain.com"  -> EXACT MATCH saja,
+#     TIDAK ikut memblokir subdomain-nya.
+#   - "*.domain.com"  -> wildcard, memblokir domain.com DAN semua subdomainnya.
+# Wildcard HANYA dipakai untuk domain yang 100% didedikasikan untuk ad-serving
+# (bukan infrastruktur yang juga dipakai untuk hal lain), supaya tidak ada
+# konten/app legit yang ikut ke-block karena kebetulan berbagi domain induk.
+#
+# Sengaja TIDAK memasukkan: crash-reporting/APM (Crashlytics, Sentry,
+# Bugsnag, New Relic), product analytics umum (Mixpanel, Amplitude, Segment,
+# Hotjar, FullStory) — ini bisa mematahkan fungsi app (laporan crash, fitur
+# yang bergantung ke A/B testing, dsb.) tanpa manfaat blokir iklan sama
+# sekali. Kalau user tetap mau blokir salah satunya, tambahkan manual di
+# layar Aturan Kustom.
 
-# --- Google ad/tracking network ---
-0.0.0.0 doubleclick.net
-0.0.0.0 googlesyndication.com
-0.0.0.0 googleadservices.com
-0.0.0.0 google-analytics.com
-0.0.0.0 googletagmanager.com
-0.0.0.0 googletagservices.com
-0.0.0.0 admob.com
-0.0.0.0 adsense.com
-0.0.0.0 pagead2.googlesyndication.com
-0.0.0.0 crashlytics.com
-0.0.0.0 firebase-settings.crashlytics.com
+# --- Google ad network (dedicated ad-serving, aman wildcard) ---
+*.doubleclick.net
+*.googlesyndication.com
+*.googleadservices.com
+*.googletagservices.com
+*.admob.com
+*.adsense.com
 
-# --- Facebook / Meta ---
-0.0.0.0 graph.facebook.com
-0.0.0.0 connect.facebook.net
-0.0.0.0 an.facebook.com
-0.0.0.0 pixel.facebook.com
+# Google Analytics/Tag Manager: exact-match saja, bukan wildcard — beberapa
+# subdomain gtag/analytics dipakai juga untuk fungsi non-iklan di sejumlah
+# situs (consent management, dsb.), jadi tidak diblokir buta.
+google-analytics.com
+www.google-analytics.com
+googletagmanager.com
+www.googletagmanager.com
 
-# --- Major mobile ad SDKs ---
-0.0.0.0 unityads.unity3d.com
-0.0.0.0 applovin.com
-0.0.0.0 adcolony.com
-0.0.0.0 vungle.com
-0.0.0.0 chartboost.com
-0.0.0.0 ironsrc.com
-0.0.0.0 supersonicads.com
-0.0.0.0 mopub.com
-0.0.0.0 startapp.com
-0.0.0.0 inmobi.com
-0.0.0.0 tapjoy.com
-0.0.0.0 smaato.net
-0.0.0.0 mobfox.com
-0.0.0.0 adcash.com
-0.0.0.0 adjust.com
-0.0.0.0 appsflyer.com
-0.0.0.0 flurry.com
-0.0.0.0 kochava.com
-0.0.0.0 branch.io
-0.0.0.0 leanplum.com
-0.0.0.0 mixpanel.com
-0.0.0.0 amplitude.com
-0.0.0.0 taboola.com
-0.0.0.0 outbrain.com
-0.0.0.0 criteo.com
-0.0.0.0 pubmatic.com
-0.0.0.0 rubiconproject.com
-0.0.0.0 openx.net
-0.0.0.0 smartadserver.com
-0.0.0.0 adroll.com
-0.0.0.0 casalemedia.com
-0.0.0.0 adnxs.com
-0.0.0.0 rlcdn.com
-0.0.0.0 bidswitch.net
-0.0.0.0 contextweb.com
-0.0.0.0 media.net
-0.0.0.0 yieldmo.com
-0.0.0.0 sharethrough.com
-0.0.0.0 scorecardresearch.com
-0.0.0.0 quantserve.com
-0.0.0.0 moatads.com
-0.0.0.0 adform.net
-0.0.0.0 adsrvr.org
-0.0.0.0 mgid.com
-0.0.0.0 popads.net
-0.0.0.0 propellerads.com
-0.0.0.0 exoclick.com
-0.0.0.0 juicyads.com
-0.0.0.0 trafficjunky.com
-0.0.0.0 revcontent.com
+# --- Facebook / Meta ads ---
+*.an.facebook.com
+graph.facebook.com
 
-# --- Amazon ad network ---
-0.0.0.0 amazon-adsystem.com
-0.0.0.0 aax.amazon-adsystem.com
+# --- Mobile ad SDK (dedicated ad networks) ---
+*.unityads.unity3d.com
+*.applovin.com
+*.adcolony.com
+*.vungle.com
+*.chartboost.com
+*.ironsrc.com
+*.mopub.com
+*.startapp.com
+*.inmobi.com
+*.tapjoy.com
+*.smaato.net
+*.mobfox.com
+*.adcash.com
+*.taboola.com
+*.outbrain.com
+*.criteo.com
+*.pubmatic.com
+*.rubiconproject.com
+*.openx.net
+*.smartadserver.com
+*.adroll.com
+*.casalemedia.com
+*.adnxs.com
+*.rlcdn.com
+*.bidswitch.net
+*.contextweb.com
+*.media.net
+*.yieldmo.com
+*.sharethrough.com
+*.moatads.com
+*.adform.net
+*.adsrvr.org
+*.mgid.com
+*.popads.net
+*.propellerads.com
+*.exoclick.com
+*.juicyads.com
+*.trafficjunky.com
+*.revcontent.com
 
-# --- Microsoft ad network ---
-0.0.0.0 ads.msn.com
-0.0.0.0 adnexus.net
-0.0.0.0 bat.bing.com
+# --- Marketing-attribution SDKs (dedicated to ad-campaign tracking) ---
+*.adjust.com
+*.appsflyer.com
+*.kochava.com
+*.branch.io
 
-# --- Trackers / analytics (non-ad but privacy-invasive) ---
-0.0.0.0 app-measurement.com
-0.0.0.0 sentry.io
-0.0.0.0 bugsnag.com
-0.0.0.0 hotjar.com
-0.0.0.0 segment.io
-0.0.0.0 segment.com
-0.0.0.0 fullstory.com
-0.0.0.0 clicktale.net
-0.0.0.0 newrelic.com
-0.0.0.0 nr-data.net
-0.0.0.0 appsflyersdk.com
-0.0.0.0 onesignal.com
-0.0.0.0 urbanairship.com
+# --- Web tracking/measurement dedicated to ads ---
+scorecardresearch.com
+quantserve.com
 
-# --- Video pre-roll / in-app banner networks ---
-0.0.0.0 adtechus.com
-0.0.0.0 adtech.de
-0.0.0.0 spotxchange.com
-0.0.0.0 tremorhub.com
-0.0.0.0 innovid.com
-0.0.0.0 teads.tv
-0.0.0.0 freewheel.tv
+# --- Amazon / Microsoft ad networks ---
+*.amazon-adsystem.com
+bat.bing.com
 
-# --- Generic ad/telemetry subdomain patterns commonly seen in APK manifests ---
-0.0.0.0 ads.mopub.com
-0.0.0.0 ads.yahoo.com
-0.0.0.0 ads.pinterest.com
-0.0.0.0 ads.linkedin.com
-0.0.0.0 ads.tiktok.com
-0.0.0.0 analytics.tiktok.com
-0.0.0.0 log.byteoversea.com
-0.0.0.0 log.tiktokv.com
+# --- Video pre-roll / in-app banner ad networks ---
+*.adtechus.com
+*.spotxchange.com
+*.tremorhub.com
+*.innovid.com
+teads.tv
+freewheel.tv
 
-# Users can extend this list from Aturan Kustom (Rules) screen without
-# needing an app update — those entries are merged in at runtime.
+# --- Ad domains commonly seen hardcoded in APK manifests ---
+ads.mopub.com
+ads.yahoo.com
+ads.pinterest.com
+ads.linkedin.com
+ads.tiktok.com
+analytics.tiktok.com
+
+# Pengguna bisa menambah/menghapus domain lain (exact atau wildcard dengan
+# "*.") lewat layar Aturan Kustom tanpa perlu update aplikasi.

@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.1.0 — Matching presisi ala Cloudflare 1.1.1.1 (2026-08-01)
+
+**Perubahan cara kerja inti (BlocklistManager) — bukan cuma bugfix:**
+
+- **Ganti strategi matching dari "parent-domain walk" ke exact-match +
+  wildcard eksplisit.** Sebelumnya, blokir `contoh.com` otomatis ikut
+  blokir SEMUA subdomain-nya (`apa.contoh.com`, `x.y.contoh.com`, dst) —
+  ini bisa over-block domain CDN/infrastruktur yang dipakai bareng konten
+  legit. Sekarang: `domain.com` di blocklist = exact match saja.
+  `*.domain.com` = wildcard, baru ikut blokir semua subdomain. Berlaku
+  untuk blocklist bawaan MAUPUN aturan kustom user.
+- **Blocklist bawaan dipangkas & dikurasi ulang** (`blocklist_default.txt`):
+  dihapus semua tool crash-reporting/APM (Crashlytics, Sentry, Bugsnag,
+  New Relic) dan product-analytics umum (Mixpanel, Amplitude, Segment,
+  Hotjar, FullStory) — domain ini bisa mematahkan fitur app (laporan crash,
+  A/B testing) tanpa manfaat blokir iklan. Domain ad-network murni yang
+  memang didedikasikan untuk ad-serving ditandai wildcard (`*.`) supaya
+  cakupannya tetap efektif; Google Analytics/Tag Manager dibuat exact-match
+  saja karena beberapa subdomainnya dipakai untuk fungsi non-iklan.
+- **RulesScreen**: hint teks diperbarui menjelaskan sintaks `*.domain.com`
+  untuk wildcard, dan penjelasan bahwa allow-list selalu menang atas semua
+  aturan blokir (termasuk wildcard bawaan) — jalan keluar cepat kalau ada
+  false positive.
+
+Tidak ada perubahan pada engine VPN (`AdBlockVpnService`/`DnsPacket`) —
+murni perubahan di layer matching/data.
+
 ## v1.0.1 — Perbaikan build gagal (2026-08-01)
 
 - **Fix:** `WhitelistScreen.kt` gagal kompilasi di CI —

@@ -1,8 +1,8 @@
-# FILE_MANIFEST.txt — output `git ls-files`, versi v1.0.1 (2026-08-01)
-# 40 file dilacak git (39 dari v1.0.0 + file ini). Regenerate tiap rilis
+# FILE_MANIFEST.txt — output `git ls-files`, versi v1.1.0 (2026-08-01)
+# 40 file dilacak git (jumlah file sama, isi berubah). Regenerate tiap rilis
 # dengan: git ls-files | sort
-# Perubahan dari v1.0.0: hanya isi WhitelistScreen.kt yang berubah (fix
-# import toBitmap), tidak ada file baru/hilang selain manifest ini sendiri.
+# Perubahan dari v1.0.1: BlocklistManager.kt (rewrite matching logic) dan
+# blocklist_default.txt (kurasi ulang) berubah isinya. Tidak ada file baru.
 .github/workflows/build.yml
 .gitignore
 CHANGELOG.md

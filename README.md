@@ -17,6 +17,13 @@ Alur satu query DNS:
 2. `AdBlockVpnService` baca paket dari tun, parse nama domain (`DnsPacket.parse`)
 3. Cek `BlocklistManager` (in-memory, gabungan blocklist bawaan + custom rules
    dari Settings) → domain match?
+   - Matching **exact-match by default** (mirip Cloudflare 1.1.1.1 for
+     Families / Pi-hole yang presisi) — blokir `contoh.com` TIDAK otomatis
+     ikut blokir `apa.contoh.com`. Subdomain hanya ikut terblokir kalau
+     domain-nya didaftar sebagai wildcard eksplisit (`*.contoh.com`), baik
+     di blocklist bawaan maupun di Aturan Kustom. Ini sengaja untuk
+     menghindari over-blocking domain CDN/infrastruktur yang dipakai
+     bareng-bareng oleh iklan maupun konten legit.
    - **Match** → balas langsung dengan A record `0.0.0.0` (`DnsPacket.buildBlockedResponse`)
    - **Tidak match** → forward ke resolver asli (Cloudflare 1.1.1.1 / Google 8.8.8.8)
      lewat socket yang di-`protect()` (supaya tidak looping balik ke VPN),
@@ -52,7 +59,12 @@ Alur satu query DNS:
 
 ## Status proyek
 
-- **v1.0.0** — rilis awal, arsitektur lengkap (lihat CHANGELOG.md untuk detail)
+- **v1.1.0** — matching domain diganti ke exact-match + wildcard eksplisit,
+  blocklist bawaan dikurasi ulang (lebih presisi, tidak over-block)
+- v1.0.1 — fix build gagal (salah import)
+- v1.0.0 — rilis awal, arsitektur lengkap
+
+Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 

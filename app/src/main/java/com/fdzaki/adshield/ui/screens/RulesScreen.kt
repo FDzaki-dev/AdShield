@@ -52,7 +52,7 @@ fun RulesScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
-                    label = { Text("contoh.domain.com") },
+                    label = { Text("domain.com atau *.domain.com") },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
@@ -67,9 +67,12 @@ fun RulesScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
             Text(
                 if (tab == 0)
-                    "Domain di sini akan selalu diblokir, di luar daftar bawaan."
+                    "\"domain.com\" hanya blokir domain itu persis. Pakai \"*.domain.com\" " +
+                        "kalau mau ikut blokir semua subdomain-nya juga."
                 else
-                    "Domain di sini akan selalu diizinkan, walau ada di daftar blokir bawaan (override).",
+                    "Override: domain di sini akan selalu diizinkan walau match dengan aturan " +
+                        "blokir manapun (termasuk wildcard bawaan). Berguna kalau ada domain " +
+                        "yang salah terblokir (false positive).",
                 color = ShieldTextMuted,
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp)

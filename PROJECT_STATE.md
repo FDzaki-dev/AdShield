@@ -3,9 +3,9 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v1.0.1** (fix build, 2026-08-01)
-- Belum pernah di-push ke GitHub — ini masih rilis pertama yang akan di-push
-  (v1.0.0 gagal build di CI sebelum sempat dipakai).
+- **Versi terakhir selesai: v1.1.0** (matching presisi, 2026-08-01)
+- Belum pernah di-push ke GitHub — v1.0.0 gagal build, v1.0.1 fix belum
+  dikonfirmasi user sudah di-push atau belum saat v1.1.0 ini dibuat.
 - Belum pernah dites di device asli (belum ada feedback bug dari user).
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
@@ -29,6 +29,15 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    VpnService hanya panggil `blocklist.isBlocked(domain)` — jangan taruh
    logic blocking langsung di packet loop, supaya loop tetap ringan/cepat.
 
+4b. **Matching = exact-match by default, wildcard HANYA lewat prefix
+   eksplisit `*.domain.com`.** Ini keputusan sadar per permintaan user
+   (v1.1.0) — JANGAN kembalikan ke "parent-domain walk" (cek d, lalu
+   parent-nya, lalu parent-nya lagi dst) karena itu persis yang bikin user
+   komplain over-blocking. Kalau nambah domain baru ke
+   `blocklist_default.txt`, defaultnya exact-match; kasih prefix `*.` HANYA
+   kalau domain itu 100% didedikasikan untuk ad-serving dan tidak mungkin
+   dipakai app lain untuk fungsi legit.
+
 5. **Whitelist per-app BELUM terhubung ke UID paket nyata.**
    `BlocklistManager.isAppWhitelisted()` dan `setWhitelistedApps()` sudah
    ada tapi **belum dipanggil** dari packet loop di `AdBlockVpnService` —
@@ -42,6 +51,11 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-01 (v1.1.0)**: User komplain matching parent-domain "kebablasan"
+  memblokir host yang bukan seharusnya (mirip komplain umum terhadap
+  hosts-file blocker naif). Diganti total ke exact-match + wildcard
+  eksplisit (lihat keputusan arsitektur #4b). Blocklist bawaan juga
+  dipangkas, buang tool APM/analytics umum yang bukan murni ad-serving.
 - **2026-08-01 (v1.0.1)**: CI `compileReleaseKotlin` gagal —
   `WhitelistScreen.kt` pakai import salah `androidx.compose.ui.graphics.
   drawable.toBitmap` (package tidak punya fungsi ini). `toBitmap()` yang
