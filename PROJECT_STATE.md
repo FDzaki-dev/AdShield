@@ -369,3 +369,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 6. (Belum prioritas, jangan dikerjakan kecuali diminta): deteksi DoH,
    import blocklist dari URL custom, statistik per-app, MASQUE (nyaris
    tidak ada library Android siap pakai — lihat riwayat keputusan v2.0.0).
+
+## Insiden CI mati (ditemukan 2026-08-03, root cause commit 1b4bc24 / v2.1.0)
+
+`.github/workflows/build.yml` DAN `.gitignore` sempat terhapus dari git di
+commit `1b4bc24` (v2.1.0) — command update Termux versi lama (sebelum
+pengecualian `.gitignore`/`.github` ditambahkan ke `rm -rf`) ikut men-commit
+PENGHAPUSAN kedua file itu ke GitHub. Akibatnya GitHub Actions tidak pernah
+jalan untuk v2.1.0, v2.2.0, maupun v2.3.0 — 3 rilis berturut-turut tanpa CI
+tervalidasi, baru disadari saat user tanya kenapa tidak ada run baru.
+Dipulihkan 2026-08-03 lewat `git show 1b4bc24~1:<path>` (isi asli, bukan
+ditulis ulang manual). Command update Termux SUDAH diperbaiki sejak v2.3.0
+untuk mengecualikan `.gitignore`/`.github` dari `rm -rf` — insiden ini bukti
+kenapa pengecualian itu wajib ada di command manapun ke depan, JANGAN pernah
+dihapus.
