@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.3.0 — Monitoring & Diagnostik (2026-08-03)
+
+Batch kedua dari daftar "Kekurangan AdShield" — kategori Monitoring &
+Diagnostik (log lebih mudah dibaca, halaman diagnostik baru, error
+handling lebih jelas). Tidak menyentuh logic inti DNS/WARP kecuali
+menambah pelaporan error yang sebelumnya diam-diam gagal.
+
+- **Baru: Layar Diagnostik.** Ringkasan status teknis satu layar — versi
+  app, info perangkat/Android, status pengecualian optimasi baterai, mode
+  aktif, status & error terakhir masing-masing mode (DNS/WARP), statistik
+  blokir, dan kualitas koneksi WARP. Tombol di kanan atas menyalin seluruh
+  info ke clipboard dalam format teks siap tempel — untuk melapor masalah
+  tanpa perlu mendeskripsikan tiap field manual. Dapat dibuka dari Home
+  screen (`ui/screens/DiagnosticsScreen.kt` baru).
+- **Fix: kegagalan Ad-Block DNS sekarang terlihat, sebelumnya diam-diam
+  gagal.** `AdBlockVpnService.startVpn()` sebelumnya kalau `establish()`
+  VPN interface gagal (exception ATAU mengembalikan null, mis. VPN app
+  lain sedang memegang koneksi), toggle di Home screen cuma kembali ke
+  posisi off tanpa pesan apa pun. Sekarang ada `AdBlockVpnService.lastError`
+  (StateFlow companion, pola yang sama seperti `WarpTunnelManager.lastError`
+  yang sudah ada sejak v2.0.0), diekspos lewat
+  `MainViewModel.dnsLastError` dan ditampilkan di layar Diagnostik.
+- **Log Domain lebih mudah dibaca.** `LogsScreen` sekarang punya kolom
+  pencarian domain (client-side, murah karena data sudah dibatasi 500
+  entri terakhir oleh `DomainLogDao.recentEntries()`) dan 3 filter chip
+  (Semua/Diblokir/Diizinkan) dengan jumlah masing-masing, plus ringkasan
+  "menampilkan X dari Y entri".
+- Tidak ada perubahan pada arsitektur VPN, matching domain, whitelist
+  per-app, atau mode WARP itu sendiri — murni observability tambahan di
+  atas state yang sudah ada.
+
 ## v2.2.0 — App Shortcuts: navigasi cepat dari launcher (2026-08-02)
 
 Diminta user terpisah dari daftar "Kekurangan AdShield" — tujuannya

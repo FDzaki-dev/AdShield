@@ -3,10 +3,12 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.2.0** (App Shortcuts / long-press launcher
-  icon navigasi cepat, 2026-08-02)
-- **Sudah di-push ke GitHub** (dikonfirmasi user 2026-08-02) — catatan lama
-  di sini yang bilang "belum pernah push" sudah usang, jangan dipercaya lagi.
+- **Versi terakhir selesai: v2.3.0** (Monitoring & Diagnostik — layar
+  Diagnostik baru + salin clipboard, Log Domain bisa dicari/difilter,
+  kegagalan Ad-Block DNS kini terlihat, 2026-08-03)
+- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.3.0 —
+  ZIP baru saja dikirim di sesi ini. Cek `git log` di sesi berikutnya
+  sebelum asumsikan sudah ter-push.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -164,7 +166,41 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      seluruh dynamic set sekaligus (selalu kirim kedua shortcut DNS+WARP)
      supaya tidak perlu bookkeeping id per-shortcut yang rawan drift.
 
+8. **DNS-mode error surfacing (v2.3.0) — `AdBlockVpnService.lastError`,
+   companion-level StateFlow, pola SAMA seperti `WarpTunnelManager.lastError`.**
+   Sebelum ini, kalau `Builder.establish()` gagal (exception atau
+   mengembalikan null), `startVpn()` cuma `return` diam-diam — toggle Home
+   screen balik ke off tanpa penjelasan. JANGAN hapus companion state ini
+   atau kembalikan ke silent-return. Kalau nambah titik kegagalan baru di
+   `startVpn()`, set `_lastError.value` dengan pesan yang jelas SEBELUM
+   `return`, jangan biarkan diam-diam lagi.
+
+8b. **Layar Diagnostik (`ui/screens/DiagnosticsScreen.kt`, v2.3.0) tidak
+   punya sumber kebenaran sendiri.** Semua field yang ditampilkan dibaca
+   langsung dari state yang sudah ada di `MainViewModel`/`Build.*`/
+   `PackageManager` — JANGAN duplikasi state ke sini. Kalau nambah field
+   diagnostik baru, tambahkan di `MainViewModel` dulu (atau baca langsung
+   dari `Build`/`PackageManager` kalau memang statis), baru tampilkan di
+   sini.
+
 ## Riwayat insiden kronologis
+
+- **2026-08-03 (v2.3.0)**: User pilih batch "Monitoring & Diagnostik" dari
+  daftar "Kekurangan AdShield" (opsi: status teknis + tombol salin
+  clipboard). Selama analisis ditemukan (bukan regresi, gap desain sejak
+  awal): `AdBlockVpnService` tidak pernah punya jalur pelaporan error sama
+  sekali — semua kegagalan `establish()` VPN interface (exception maupun
+  null return) hanya `return` diam-diam, beda dengan `WarpTunnelManager`
+  yang sejak v2.0.0 sudah punya `lastError`. Ditambahkan
+  `AdBlockVpnService.lastError` (companion StateFlow, pola sama), diekspos
+  lewat `MainViewModel.dnsLastError`. Perubahan lain: `LogsScreen` ditambah
+  pencarian + filter chip (client-side, aman karena data sudah dibatasi
+  500 entri oleh `DomainLogDao.recentEntries()` sejak awal, tidak perlu
+  query DB baru). Batch ini menyentuh 6 file kode (`AdBlockVpnService.kt`,
+  `MainViewModel.kt`, `HomeScreen.kt`, `MainActivity.kt` — edit parsial
+  navigasi, `LogsScreen.kt`, `DiagnosticsScreen.kt` baru) — pas di batas
+  maksimal batch (10 file dengan dokumentasi), tidak perlu Atomic Change
+  Exception. Tidak ada perubahan pada arsitektur VPN/matching/whitelist.
 
 - **2026-08-02 (v2.2.0, ditemukan saat validasi sebelum packaging —
   PENTING, baca ini setiap sesi baru)**: `.gitignore` dan
@@ -288,14 +324,11 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-0. **Arahan user (2026-08-02, DIPERBARUI): user sekarang mengizinkan
-   fitur baru dari daftar "Kekurangan AdShield" (bukan cuma WARP/WireGuard
-   lagi).** Batch-1 (WARP UX: auto reconnect + indikator kualitas) SUDAH
-   SELESAI di v2.1.0. App Shortcuts (navigasi cepat lewat launcher, bukan
-   dari daftar asli tapi diminta user terpisah) SUDAH SELESAI di v2.2.0.
-   Kategori tersisa dari daftar "Kekurangan AdShield", MENUNGGU user
-   pilih batch berikutnya — JANGAN kerjakan semuanya sekaligus dalam satu
-   ZIP, tetap satu kategori per batch sesuai aturan pemecahan batch user:
+0. **Arahan user (2026-08-03, DIPERBARUI): user mengizinkan fitur baru
+   dari daftar "Kekurangan AdShield", dikerjakan satu kategori per batch.**
+   Sudah selesai: Batch-1 WARP UX (v2.1.0), App Shortcuts di luar daftar
+   asli (v2.2.0), Batch-2 Monitoring & Diagnostik (v2.3.0). Kategori
+   tersisa, MENUNGGU user pilih batch berikutnya:
    - DNS AdBlocker: custom DNS (DoH/DoT), auto-update blocklist,
      whitelist/blacklist UI yang lebih mudah, statistik domain diblokir.
      **Catatan arsitektur:** DoH/DoT butuh handling TLS baru di
@@ -303,11 +336,9 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
      arsitektur, WAJIB tanya dulu behavior apa yang harus tetap sama
      sebelum mulai (lihat keputusan #4 soal kenapa loop paket harus tetap
      ringan).
-   - Monitoring & Diagnostik: log lebih mudah dibaca, halaman diagnostik,
-     error handling lebih jelas.
    - UX & Onboarding: status WARP/DNS lebih informatif (sebagian sudah
-     kebantu oleh indikator kualitas v2.1.0), onboarding singkat untuk
-     user baru, UI kurang teknis.
+     kebantu oleh indikator kualitas v2.1.0 dan layar Diagnostik v2.3.0),
+     onboarding singkat untuk user baru, UI kurang teknis.
    Mode Ad-Block DNS tetap dipertahankan apa adanya kecuali user minta
    perubahan eksplisit.
 1. **PALING PENTING, MASIH TERTUNDA: uji mode WARP di device fisik Ted.**

@@ -1,12 +1,12 @@
-# FILE_MANIFEST.txt — isi ZIP v2.2.0 (2026-08-02), 52 file (tidak termasuk
-# file ini sendiri) — base v2.1.0 hasil extract ZIP GitHub ada 45 file
-# (TERMASUK FILE_MANIFEST.txt lama, TIDAK termasuk .gitignore/.github — lihat
-# catatan di bawah), + 8 file baru batch ini: util/ShortcutsManager.kt,
-# res/xml/shortcuts.xml, 6 ikon vector shortcut (drawable/ic_shortcut_*.xml).
-# File yang isinya berubah: MainActivity.kt, ui/MainViewModel.kt,
-# AdShieldApp.kt, AndroidManifest.xml, res/values/strings.xml,
-# app/build.gradle.kts (versionCode/versionName), PROJECT_STATE.md,
-# CHANGELOG.md, README.md.
+# FILE_MANIFEST.txt — isi ZIP v2.3.0 (2026-08-03), 53 file (tidak termasuk
+# file ini sendiri) — base v2.2.0 ada 52 file, + 1 file baru batch ini:
+# ui/screens/DiagnosticsScreen.kt.
+# File yang isinya berubah: vpn/AdBlockVpnService.kt (tambah lastError
+# StateFlow), ui/MainViewModel.kt (expose dnsLastError), ui/screens/
+# HomeScreen.kt (entry Diagnostik), MainActivity.kt (route diagnostics,
+# edit parsial — Navigation Graph protected), ui/screens/LogsScreen.kt
+# (pencarian + filter chip), app/build.gradle.kts (versionCode/versionName,
+# edit parsial — protected), PROJECT_STATE.md, CHANGELOG.md, README.md.
 #
 # PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
 # `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
@@ -35,6 +35,7 @@ app/src/main/java/com/fdzaki/adshield/receiver/BootReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/RestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/WarpRestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/ui/MainViewModel.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/DiagnosticsScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/RulesScreen.kt

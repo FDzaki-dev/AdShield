@@ -23,6 +23,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.FileInputStream
@@ -96,10 +98,23 @@ class AdBlockVpnService : VpnService() {
         vpnInterface = try {
             builder.establish()
         } catch (e: Exception) {
+            _lastError.value = "Gagal membuat antarmuka VPN: ${e.message}"
             null
         }
 
-        val iface = vpnInterface ?: return
+        val iface = vpnInterface
+        if (iface == null) {
+            // establish() can also return null without throwing (e.g. another
+            // VPN app grabbed the interface first) — surface a message either
+            // way instead of silently doing nothing, so this is diagnosable
+            // from the Diagnostics screen instead of just "toggle did nothing".
+            if (_lastError.value == null) {
+                _lastError.value = "Antarmuka VPN gagal dibuat (establish() null). " +
+                    "Kemungkinan ada VPN/app lain yang sedang memegang koneksi VPN."
+            }
+            return
+        }
+        _lastError.value = null
         running.set(true)
         startForeground(Constants.NOTIF_ID, buildNotification())
         executor.execute { runPacketLoop(iface) }
@@ -331,6 +346,15 @@ class AdBlockVpnService : VpnService() {
         /** True when this STOP is only the "turn off" half of switching to
          *  the other protection mode, not a standalone user stop. */
         const val EXTRA_MODE_SWITCH = "com.fdzaki.adshield.extra.MODE_SWITCH"
+
+        // Companion-level (not instance) state so MainViewModel/Diagnostics
+        // screen can observe it without binding to the service — mirrors the
+        // same pattern WarpTunnelManager already uses for its lastError.
+        // Previously DNS-mode failures (e.g. establish() throwing or
+        // returning null) were swallowed silently with no user-visible
+        // signal at all, unlike WARP which always had lastError.
+        private val _lastError = MutableStateFlow<String?>(null)
+        val lastError: StateFlow<String?> = _lastError
     }
 }
 

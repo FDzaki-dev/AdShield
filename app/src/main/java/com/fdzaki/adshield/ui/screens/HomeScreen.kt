@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Rule
@@ -38,6 +39,7 @@ fun HomeScreen(
     onOpenWhitelist: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenLogs: () -> Unit,
+    onOpenDiagnostics: () -> Unit,
     onRequestBatteryExemption: () -> Unit
 ) {
     val vpnActive by viewModel.vpnActive.collectAsState()
@@ -127,6 +129,8 @@ fun HomeScreen(
         NavRow(icon = Icons.Filled.Rule, label = "Whitelist per Aplikasi", onClick = onOpenWhitelist)
         Spacer(Modifier.height(10.dp))
         NavRow(icon = Icons.Filled.Shield, label = "Aturan Kustom (Block/Allow)", onClick = onOpenRules)
+        Spacer(Modifier.height(10.dp))
+        NavRow(icon = Icons.Filled.BugReport, label = "Diagnostik", onClick = onOpenDiagnostics)
 
         Spacer(Modifier.height(20.dp))
 

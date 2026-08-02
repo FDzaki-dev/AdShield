@@ -21,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.screens.DiagnosticsScreen
 import com.fdzaki.adshield.ui.screens.HomeScreen
 import com.fdzaki.adshield.ui.screens.LogsScreen
 import com.fdzaki.adshield.ui.screens.RulesScreen
@@ -95,6 +96,7 @@ class MainActivity : ComponentActivity() {
                             onOpenWhitelist = { navController.navigate("whitelist") },
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
+                            onOpenDiagnostics = { navController.navigate("diagnostics") },
                             onRequestBatteryExemption = ::requestBatteryOptimizationExemption
                         )
                     }
@@ -106,6 +108,9 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("logs") {
                         LogsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+                    composable("diagnostics") {
+                        DiagnosticsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                     }
                 }
             }

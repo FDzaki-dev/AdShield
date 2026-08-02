@@ -10,6 +10,7 @@ import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
 import com.fdzaki.adshield.util.AppMode
+import com.fdzaki.adshield.vpn.AdBlockVpnService
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.fdzaki.adshield.warp.WarpTunnelManager
 import com.wireguard.android.backend.Tunnel
@@ -41,6 +42,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val warpLastError: StateFlow<String?> = warpTunnelManager.lastError
     val warpConnecting: StateFlow<Boolean> = warpTunnelManager.connecting
     val warpQuality: StateFlow<WarpConnectionQuality> = warpTunnelManager.quality
+
+    /** Last DNS-mode (Ad-Block) failure, if any — e.g. VPN interface failed
+     *  to establish. Used by the Diagnostics screen; see AdBlockVpnService
+     *  for why this exists (previously DNS failures were silent). */
+    val dnsLastError: StateFlow<String?> = AdBlockVpnService.lastError
 
     private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps

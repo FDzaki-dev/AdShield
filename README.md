@@ -74,7 +74,8 @@ Alur saat pertama kali diaktifkan:
 - Statistik real-time (jumlah domain diblokir vs diizinkan)
 - **Whitelist per-aplikasi** — pilih app tertentu yang tidak pernah diblokir
 - **Aturan kustom** — tambah domain block/allow manual, override blocklist bawaan
-- **Log domain** — riwayat 500 query terakhir dengan status blokir/izin, bisa dimatikan
+- **Log domain** — riwayat 500 query terakhir dengan status blokir/izin, bisa dimatikan,
+  bisa dicari per domain, dan difilter (Semua/Diblokir/Diizinkan)
 - Blocklist bawaan offline (~100+ domain ads/tracker populer), bisa diperluas manual
 
 **VPN Tunnel (WARP):**
@@ -96,6 +97,9 @@ Alur saat pertama kali diaktifkan:
 - **App Shortcuts** — tekan lama ikon AdShield di launcher: buka
   Whitelist/Log langsung, atau toggle Nyalakan/Matikan DNS & WARP tanpa
   buka aplikasi dulu (label shortcut toggle otomatis mengikuti mode aktif)
+- **Layar Diagnostik** — status teknis satu layar (versi app, perangkat,
+  mode aktif, status & error terakhir DNS/WARP, statistik) dengan tombol
+  salin-ke-clipboard untuk lapor masalah
 
 ## Batasan yang perlu diketahui
 
@@ -126,7 +130,10 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.2.0** — App Shortcuts: tekan lama ikon di launcher untuk buka
+- **v2.3.0** — Monitoring & Diagnostik: layar Diagnostik baru (status
+  teknis + salin ke clipboard), Log Domain kini bisa dicari & difilter,
+  kegagalan Ad-Block DNS sekarang terlihat (sebelumnya diam-diam gagal)
+- v2.2.0 — App Shortcuts: tekan lama ikon di launcher untuk buka
   Whitelist/Log langsung, atau toggle DNS/WARP tanpa buka aplikasi
 - v2.1.0 — WARP UX: auto reconnect + indikator kualitas koneksi
   (latensi & konfirmasi trafik nyata lewat probe Cloudflare). Belum
@@ -152,8 +159,6 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
 - **DNS AdBlocker:** custom DNS (DoH/DoT), auto-update blocklist berkala,
   UI whitelist/blacklist domain yang lebih mudah, statistik domain diblokir
-- **Monitoring & Diagnostik:** log lebih mudah dibaca, halaman diagnostik,
-  error handling yang lebih jelas penyebabnya
 - **Onboarding:** alur singkat untuk user baru saat pertama buka app
 - Deteksi & blokir DNS-over-HTTPS (DoH) umum agar tidak bisa dilewati
 - Import blocklist dari URL custom (field sudah ada di data layer, UI belum)
@@ -174,7 +179,7 @@ app/src/main/java/com/fdzaki/adshield/
 │                   activeMode), InstalledAppsRepository, data/db (Room - log domain)
 ├── receiver/       BootReceiver (restart mode aktif), RestartReceiver (watchdog DNS),
 │                   WarpRestartReceiver (watchdog WARP)
-├── ui/             MainViewModel + ui/screens (Home, Whitelist, Rules, Logs)
+├── ui/             MainViewModel + ui/screens (Home, Whitelist, Rules, Logs, Diagnostics)
 └── ui/theme/       Compose theme (dark, hijau shield)
 ```
 
