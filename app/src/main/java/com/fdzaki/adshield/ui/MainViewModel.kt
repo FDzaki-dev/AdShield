@@ -145,4 +145,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      *  real persisted mode, since WhileSubscribed(5000) hasn't started
      *  collecting yet. */
     suspend fun currentActiveMode(): String = settingsRepository.activeMode.first()
+
+    /** One-shot read at cold start — same reasoning as [currentActiveMode]:
+     *  MainActivity needs the true persisted value BEFORE deciding which
+     *  NavHost start destination to render, not a StateFlow that only
+     *  starts collecting once something subscribes. */
+    suspend fun currentHasSeenOnboarding(): Boolean = settingsRepository.hasSeenOnboarding.first()
+
+    fun markOnboardingComplete() {
+        viewModelScope.launch { settingsRepository.setHasSeenOnboarding(true) }
+    }
 }

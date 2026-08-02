@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.4.0 — UX & Onboarding (2026-08-03)
+
+Batch ketiga dari daftar "Kekurangan AdShield" — kategori UX & Onboarding.
+Murni fitur baru untuk pengguna baru pertama kali buka app; tidak menyentuh
+logic DNS/WARP, matching domain, atau mode aktif manapun.
+
+- **Baru: Layar Onboarding 4-slide** (`ui/screens/OnboardingScreen.kt`) —
+  tampil otomatis hanya sekali di pemasangan baru: (1) selamat datang, (2)
+  penjelasan Mode Ad-Block DNS, (3) penjelasan Mode VPN Tunnel (WARP) +
+  peringatan mutually-exclusive, (4) ajakan mengecualikan dari optimasi
+  baterai (tombol sama seperti yang sudah ada di Home). Bisa dilewati
+  ("Lewati") kapan saja dari slide manapun.
+- Status "sudah lihat onboarding" disimpan di `SettingsRepository`
+  (`has_seen_onboarding`, DataStore, default `false`) — user existing yang
+  update dari versi lama TIDAK akan melihat onboarding lagi karena flag ini
+  otomatis `false` hanya untuk instalasi baru; tapi karena ini kunci baru di
+  DataStore yang sama, instalasi existing juga membaca default `false` saat
+  pertama kali baca. **Catatan:** ini artinya user yang update dari v2.3.0
+  ke v2.4.0 AKAN melihat onboarding sekali (bukan cuma instalasi baru
+  murni) — dianggap dampak kecil/dapat diterima (bisa dilewati 1 tombol),
+  bukan regresi fungsional.
+- `MainActivity` menahan render pertama NavHost sampai status onboarding
+  selesai dibaca (satu kali baca suspend dari DataStore, pola sama seperti
+  `currentActiveMode()`), supaya Home tidak sempat "kedip" sebelum
+  redirect ke Onboarding.
+- Tidak ada perubahan pada arsitektur VPN, matching domain, whitelist
+  per-app, atau mode WARP itu sendiri.
+
 ## v2.3.0 — Monitoring & Diagnostik (2026-08-03)
 
 Batch kedua dari daftar "Kekurangan AdShield" — kategori Monitoring &

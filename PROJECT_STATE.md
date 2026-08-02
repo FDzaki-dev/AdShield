@@ -3,12 +3,15 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.3.0** (Monitoring & Diagnostik — layar
-  Diagnostik baru + salin clipboard, Log Domain bisa dicari/difilter,
-  kegagalan Ad-Block DNS kini terlihat, 2026-08-03)
-- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.3.0 —
+- **Versi terakhir selesai: v2.4.0** (UX & Onboarding — layar Onboarding
+  4-slide untuk pengguna baru, 2026-08-03)
+- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.4.0 —
   ZIP baru saja dikirim di sesi ini. Cek `git log` di sesi berikutnya
   sebelum asumsikan sudah ter-push.
+- v2.3.0 (Monitoring & Diagnostik — layar Diagnostik + salin clipboard,
+  Log Domain bisa dicari/difilter, kegagalan Ad-Block DNS kini terlihat)
+  status push-nya juga belum dikonfirmasi eksplisit oleh user di sesi ini
+  — cek `git log` untuk keduanya (v2.3.0 dan v2.4.0) sekaligus.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -183,8 +186,49 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    dari `Build`/`PackageManager` kalau memang statis), baru tampilkan di
    sini.
 
+9. **Onboarding (v2.4.0) — `ui/screens/OnboardingScreen.kt`, flag
+   `SettingsRepository.hasSeenOnboarding` (DataStore, default `false`).**
+   Keputusan yang JANGAN dilanggar:
+   - `MainActivity` MENAHAN render pertama `NavHost` (tampil `Box` kosong
+     berwarna `ShieldBgDark`) sampai `startAtOnboarding` (nullable
+     `Boolean`) terisi dari pembacaan suspend satu-kali
+     `viewModel.currentHasSeenOnboarding()`. Pola ini SENGAJA sama seperti
+     `currentActiveMode()` untuk shortcut — JANGAN baca lewat StateFlow
+     `.value` di titik ini, seed value `stateIn()` belum tentu representasi
+     data asli sebelum ada subscriber.
+   - `startDestination` NavHost ditentukan sekali di awal (`"onboarding"`
+     atau `"home"`) berdasarkan flag itu — bukan lewat `LaunchedEffect`
+     yang navigate() belakangan, supaya tidak ada kedipan Home→Onboarding.
+   - `OnboardingScreen` tidak punya akses langsung ke `SettingsRepository`
+     atau `MainViewModel` — hanya terima 2 callback (`onFinish`,
+     `onRequestBatteryExemption`) dari `MainActivity`, konsisten dengan
+     pola screen lain (`HomeScreen` dsb.) yang stateless terhadap
+     persistence, semua state datang dari luar.
+   - **Diketahui & diterima:** karena flag ini kunci DataStore baru, user
+     existing yang update dari versi sebelum v2.4.0 akan tetap melihat
+     onboarding sekali (default `false` juga berlaku untuk instalasi lama
+     yang belum pernah menulis kunci ini). Ini bukan bug — didokumentasikan
+     di CHANGELOG.md sebagai dampak kecil yang diterima, bukan regresi.
+     JANGAN "perbaiki" dengan menambah migrasi/deteksi versi lama kecuali
+     user melapor ini benar-benar mengganggu.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.4.0)**: User pilih batch "UX & Onboarding" dari daftar
+  "Kekurangan AdShield" (kategori tersisa terakhir dari 2 pilihan: DNS
+  AdBlocker atau UX/Onboarding). Ditambahkan layar Onboarding 4-slide baru
+  + flag `hasSeenOnboarding` di `SettingsRepository`. Bukan insiden/bug —
+  kerja fitur baru murni. Batch ini menyentuh 9 file (`SettingsRepository.kt`,
+  `MainViewModel.kt`, `MainActivity.kt` — edit parsial, Navigation Graph &
+  MainActivity protected, `OnboardingScreen.kt` baru, `app/build.gradle.kts`
+  — edit parsial versionCode/versionName, protected, + `PROJECT_STATE.md`,
+  `CHANGELOG.md`, `FILE_MANIFEST.txt`, `README.md`), di bawah batas maksimal
+  batch (10 file), tidak perlu Atomic Change Exception. Tidak ada perubahan
+  pada arsitektur VPN/matching/whitelist/mode WARP. Satu trade-off diketahui
+  & didokumentasikan (lihat keputusan arsitektur #9): user existing yang
+  update juga akan melihat onboarding sekali, karena flag defaultnya `false`
+  untuk siapa saja yang belum pernah menulis kunci ini — diterima sebagai
+  dampak kecil, bukan di-workaround dengan migrasi versi.
 - **2026-08-03 (v2.3.0)**: User pilih batch "Monitoring & Diagnostik" dari
   daftar "Kekurangan AdShield" (opsi: status teknis + tombol salin
   clipboard). Selama analisis ditemukan (bukan regresi, gap desain sejak
@@ -327,18 +371,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 0. **Arahan user (2026-08-03, DIPERBARUI): user mengizinkan fitur baru
    dari daftar "Kekurangan AdShield", dikerjakan satu kategori per batch.**
    Sudah selesai: Batch-1 WARP UX (v2.1.0), App Shortcuts di luar daftar
-   asli (v2.2.0), Batch-2 Monitoring & Diagnostik (v2.3.0). Kategori
-   tersisa, MENUNGGU user pilih batch berikutnya:
+   asli (v2.2.0), Batch-2 Monitoring & Diagnostik (v2.3.0), Batch-3 UX &
+   Onboarding (v2.4.0 — layar onboarding 4-slide; "UI kurang teknis" secara
+   umum masih bisa diperdalam lebih lanjut kalau user minta redesign
+   spesifik, tidak dianggap "selesai total" hanya karena onboarding sudah
+   ada). Kategori tersisa dari daftar asli, MENUNGGU user pilih:
    - DNS AdBlocker: custom DNS (DoH/DoT), auto-update blocklist,
-     whitelist/blacklist UI yang lebih mudah, statistik domain diblokir.
+     whitelist/blacklist UI yang lebih mudah, statistik domain diblokir
+     (statistik dasar sudah ada sejak awal — kalau dikerjakan, fokus ke
+     item yang belum: custom DNS, auto-update blocklist, UI kelola yang
+     lebih mudah).
      **Catatan arsitektur:** DoH/DoT butuh handling TLS baru di
      `AdBlockVpnService` yang saat ini forward plain-UDP — ini perubahan
      arsitektur, WAJIB tanya dulu behavior apa yang harus tetap sama
      sebelum mulai (lihat keputusan #4 soal kenapa loop paket harus tetap
      ringan).
-   - UX & Onboarding: status WARP/DNS lebih informatif (sebagian sudah
-     kebantu oleh indikator kualitas v2.1.0 dan layar Diagnostik v2.3.0),
-     onboarding singkat untuk user baru, UI kurang teknis.
    Mode Ad-Block DNS tetap dipertahankan apa adanya kecuali user minta
    perubahan eksplisit.
 1. **PALING PENTING, MASIH TERTUNDA: uji mode WARP di device fisik Ted.**

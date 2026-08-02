@@ -1,12 +1,15 @@
-# FILE_MANIFEST.txt — isi ZIP v2.3.0 (2026-08-03), 53 file (tidak termasuk
-# file ini sendiri) — base v2.2.0 ada 52 file, + 1 file baru batch ini:
-# ui/screens/DiagnosticsScreen.kt.
-# File yang isinya berubah: vpn/AdBlockVpnService.kt (tambah lastError
-# StateFlow), ui/MainViewModel.kt (expose dnsLastError), ui/screens/
-# HomeScreen.kt (entry Diagnostik), MainActivity.kt (route diagnostics,
-# edit parsial — Navigation Graph protected), ui/screens/LogsScreen.kt
-# (pencarian + filter chip), app/build.gradle.kts (versionCode/versionName,
-# edit parsial — protected), PROJECT_STATE.md, CHANGELOG.md, README.md.
+# FILE_MANIFEST.txt — isi ZIP v2.4.0 (2026-08-03), 54 file (tidak termasuk
+# file ini sendiri) — base v2.3.0 ada 53 file, + 1 file baru batch ini:
+# ui/screens/OnboardingScreen.kt.
+# File yang isinya berubah: data/SettingsRepository.kt (tambah key
+# has_seen_onboarding), ui/MainViewModel.kt (expose currentHasSeenOnboarding
+# + markOnboardingComplete), MainActivity.kt (route onboarding + gate
+# NavHost start destination, edit parsial — Navigation Graph & MainActivity
+# protected), app/build.gradle.kts (versionCode/versionName, edit parsial
+# — protected), PROJECT_STATE.md, CHANGELOG.md, README.md.
+#
+# (v2.3.0 sebelumnya: +ui/screens/DiagnosticsScreen.kt, edit di
+# vpn/AdBlockVpnService.kt, ui/screens/HomeScreen.kt, ui/screens/LogsScreen.kt)
 #
 # PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
 # `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
@@ -38,6 +41,7 @@ app/src/main/java/com/fdzaki/adshield/ui/MainViewModel.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/DiagnosticsScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/OnboardingScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/RulesScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt

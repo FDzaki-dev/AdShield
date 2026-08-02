@@ -33,6 +33,7 @@ class SettingsRepository(private val context: Context) {
         val CUSTOM_BLOCKLIST_URL = stringPreferencesKey("custom_blocklist_url")
         val LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
         val ACTIVE_MODE = stringPreferencesKey("active_mode")
+        val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -67,6 +68,16 @@ class SettingsRepository(private val context: Context) {
      *  BootReceiver and the UI to keep them from ever running together. */
     val activeMode: Flow<String> =
         context.dataStore.data.map { it[Keys.ACTIVE_MODE] ?: com.fdzaki.adshield.util.AppMode.NONE }
+
+    /** Whether the first-run onboarding flow has been completed (or skipped)
+     *  at least once. Defaults false — a fresh DataStore (new install) means
+     *  the onboarding screen shows once, then this flips permanently true. */
+    val hasSeenOnboarding: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.HAS_SEEN_ONBOARDING] ?: false }
+
+    suspend fun setHasSeenOnboarding(seen: Boolean) {
+        context.dataStore.edit { it[Keys.HAS_SEEN_ONBOARDING] = seen }
+    }
 
     suspend fun setActiveMode(mode: String) {
         context.dataStore.edit { it[Keys.ACTIVE_MODE] = mode }

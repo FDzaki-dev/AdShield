@@ -11,10 +11,14 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
@@ -24,9 +28,11 @@ import com.fdzaki.adshield.ui.MainViewModel
 import com.fdzaki.adshield.ui.screens.DiagnosticsScreen
 import com.fdzaki.adshield.ui.screens.HomeScreen
 import com.fdzaki.adshield.ui.screens.LogsScreen
+import com.fdzaki.adshield.ui.screens.OnboardingScreen
 import com.fdzaki.adshield.ui.screens.RulesScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
+import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.ShortcutsManager
 import com.fdzaki.adshield.vpn.AdBlockVpnService
@@ -46,6 +52,13 @@ class MainActivity : ComponentActivity() {
      *  res/xml/shortcuts.xml) so the NavHost can jump straight to that
      *  screen once it's composed, instead of always landing on Home first. */
     private var pendingNavDestination by mutableStateOf<String?>(null)
+
+    /** Null while we haven't yet read the persisted onboarding flag (one-shot
+     *  suspend read, see MainViewModel.currentHasSeenOnboarding — same reason
+     *  as pendingStartMode/currentActiveMode: a StateFlow's stateIn() seed
+     *  value can't be trusted before something has subscribed to it). Once
+     *  non-null, NavHost's start destination is decided and won't change. */
+    private var startAtOnboarding by mutableStateOf<Boolean?>(null)
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -77,6 +90,10 @@ class MainActivity : ComponentActivity() {
                     maybeRequestNotificationPermission()
                 }
 
+                LaunchedEffect(Unit) {
+                    startAtOnboarding = !viewModel.currentHasSeenOnboarding()
+                }
+
                 LaunchedEffect(pendingNavDestination) {
                     val dest = pendingNavDestination
                     if (dest == "whitelist" || dest == "logs") {
@@ -85,7 +102,30 @@ class MainActivity : ComponentActivity() {
                     pendingNavDestination = null
                 }
 
-                NavHost(navController = navController, startDestination = "home") {
+                val onboardingDecided = startAtOnboarding
+                if (onboardingDecided == null) {
+                    // Brief gate so home never flashes before we know whether
+                    // this is a first run — same dark background as the rest
+                    // of the app so it reads as a fast load, not a blank screen.
+                    Box(modifier = Modifier.fillMaxSize().background(ShieldBgDark))
+                    return@AdShieldTheme
+                }
+
+                NavHost(
+                    navController = navController,
+                    startDestination = if (onboardingDecided) "onboarding" else "home"
+                ) {
+                    composable("onboarding") {
+                        OnboardingScreen(
+                            onFinish = {
+                                viewModel.markOnboardingComplete()
+                                navController.navigate("home") {
+                                    popUpTo("onboarding") { inclusive = true }
+                                }
+                            },
+                            onRequestBatteryExemption = ::requestBatteryOptimizationExemption
+                        )
+                    }
                     composable("home") {
                         HomeScreen(
                             viewModel = viewModel,

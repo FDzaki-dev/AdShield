@@ -100,6 +100,9 @@ Alur saat pertama kali diaktifkan:
 - **Layar Diagnostik** — status teknis satu layar (versi app, perangkat,
   mode aktif, status & error terakhir DNS/WARP, statistik) dengan tombol
   salin-ke-clipboard untuk lapor masalah
+- **Onboarding** — 4 layar pengenalan singkat saat pertama kali buka app:
+  jelaskan kedua mode & kenapa mutually-exclusive, plus ajakan mengecualikan
+  dari optimasi baterai. Bisa dilewati kapan saja, hanya muncul sekali.
 
 ## Batasan yang perlu diketahui
 
@@ -130,7 +133,10 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.3.0** — Monitoring & Diagnostik: layar Diagnostik baru (status
+- **v2.4.0** — UX & Onboarding: layar Onboarding 4-slide untuk pengguna
+  baru (penjelasan kedua mode + pengecualian baterai), tampil sekali lalu
+  tidak lagi (bisa dilewati kapan saja)
+- v2.3.0 — Monitoring & Diagnostik: layar Diagnostik baru (status
   teknis + salin ke clipboard), Log Domain kini bisa dicari & difilter,
   kegagalan Ad-Block DNS sekarang terlihat (sebelumnya diam-diam gagal)
 - v2.2.0 — App Shortcuts: tekan lama ikon di launcher untuk buka
@@ -158,8 +164,8 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
 - **DNS AdBlocker:** custom DNS (DoH/DoT), auto-update blocklist berkala,
-  UI whitelist/blacklist domain yang lebih mudah, statistik domain diblokir
-- **Onboarding:** alur singkat untuk user baru saat pertama buka app
+  UI whitelist/blacklist domain yang lebih mudah (statistik dasar domain
+  diblokir/diizinkan sudah ada sejak awal, lihat Fitur di atas)
 - Deteksi & blokir DNS-over-HTTPS (DoH) umum agar tidak bisa dilewati
 - Import blocklist dari URL custom (field sudah ada di data layer, UI belum)
 - Statistik per-aplikasi (domain mana diblokir untuk app mana)
