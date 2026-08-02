@@ -1,8 +1,9 @@
-# FILE_MANIFEST.txt — output `git ls-files`, versi v1.2.0 (2026-08-01)
-# 40 file dilacak git (jumlah file sama, isi berubah). Regenerate tiap rilis
-# dengan: git ls-files | sort
-# Perubahan dari v1.1.0: AdBlockVpnService.kt (UID whitelist + DNS fallback),
-# BlocklistManager.kt (critical allowlist), WhitelistScreen.kt (teks). Tidak ada file baru.
+# FILE_MANIFEST.txt — output `git ls-files`, versi v2.0.0 (2026-08-02)
+# 46 file dilacak git (40 dari v1.2.0 + 6 file baru modul warp/).
+# Regenerate tiap rilis dengan: git ls-files | sort
+# File baru di v2.0.0: receiver/WarpRestartReceiver.kt, warp/WarpAccount.kt,
+# warp/WarpAccountRepository.kt, warp/WarpForegroundService.kt,
+# warp/WarpRegistrationClient.kt, warp/WarpTunnelManager.kt
 .github/workflows/build.yml
 .gitignore
 CHANGELOG.md
@@ -21,6 +22,7 @@ app/src/main/java/com/fdzaki/adshield/data/db/DomainLogDao.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogEntity.kt
 app/src/main/java/com/fdzaki/adshield/receiver/BootReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/RestartReceiver.kt
+app/src/main/java/com/fdzaki/adshield/receiver/WarpRestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/ui/MainViewModel.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
@@ -31,6 +33,11 @@ app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpAccount.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpAccountRepository.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpForegroundService.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpRegistrationClient.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt
 app/src/main/res/drawable/ic_launcher_foreground.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml

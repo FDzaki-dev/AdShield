@@ -3,6 +3,7 @@ package com.fdzaki.adshield.util
 object Constants {
     const val NOTIF_CHANNEL_ID = "adshield_protection"
     const val NOTIF_ID = 1001
+    const val WARP_NOTIF_ID = 1002
 
     // Fake local "DNS server" address handed to the OS. Only traffic aimed at
     // this address (port 53) gets routed into our tun interface — everything
@@ -23,4 +24,11 @@ object Constants {
     const val KEY_BLOCKED_COUNT = "blocked_count"
     const val KEY_ALLOWED_COUNT = "allowed_count"
     const val KEY_CUSTOM_BLOCKLIST_URL = "custom_blocklist_url"
+}
+
+/** The two mutually-exclusive protection modes AdShield can run — never both at once. */
+object AppMode {
+    const val NONE = "none"
+    const val DNS_ADBLOCK = "dns"
+    const val WARP_TUNNEL = "warp"
 }

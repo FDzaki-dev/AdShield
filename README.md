@@ -1,9 +1,15 @@
 # AdShield
 
-Ad blocker & tracker blocker native Android, berjalan sepenuhnya on-device
-tanpa root, menggunakan `VpnService` lokal untuk menyaring DNS.
+Aplikasi Android dengan **dua mode perlindungan terpisah** (tidak pernah
+jalan bersamaan — pilih salah satu):
 
-## Cara kerja singkat
+1. **Ad-Block DNS** — ad blocker & tracker blocker ringan, on-device, tanpa
+   root, cuma nge-tunnel DNS.
+2. **VPN Tunnel (WARP)** — full-tunnel WireGuard terenkripsi lewat
+   Cloudflare WARP gratis, buat yang mau enkripsi SEMUA trafik (bukan cuma
+   blokir iklan).
+
+## Mode 1: Cara kerja Ad-Block DNS
 
 AdShield **tidak** menangkap semua trafik internet. VPN builder hanya
 mendaftarkan rute ke alamat DNS palsu (`10.111.222.1/32`), jadi **hanya
@@ -29,17 +35,57 @@ Alur satu query DNS:
      lewat socket yang di-`protect()` (supaya tidak looping balik ke VPN),
      lalu balasannya di-relay balik ke app pemohon
 
+## Mode 2: Cara kerja VPN Tunnel (WARP)
+
+Mode ini pakai **library resmi WireGuard** (`com.wireguard.android:tunnel`,
+engine GoBackend/wireguard-go) — bukan implementasi kripto buatan sendiri.
+Beda total secara arsitektur dari mode DNS: ini nge-tunnel **SEMUA** trafik
+(`0.0.0.0/0`), bukan cuma DNS.
+
+Alur saat pertama kali diaktifkan:
+1. Generate keypair WireGuard (Curve25519) lokal di device
+2. Registrasi otomatis ke Cloudflare WARP — ini akun gratis tanpa perlu
+   login, sama seperti yang didapat app 1.1.1.1 resmi saat pertama install.
+   Prosesnya niru pendekatan proyek open-source [`wgcf`](https://github.com/ViRb3/wgcf).
+3. Identitas WARP (private key, address, peer info) disimpan di DataStore
+   terpisah (`WarpAccountRepository`) — connect berikutnya tidak registrasi
+   ulang, langsung pakai yang tersimpan
+4. `WarpTunnelManager` bangun `Config` WireGuard dari identitas tersimpan,
+   nyalakan tunnel lewat `GoBackend`
+
+**Yang WAJIB dipahami sebelum pakai mode ini:**
+- **API registrasi WARP tidak resmi.** Cloudflare tidak mempublikasikan ini
+  sebagai API publik yang didukung — bisa berubah/berhenti berfungsi kapan
+  saja tanpa pemberitahuan. Kalau tiba-tiba gagal registrasi, cek apakah
+  `WarpRegistrationClient.API_VERSION` perlu diperbarui (lihat komentar di
+  file itu untuk cara ceknya).
+- **ID ini beneran VPN pihak ketiga.** Semua trafik keluar lewat jaringan
+  Cloudflare, bukan cuma untuk blokir iklan — beda tujuan dari mode
+  Ad-Block DNS. Jangan aktifkan berbarengan dengan ekspektasi "dapat dua
+  manfaat sekaligus", karena memang mutually-exclusive.
+- Sudah diverifikasi lewat riset (bukan asumsi) kalau profil WireGuard
+  standar — tanpa modifikasi field khusus apa pun — memang bisa connect ke
+  WARP pakai client resmi manapun termasuk Android.
+
 ## Fitur
 
+**Ad-Block DNS:**
 - Toggle satu tombol aktif/nonaktif proteksi
 - Statistik real-time (jumlah domain diblokir vs diizinkan)
 - **Whitelist per-aplikasi** — pilih app tertentu yang tidak pernah diblokir
 - **Aturan kustom** — tambah domain block/allow manual, override blocklist bawaan
 - **Log domain** — riwayat 500 query terakhir dengan status blokir/izin, bisa dimatikan
-- Auto-start setelah reboot (jika sebelumnya aktif)
+- Blocklist bawaan offline (~100+ domain ads/tracker populer), bisa diperluas manual
+
+**VPN Tunnel (WARP):**
+- Registrasi WARP otomatis, sekali saja (tersimpan untuk connect berikutnya)
+- Status koneksi real-time + pesan error kalau registrasi/handshake gagal
+
+**Berlaku untuk kedua mode:**
+- Auto-start setelah reboot (mode yang terakhir aktif sebelum shutdown)
 - Bertahan setelah app di-swipe dari Recents (foreground service + `START_STICKY`
   + watchdog AlarmManager untuk OEM agresif seperti XOS/MIUI/ColorOS)
-- Blocklist bawaan offline (~100+ domain ads/tracker populer), bisa diperluas manual
+- **Mutually exclusive** — mengaktifkan salah satu otomatis mematikan yang lain
 
 ## Batasan yang perlu diketahui
 
@@ -60,10 +106,19 @@ Alur satu query DNS:
   menyediakan API untuk mendeteksi app pengirim query DNS mulai versi itu.
   Di Android lebih lama, toggle-nya tersimpan tapi tidak berpengaruh
   (dijelaskan langsung di layar Whitelist, bukan gagal diam-diam).
+- **Mode WARP belum divalidasi end-to-end di device fisik manapun** (lihat
+  PROJECT_STATE.md). Kode sudah dicocokkan ke javadoc resmi library, tapi
+  belum ada bukti langsung "berhasil connect" dari build sungguhan — kalau
+  ada masalah pas dites, laporkan pesan error persis yang muncul di UI.
+- **Whitelist per-app dan blocklist domain TIDAK berlaku saat mode WARP
+  aktif** — WARP itu tunnel WireGuard mentah tanpa filtering apa pun, cuma
+  enkripsi. Kalau mau blokir iklan, pakai mode Ad-Block DNS.
 
 ## Status proyek
 
-- **v1.2.0** — pematangan: whitelist per-app benar-benar aktif (UID nyata),
+- **v2.0.0** — mode baru VPN Tunnel (WARP), full-tunnel WireGuard via
+  Cloudflare WARP gratis, terpisah & mutually-exclusive dari Ad-Block DNS
+- v1.2.0 — pematangan: whitelist per-app benar-benar aktif (UID nyata),
   critical allowlist domain esensial konektivitas, DNS forward fallback
   multi-resolver
 - v1.1.0 — matching domain diganti ke exact-match + wildcard eksplisit,
@@ -75,19 +130,26 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
+- Validasi mode WARP di device fisik (prioritas #1 saat ini)
 - Deteksi & blokir DNS-over-HTTPS (DoH) umum agar tidak bisa dilewati
 - Import blocklist dari URL custom (field sudah ada di data layer, UI belum)
 - Statistik per-aplikasi (domain mana diblokir untuk app mana)
 - Dark/light theme toggle (saat ini dark-only)
+- MASQUE (protokol QUIC dari IETF, dipakai iCloud Private Relay) — sengaja
+  tidak dikerjakan, nyaris tidak ada library Android siap pakai (lihat
+  PROJECT_STATE.md untuk alasan lengkap)
 
 ## Struktur proyek
 
 ```
 app/src/main/java/com/fdzaki/adshield/
-├── vpn/            AdBlockVpnService (engine inti), DnsPacket (parser paket)
-├── data/           BlocklistManager, SettingsRepository (DataStore), 
-│                   InstalledAppsRepository, data/db (Room - log domain)
-├── receiver/       BootReceiver (auto-start), RestartReceiver (watchdog)
+├── vpn/            AdBlockVpnService (engine Ad-Block DNS), DnsPacket (parser paket)
+├── warp/           WarpTunnelManager (engine WireGuard/WARP), WarpRegistrationClient,
+│                   WarpAccountRepository, WarpForegroundService, WarpAccount
+├── data/           BlocklistManager, SettingsRepository (DataStore, termasuk
+│                   activeMode), InstalledAppsRepository, data/db (Room - log domain)
+├── receiver/       BootReceiver (restart mode aktif), RestartReceiver (watchdog DNS),
+│                   WarpRestartReceiver (watchdog WARP)
 ├── ui/             MainViewModel + ui/screens (Home, Whitelist, Rules, Logs)
 └── ui/theme/       Compose theme (dark, hijau shield)
 ```

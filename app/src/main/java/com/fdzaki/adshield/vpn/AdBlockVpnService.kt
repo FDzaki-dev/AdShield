@@ -77,6 +77,7 @@ class AdBlockVpnService : VpnService() {
             blocklist.setCustomAllowed(settingsRepository.customAllowedDomains.firstValue())
             blocklist.setWhitelistedApps(settingsRepository.whitelistedApps.firstValue())
             settingsRepository.setWasRunning(true)
+            settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.DNS_ADBLOCK)
         }
 
         val builder = Builder()
@@ -107,7 +108,10 @@ class AdBlockVpnService : VpnService() {
         running.set(false)
         try { vpnInterface?.close() } catch (_: Exception) {}
         vpnInterface = null
-        serviceScope.launch { settingsRepository.setWasRunning(false) }
+        serviceScope.launch {
+            settingsRepository.setWasRunning(false)
+            settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.NONE)
+        }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
     }

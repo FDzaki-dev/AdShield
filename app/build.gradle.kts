@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 4
-        versionName = "1.2.0"
+        versionCode = 5
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -63,6 +63,7 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        isCoreLibraryDesugaringEnabled = true // required by com.wireguard.android:tunnel
     }
     kotlinOptions { jvmTarget = "17" }
 
@@ -95,6 +96,12 @@ dependencies {
 
     // WorkManager (periodic blocklist refresh, if user supplies a URL)
     implementation("androidx.work:work-runtime-ktx:2.9.1")
+
+    // Official WireGuard tunnel engine (GoBackend) — used by the optional
+    // full-tunnel "VPN Tunnel (WARP)" mode, kept fully separate from the
+    // lightweight DNS-only ad-block engine (AdBlockVpnService).
+    implementation("com.wireguard.android:tunnel:1.0.20230706")
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

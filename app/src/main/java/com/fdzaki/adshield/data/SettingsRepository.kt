@@ -32,6 +32,7 @@ class SettingsRepository(private val context: Context) {
         val ALLOWED_COUNT = longPreferencesKey("allowed_count")
         val CUSTOM_BLOCKLIST_URL = stringPreferencesKey("custom_blocklist_url")
         val LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
+        val ACTIVE_MODE = stringPreferencesKey("active_mode")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -60,6 +61,16 @@ class SettingsRepository(private val context: Context) {
 
     val loggingEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.LOGGING_ENABLED] ?: true }
+
+    /** Which of the two mutually-exclusive modes (DNS ad-block / WARP tunnel)
+     *  is currently supposed to be running — single source of truth used by
+     *  BootReceiver and the UI to keep them from ever running together. */
+    val activeMode: Flow<String> =
+        context.dataStore.data.map { it[Keys.ACTIVE_MODE] ?: com.fdzaki.adshield.util.AppMode.NONE }
+
+    suspend fun setActiveMode(mode: String) {
+        context.dataStore.edit { it[Keys.ACTIVE_MODE] = mode }
+    }
 
     suspend fun setAppWhitelisted(packageName: String, whitelisted: Boolean) {
         context.dataStore.edit { prefs ->

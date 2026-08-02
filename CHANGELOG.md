@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.0.0 — Mode VPN Tunnel (WARP), full-tunnel WireGuard (2026-08-02)
+
+**Fitur besar baru** — mode kedua yang terpisah total dan mutually-exclusive
+dari Ad-Block DNS, untuk kasus "mau enkripsi semua trafik", bukan cuma
+blokir iklan:
+
+- **Engine**: `com.wireguard.android:tunnel` (library resmi WireGuard,
+  GoBackend/wireguard-go) — bukan implementasi crypto buatan sendiri.
+- **Registrasi otomatis ke Cloudflare WARP** (gratis, tanpa akun) lewat
+  pendekatan yang sama dengan proyek open-source `wgcf`: generate keypair
+  Curve25519 lokal, POST ke `api.cloudflareclient.com/{versi}/reg`, simpan
+  identitas WARP di DataStore terpisah (`WarpAccountRepository`) supaya
+  tidak registrasi ulang tiap connect.
+- **Full-tunnel** (`0.0.0.0/0`, `::/0`) — beda arsitektur total dari
+  AdBlockVpnService yang cuma nge-tunnel DNS. Dua engine ini TIDAK PERNAH
+  jalan bersamaan (`AppMode.DNS_ADBLOCK` vs `AppMode.WARP_TUNNEL`,
+  ditegakkan di `MainActivity` — start salah satu otomatis stop yang lain).
+- **Foreground service terpisah** (`WarpForegroundService`) dengan pola
+  survival yang sama seperti AdBlockVpnService: `START_STICKY`, watchdog
+  AlarmManager (`WarpRestartReceiver`) untuk swipe-dari-Recents, dan
+  auto-restart setelah reboot (`BootReceiver` diperluas untuk mode apa pun
+  yang terakhir aktif, bukan cuma DNS).
+- **UI**: kartu baru di HomeScreen dengan switch, status (menyambung/aktif),
+  dan pesan error kalau registrasi/koneksi gagal.
+
+**Keterbatasan yang WAJIB diketahui user** (didokumentasikan langsung di UI
+dan README, bukan disembunyikan):
+- API registrasi WARP **tidak resmi** — Cloudflare bisa mengubah/mematikannya
+  kapan saja tanpa pemberitahuan. Kalau registrasi gagal terus, versi API
+  (`WarpRegistrationClient.API_VERSION`) kemungkinan perlu diperbarui.
+- Ini VPN pihak ketiga sungguhan — semua trafik keluar lewat jaringan
+  Cloudflare, bukan cuma untuk blokir iklan. User perlu paham ini beda
+  fungsi dari mode Ad-Block DNS.
+- Sudah diverifikasi (via riset, bukan asumsi) bahwa profil WireGuard
+  standar tanpa modifikasi apa pun BISA connect ke WARP menggunakan client
+  resmi manapun termasuk Android — ini bukan fitur setengah-jadi yang
+  "mungkin tidak jalan", tapi tetap bergantung pada API tidak resmi yang
+  disebut di atas.
+
 ## v1.2.0 — Pematangan fitur, fokus anti-salah-blokir (2026-08-01)
 
 Tidak ada fitur baru — murni menyelesaikan/mengeraskan fitur yang sudah

@@ -6,6 +6,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
@@ -23,12 +24,15 @@ import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldSurface
 import com.fdzaki.adshield.ui.theme.ShieldSurfaceAlt
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
+import com.wireguard.android.backend.Tunnel
 
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
     onRequestVpnStart: () -> Unit,
     onStopVpn: () -> Unit,
+    onRequestWarpStart: () -> Unit,
+    onStopWarp: () -> Unit,
     onOpenWhitelist: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenLogs: () -> Unit,
@@ -37,6 +41,10 @@ fun HomeScreen(
     val vpnActive by viewModel.vpnActive.collectAsState()
     val blockedCount by viewModel.blockedCount.collectAsState()
     val allowedCount by viewModel.allowedCount.collectAsState()
+    val warpState by viewModel.warpState.collectAsState()
+    val warpConnecting by viewModel.warpConnecting.collectAsState()
+    val warpError by viewModel.warpLastError.collectAsState()
+    val warpUp = warpState == Tunnel.State.UP
 
     Column(
         modifier = Modifier
@@ -89,6 +97,25 @@ fun HomeScreen(
             modifier = Modifier.fillMaxWidth()
         ) { Text("Reset statistik") }
 
+        Spacer(Modifier.height(24.dp))
+
+        WarpModeCard(
+            active = warpUp,
+            connecting = warpConnecting,
+            error = warpError,
+            onToggle = { turnOn ->
+                if (turnOn) onRequestWarpStart() else onStopWarp()
+            }
+        )
+        Text(
+            "Registrasi otomatis ke API gratis Cloudflare WARP yang tidak resmi " +
+                "(dipakai proyek open-source seperti wgcf) — bisa berhenti berfungsi " +
+                "kalau Cloudflare mengubah API tanpa pemberitahuan.",
+            color = ShieldTextMuted,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+        )
+
         Spacer(Modifier.height(28.dp))
 
         NavRow(icon = Icons.Filled.List, label = "Daftar Log Domain", onClick = onOpenLogs)
@@ -109,6 +136,58 @@ fun HomeScreen(
             fontSize = 11.sp,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
+    }
+}
+
+/**
+ * Full-tunnel encrypted VPN mode via Cloudflare WARP (WireGuard protocol).
+ * Mutually exclusive with the DNS ad-block toggle above — turning this on
+ * automatically turns DNS mode off (and vice versa), enforced in
+ * MainActivity, not here; this card only reflects/requests state.
+ */
+@Composable
+private fun WarpModeCard(
+    active: Boolean,
+    connecting: Boolean,
+    error: String?,
+    onToggle: (Boolean) -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = ShieldSurface)
+    ) {
+        Column(Modifier.padding(16.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Lock, contentDescription = null, tint = if (active) ShieldGreen else ShieldTextMuted)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("VPN Tunnel (WARP)", fontWeight = FontWeight.SemiBold)
+                    Text(
+                        when {
+                            connecting -> "Menyambungkan…"
+                            active -> "Semua trafik terenkripsi lewat Cloudflare"
+                            else -> "Full-tunnel WireGuard, mode terpisah dari Ad-Block DNS"
+                        },
+                        fontSize = 12.sp,
+                        color = if (active) ShieldGreen else ShieldTextMuted
+                    )
+                }
+                Switch(
+                    checked = active,
+                    enabled = !connecting,
+                    onCheckedChange = onToggle
+                )
+            }
+            if (error != null) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    "Gagal: $error",
+                    color = ShieldDanger,
+                    fontSize = 11.sp
+                )
+            }
+        }
     }
 }
 

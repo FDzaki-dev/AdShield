@@ -9,6 +9,9 @@ import com.fdzaki.adshield.data.InstalledAppsRepository
 import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
+import com.fdzaki.adshield.util.AppMode
+import com.fdzaki.adshield.warp.WarpTunnelManager
+import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -22,9 +25,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val installedAppsRepository = InstalledAppsRepository(application)
     private val domainLogDao = AppDatabase.getInstance(application).domainLogDao()
     private val blocklist = BlocklistManager.getInstance()
+    private val warpTunnelManager = WarpTunnelManager.getInstance(application)
 
     private val _vpnActive = MutableStateFlow(false)
     val vpnActive: StateFlow<Boolean> = _vpnActive
+
+    /** Which of the two mutually-exclusive modes is active — persisted, so
+     *  it also reflects state correctly right after process restart. */
+    val activeMode: StateFlow<String> = settingsRepository.activeMode
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppMode.NONE)
+
+    val warpState: StateFlow<Tunnel.State> = warpTunnelManager.state
+    val warpLastError: StateFlow<String?> = warpTunnelManager.lastError
+    val warpConnecting: StateFlow<Boolean> = warpTunnelManager.connecting
 
     private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps
@@ -109,5 +122,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun resetCounters() {
         viewModelScope.launch { settingsRepository.resetCounters() }
+    }
+
+    fun forgetWarpAccount() {
+        viewModelScope.launch { warpTunnelManager.forgetAccount() }
     }
 }

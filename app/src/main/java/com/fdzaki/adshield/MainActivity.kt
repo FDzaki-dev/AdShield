@@ -22,16 +22,29 @@ import com.fdzaki.adshield.ui.screens.LogsScreen
 import com.fdzaki.adshield.ui.screens.RulesScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
+import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.vpn.AdBlockVpnService
+import com.fdzaki.adshield.warp.WarpForegroundService
 
 class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels()
 
+    /** Which mode we were trying to start when the VPN permission dialog was
+     *  launched — the system callback tells us permission was granted, but
+     *  not what for, so we track it ourselves. */
+    private var pendingStartMode: String? = null
+
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
-        if (result.resultCode == RESULT_OK) startVpnService()
+        if (result.resultCode == RESULT_OK) {
+            when (pendingStartMode) {
+                AppMode.DNS_ADBLOCK -> startDnsService()
+                AppMode.WARP_TUNNEL -> startWarpService()
+            }
+        }
+        pendingStartMode = null
     }
 
     private val notifPermissionLauncher = registerForActivityResult(
@@ -53,8 +66,10 @@ class MainActivity : ComponentActivity() {
                     composable("home") {
                         HomeScreen(
                             viewModel = viewModel,
-                            onRequestVpnStart = ::requestVpnPermissionThenStart,
-                            onStopVpn = ::stopVpnService,
+                            onRequestVpnStart = ::requestVpnPermissionThenStartDns,
+                            onStopVpn = ::stopDnsService,
+                            onRequestWarpStart = ::requestVpnPermissionThenStartWarp,
+                            onStopWarp = ::stopWarpService,
                             onOpenWhitelist = { navController.navigate("whitelist") },
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
@@ -75,25 +90,43 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun requestVpnPermissionThenStart() {
+    private fun requestVpnPermissionThenStartDns() {
+        pendingStartMode = AppMode.DNS_ADBLOCK
         val prepareIntent = VpnService.prepare(this)
-        if (prepareIntent != null) {
-            vpnPermissionLauncher.launch(prepareIntent)
-        } else {
-            startVpnService()
-        }
+        if (prepareIntent != null) vpnPermissionLauncher.launch(prepareIntent) else startDnsService()
     }
 
-    private fun startVpnService() {
+    private fun requestVpnPermissionThenStartWarp() {
+        pendingStartMode = AppMode.WARP_TUNNEL
+        val prepareIntent = VpnService.prepare(this)
+        if (prepareIntent != null) vpnPermissionLauncher.launch(prepareIntent) else startWarpService()
+    }
+
+    /** Modes are mutually exclusive (see PROJECT_STATE.md) — starting one
+     *  always sends a stop to the other first. Stopping an already-stopped
+     *  service is a harmless no-op. */
+    private fun startDnsService() {
+        stopWarpService()
         val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
         viewModel.setVpnActive(true)
     }
 
-    private fun stopVpnService() {
+    private fun stopDnsService() {
         val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_STOP)
         startService(intent)
         viewModel.setVpnActive(false)
+    }
+
+    private fun startWarpService() {
+        stopDnsService()
+        val intent = Intent(this, WarpForegroundService::class.java).setAction(WarpForegroundService.ACTION_START)
+        ContextCompat.startForegroundService(this, intent)
+    }
+
+    private fun stopWarpService() {
+        val intent = Intent(this, WarpForegroundService::class.java).setAction(WarpForegroundService.ACTION_STOP)
+        startService(intent)
     }
 
     private fun maybeRequestNotificationPermission() {

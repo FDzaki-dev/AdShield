@@ -3,11 +3,15 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v1.2.0** (pematangan fitur, 2026-08-01)
-- Belum pernah di-push ke GitHub — v1.0.0 gagal build, belum ada konfirmasi
-  versi mana yang sudah user push. Sinkronkan status ini kalau user kasih
-  tau progress push-nya.
-- Belum pernah dites di device asli (belum ada feedback bug dari user).
+- **Versi terakhir selesai: v2.0.0** (mode VPN Tunnel WARP, 2026-08-02)
+- Belum pernah di-push ke GitHub sama sekali — semua versi sejak v1.0.0
+  masih menunggu push pertama dari user. Sinkronkan status ini kalau user
+  kasih tau progress push-nya.
+- Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
+  divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
+  device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
+  javadoc resmi library, tapi belum ada bukti langsung "berhasil connect
+  ke Cloudflare" dari device Ted.
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
 
@@ -55,8 +59,48 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    user untuk didiagnosis. Kalau nambah domain esensial baru ke sini,
    dokumentasikan alasannya di komentar kode.
 
+6. **Mode VPN Tunnel (WARP) — v2.0.0, package `warp/`.** Engine TERPISAH
+   TOTAL dari AdBlockVpnService, pakai library resmi
+   `com.wireguard.android:tunnel` (GoBackend), full-tunnel (`0.0.0.0/0`).
+   Keputusan yang JANGAN dilanggar:
+   - Dua mode (`AppMode.DNS_ADBLOCK` / `AppMode.WARP_TUNNEL`) TIDAK PERNAH
+     boleh jalan bersamaan. Mutual exclusion ditegakkan di
+     `MainActivity.startDnsService()`/`startWarpService()` (saling stop
+     yang lain dulu). Kalau nambah titik masuk baru untuk start salah satu
+     mode (mis. quick-settings tile, widget), WAJIB lewat fungsi yang sama,
+     jangan panggil `AdBlockVpnService`/`WarpForegroundService` langsung.
+   - `WarpRegistrationClient.API_VERSION` (saat ini `"v0a1922"`) adalah
+     path segment yang Cloudflare ubah sewaktu-waktu tanpa pemberitahuan —
+     ini BUKAN bug kalau tiba-tiba registrasi gagal, cek dulu apakah
+     Cloudflare sudah ganti versi (lihat source wgcf terbaru).
+   - Field request registrasi (`install_id`, `tos`, `key`, `fcm_token`,
+     `type`, `model`, `locale`) meniru persis apa yang dikirim `wgcf` —
+     JANGAN kurangi field ini kalau registrasi mulai gagal, kemungkinan
+     malah perlu DITAMBAH (Cloudflare pernah memperketat validasi).
+   - Endpoint peer WARP TIDAK di-hardcode — selalu dari hasil respons
+     registrasi (`config.peers[0].endpoint.host`), dengan fallback
+     `engage.cloudflareclient.com:2408` kalau field itu kosong.
+   - API resmi library WireGuard (method names Interface.Builder/
+     Peer.Builder/Config.Builder) sudah diverifikasi lewat javadoc.io
+     resmi saat implementasi — kalau upgrade versi dependency
+     `com.wireguard.android:tunnel`, cek changelog resminya dulu sebelum
+     asumsikan API sama persis.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-02 (v2.0.0)**: User minta fitur "overkill setara WARP/MASQUE/
+  WireGuard". Diklarifikasi dulu sebelum kerja (sesuai aturan analisis
+  dampak arsitektur di userPreferences) — hasil klarifikasi: mode terpisah
+  mutually-exclusive, pakai WARP Cloudflare gratis, fokus WireGuard saja
+  (MASQUE nyaris tidak ada library Android). Riset dilakukan via web search
+  sebelum nulis kode (bukan asumsi dari training data) untuk: (1) apakah
+  library resmi WireGuard Android mendukung reserved-bytes WARP — TIDAK,
+  tapi dikonfirmasi lewat banyak sumber independen (wgcf, forum pengguna)
+  bahwa profil WireGuard standar tetap bisa connect ke WARP tanpa itu;
+  (2) format request/response API registrasi WARP — diambil dari source
+  wgcf.py yang ter-arsip; (3) nama method exact di javadoc.io resmi
+  library `com.wireguard.android:tunnel` untuk Interface.Builder/
+  Peer.Builder/Config.Builder, supaya kode tidak asal tebak nama API.
 - **2026-08-01 (v1.2.0, ditemukan saat repackaging)**: Ketemu 3 direktori
   sampah berisi nama literal `{a,b,c}` di `app/src/main/java/.../adshield/`
   dan `app/src/main/res/` — sisa dari command `mkdir -p ... {a,b,c}` di
@@ -93,26 +137,39 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ```
 vpn/           AdBlockVpnService (VpnService, packet loop), DnsPacket (parser/builder)
-data/          BlocklistManager (in-memory), SettingsRepository (DataStore),
-               InstalledAppsRepository, data/db/ (Room: DomainLogEntity/Dao/AppDatabase)
-receiver/      BootReceiver, RestartReceiver
+warp/          WarpTunnelManager (GoBackend wrapper), WarpRegistrationClient (HTTP
+               registrasi Cloudflare), WarpAccountRepository (DataStore identitas
+               WARP), WarpForegroundService (wrapper notifikasi/watchdog), WarpAccount
+data/          BlocklistManager (in-memory), SettingsRepository (DataStore, termasuk
+               activeMode), InstalledAppsRepository, data/db/ (Room: log domain)
+receiver/      BootReceiver (restart mode aktif setelah reboot), RestartReceiver
+               (watchdog DNS), WarpRestartReceiver (watchdog WARP)
 ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/theme/
-util/          Constants (semua magic number/string terpusat di sini)
+util/          Constants, AppMode (2 mode yang mutually-exclusive)
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-1. Uji di device fisik: apakah watchdog AlarmManager di XOS Ted benar-benar
-   mencegah service dibunuh saat app di-swipe dari Recents.
-2. Uji whitelist per-app di device fisik Ted (Infinix XOS) — cek dulu versi
+1. **PALING PENTING: uji mode WARP di device fisik Ted.** Ini belum pernah
+   divalidasi end-to-end sama sekali (lihat "Status terakhir" di atas).
+   Yang perlu dicek urut: (a) apakah `gradle assembleRelease` di CI sukses
+   compile dengan dependency WireGuard baru, (b) apakah registrasi WARP
+   sukses dapat respons dari Cloudflare, (c) apakah tunnel benar-benar UP
+   dan trafik internet jalan lewat WARP (cek IP publik berubah). Kalau
+   gagal di titik manapun, laporkan pesan error persis dari UI/logcat.
+2. Uji di device fisik: apakah watchdog AlarmManager di XOS Ted benar-benar
+   mencegah service dibunuh saat app di-swipe dari Recents (berlaku untuk
+   KEDUA mode, DNS dan WARP).
+3. Uji whitelist per-app di device fisik Ted (Infinix XOS) — cek dulu versi
    Android-nya di atas/di bawah 10 sebelum menyimpulkan bug kalau ada laporan.
-3. Belum ada unit test sama sekali — pertimbangkan test untuk `DnsPacket`
+4. Belum ada unit test sama sekali — pertimbangkan test untuk `DnsPacket`
    parsing (paling kritis, paling gampang salah) dan `BlocklistManager`
    exact/wildcard matching (termasuk critical allowlist).
-4. Tidak ada `gradle-wrapper.jar` binary di repo ini (dibuat tanpa akses
+5. Tidak ada `gradle-wrapper.jar` binary di repo ini (dibuat tanpa akses
    internet). CI pakai `gradle/actions/setup-gradle` (menginstal Gradle
    langsung, tidak butuh wrapper). Kalau user mau pakai `./gradlew` secara
    lokal, jalankan `gradle wrapper --gradle-version 8.7` sekali di
    Termux/device dengan Gradle terpasang untuk generate wrapper jar-nya.
-5. (Belum prioritas, jangan dikerjakan kecuali diminta): deteksi DoH,
-   import blocklist dari URL custom, statistik per-app.
+6. (Belum prioritas, jangan dikerjakan kecuali diminta): deteksi DoH,
+   import blocklist dari URL custom, statistik per-app, MASQUE (nyaris
+   tidak ada library Android siap pakai — lihat riwayat keputusan v2.0.0).

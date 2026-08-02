@@ -60,10 +60,40 @@
             </intent-filter>
         </receiver>
 
+        <!-- Official WireGuard tunnel engine (GoBackend), used only by the
+             "VPN Tunnel (WARP)" mode. Mutually exclusive with
+             AdBlockVpnService — only one VPN interface is ever established
+             at a time, enforced in MainViewModel/MainActivity. -->
+        <service
+            android:name="com.wireguard.android.backend.GoBackend$VpnService"
+            android:exported="false"
+            android:permission="android.permission.BIND_VPN_SERVICE">
+            <intent-filter>
+                <action android:name="android.net.VpnService" />
+            </intent-filter>
+        </service>
+
+        <!-- Foreground wrapper for WARP mode: keeps a persistent
+             notification + survives Recents-swipe, orchestrates
+             WarpTunnelManager. Not a VpnService itself — GoBackend.VpnService
+             above is the actual VPN interface owner. -->
+        <service
+            android:name=".warp.WarpForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Full-tunnel WireGuard VPN connection (Cloudflare WARP)" />
+        </service>
+
         <!-- If the user swipes the app away from Recents, restart the
              foreground service shortly after so blocking never silently stops. -->
         <receiver
             android:name=".receiver.RestartReceiver"
+            android:exported="false" />
+
+        <receiver
+            android:name=".receiver.WarpRestartReceiver"
             android:exported="false" />
 
     </application>
