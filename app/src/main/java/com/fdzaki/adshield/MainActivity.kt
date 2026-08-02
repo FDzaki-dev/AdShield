@@ -12,7 +12,11 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -23,8 +27,10 @@ import com.fdzaki.adshield.ui.screens.RulesScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
 import com.fdzaki.adshield.util.AppMode
+import com.fdzaki.adshield.util.ShortcutsManager
 import com.fdzaki.adshield.vpn.AdBlockVpnService
 import com.fdzaki.adshield.warp.WarpForegroundService
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -34,6 +40,11 @@ class MainActivity : ComponentActivity() {
      *  launched — the system callback tells us permission was granted, but
      *  not what for, so we track it ourselves. */
     private var pendingStartMode: String? = null
+
+    /** Set from a static shortcut's EXTRA_SHORTCUT_DEST (see
+     *  res/xml/shortcuts.xml) so the NavHost can jump straight to that
+     *  screen once it's composed, instead of always landing on Home first. */
+    private var pendingNavDestination by mutableStateOf<String?>(null)
 
     private val vpnPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -54,12 +65,23 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        pendingNavDestination = intent?.getStringExtra(ShortcutsManager.EXTRA_SHORTCUT_DEST)
+        handleShortcutToggleIntent(intent)
+
         setContent {
             AdShieldTheme {
                 val navController = rememberNavController()
 
                 LaunchedEffect(Unit) {
                     maybeRequestNotificationPermission()
+                }
+
+                LaunchedEffect(pendingNavDestination) {
+                    val dest = pendingNavDestination
+                    if (dest == "whitelist" || dest == "logs") {
+                        navController.navigate(dest)
+                    }
+                    pendingNavDestination = null
                 }
 
                 NavHost(navController = navController, startDestination = "home") {
@@ -85,6 +107,35 @@ class MainActivity : ComponentActivity() {
                     composable("logs") {
                         LogsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                     }
+                }
+            }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingNavDestination = intent.getStringExtra(ShortcutsManager.EXTRA_SHORTCUT_DEST)
+        handleShortcutToggleIntent(intent)
+    }
+
+    /** Handles the two dynamic toggle shortcuts (see ShortcutsManager /
+     *  AdShieldApp). Reads the true persisted mode via a one-shot suspend
+     *  call — NOT viewModel.activeMode.value, which on a cold start would
+     *  still just be its stateIn() seed value (AppMode.NONE) since nothing
+     *  has subscribed to it yet, and could toggle the wrong direction. */
+    private fun handleShortcutToggleIntent(intent: Intent?) {
+        val action = intent?.action
+        if (action != ShortcutsManager.ACTION_TOGGLE_DNS && action != ShortcutsManager.ACTION_TOGGLE_WARP) return
+
+        lifecycleScope.launch {
+            val mode = viewModel.currentActiveMode()
+            when (action) {
+                ShortcutsManager.ACTION_TOGGLE_DNS -> {
+                    if (mode == AppMode.DNS_ADBLOCK) stopDnsService() else requestVpnPermissionThenStartDns()
+                }
+                ShortcutsManager.ACTION_TOGGLE_WARP -> {
+                    if (mode == AppMode.WARP_TUNNEL) stopWarpService() else requestVpnPermissionThenStartWarp()
                 }
             }
         }

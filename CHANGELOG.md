@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.2.0 — App Shortcuts: navigasi cepat dari launcher (2026-08-02)
+
+Diminta user terpisah dari daftar "Kekurangan AdShield" — tujuannya
+navigasi lebih cepat tanpa harus buka aplikasi dulu. Tidak menyentuh logic
+DNS/WARP inti sama sekali, murni menambah jalur akses baru ke fungsi yang
+sudah ada.
+
+- **Baru: 2 shortcut statis** (tekan lama ikon AdShield di launcher) —
+  "Whitelist" dan "Log", langsung membuka layar itu tanpa mampir ke Home
+  dulu. Didefinisikan di `res/xml/shortcuts.xml`, label & ikon tetap
+  (tidak berubah sesuai state).
+- **Baru: 2 shortcut dinamis** — "Nyalakan/Matikan DNS" dan
+  "Nyalakan/Matikan WARP". Label & ikonnya otomatis berganti sesuai mode
+  yang sedang aktif, disinkronkan dari `AdShieldApp` setiap
+  `SettingsRepository.activeMode` berubah (baik toggle dari shortcut
+  maupun dari tombol di Home screen) lewat `util/ShortcutsManager.kt` baru.
+- **Fix (ditemukan saat implementasi batch ini, bukan regresi lama):**
+  toggle shortcut bisa salah arah kalau aplikasi dibuka dari kondisi
+  ke-kill total lewat shortcut — penyebabnya baca state dari StateFlow
+  yang belum sempat ada subscriber-nya (`activeMode.value` masih seed
+  `AppMode.NONE`, bukan mode asli tersimpan). Diperbaiki dengan
+  `MainViewModel.currentActiveMode()`, baca `.first()` langsung dari
+  DataStore.
+- Tidak ada perubahan pada mode Ad-Block DNS maupun WARP itu sendiri —
+  cuma jalur akses baru ke toggle & 2 layar yang sudah ada.
+
 ## v2.1.0 — WARP UX: auto reconnect & indikator kualitas koneksi (2026-08-02)
 
 Batch pertama dari daftar "Kekurangan AdShield" yang diminta user — fokus

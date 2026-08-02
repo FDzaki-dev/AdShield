@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Static shortcuts: navigate straight into a screen without landing on Home
+  first. These two are state-independent (always show the same label), so
+  they're declared here instead of pushed at runtime. The two toggle
+  shortcuts (Nyalakan/Matikan DNS & WARP) are NOT here — their label depends
+  on which mode is currently running, so they're managed dynamically by
+  ShortcutsManager.kt / AdShieldApp instead (see util/ShortcutsManager.kt).
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="open_whitelist"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_whitelist"
+        android:shortcutShortLabel="@string/shortcut_whitelist_short"
+        android:shortcutLongLabel="@string/shortcut_whitelist_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.fdzaki.adshield"
+            android:targetClass="com.fdzaki.adshield.MainActivity">
+            <extra
+                android:name="com.fdzaki.adshield.extra.SHORTCUT_DEST"
+                android:value="whitelist" />
+        </intent>
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="open_logs"
+        android:enabled="true"
+        android:icon="@drawable/ic_shortcut_logs"
+        android:shortcutShortLabel="@string/shortcut_logs_short"
+        android:shortcutLongLabel="@string/shortcut_logs_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.fdzaki.adshield"
+            android:targetClass="com.fdzaki.adshield.MainActivity">
+            <extra
+                android:name="com.fdzaki.adshield.extra.SHORTCUT_DEST"
+                android:value="logs" />
+        </intent>
+    </shortcut>
+</shortcuts>

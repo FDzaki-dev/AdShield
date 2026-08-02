@@ -3,8 +3,8 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.1.0** (WARP UX: auto reconnect + indikator
-  kualitas koneksi, 2026-08-02)
+- **Versi terakhir selesai: v2.2.0** (App Shortcuts / long-press launcher
+  icon navigasi cepat, 2026-08-02)
 - **Sudah di-push ke GitHub** (dikonfirmasi user 2026-08-02) — catatan lama
   di sini yang bilang "belum pernah push" sudah usang, jangan dipercaya lagi.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
@@ -13,8 +13,14 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
   javadoc resmi library, tapi belum ada bukti langsung "berhasil connect
   ke Cloudflare" dari device Ted. Ini TETAP prioritas #1 — user secara
   eksplisit memilih skip validasi dan lanjut ke fitur baru (2026-08-02),
-  jadi fitur v2.1.0 (auto-reconnect, quality probe) JUGA belum pernah
-  dibuktikan jalan nyata, sama seperti tunnel dasarnya.
+  jadi fitur v2.1.0 (auto-reconnect, quality probe) dan v2.2.0 (shortcuts)
+  JUGA belum pernah dibuktikan jalan nyata, sama seperti tunnel dasarnya.
+- **Soal `log_failure_Adshield.txt` yang di-upload user bareng v2.1.0 zip
+  (2026-08-02)**: isinya BUKAN bukti build gagal. Semua run di `gh run
+  list` yang tercantum berstatus sukses (✓). Baris terakhir di file itu
+  (`gh run view --log-failed` tanpa run ID) cuma gagal karena command-nya
+  butuh run ID eksplisit saat non-interactive, bukan karena ada build yang
+  benar-benar gagal. Belum ada bukti kegagalan CI nyata sampai sesi ini.
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
 
@@ -137,8 +143,63 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      latensi diukur lewat trace-probe HTTP, bukan dari statistik
      WireGuard itu sendiri.
 
+7. **App Shortcuts (v2.2.0) — kontrak yang JANGAN dilanggar.**
+   - Shortcut statis (Whitelist, Log) dideklarasikan di
+     `res/xml/shortcuts.xml`, bukan runtime — labelnya tidak pernah
+     berubah. Shortcut dinamis (toggle DNS, toggle WARP) dikelola HANYA
+     lewat `util/ShortcutsManager.kt`, dipanggil dari `AdShieldApp`
+     (collect `SettingsRepository.activeMode`, bukan dari MainActivity)
+     supaya label tetap sinkron walau toggle terjadi dari Home screen,
+     bukan dari shortcut itu sendiri.
+   - `MainActivity.handleShortcutToggleIntent()` WAJIB baca mode lewat
+     `viewModel.currentActiveMode()` (suspend, `.first()` langsung dari
+     DataStore), BUKAN `viewModel.activeMode.value` — StateFlow itu
+     `stateIn(..., WhileSubscribed(5000), AppMode.NONE)`, jadi `.value`
+     di cold-start (sebelum ada UI yang subscribe) masih seed `NONE`,
+     bukan mode asli. Kalau ini diganti balik ke `.value` demi
+     "simplifikasi", toggle shortcut akan salah arah saat app dibuka
+     dari kondisi ke-kill total lewat shortcut.
+   - `ShortcutManagerCompat.setDynamicShortcuts()` (bukan add/update
+     manual) dipanggil tiap `activeMode` berubah — ini SENGAJA mengganti
+     seluruh dynamic set sekaligus (selalu kirim kedua shortcut DNS+WARP)
+     supaya tidak perlu bookkeeping id per-shortcut yang rawan drift.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-02 (v2.2.0, ditemukan saat validasi sebelum packaging —
+  PENTING, baca ini setiap sesi baru)**: `.gitignore` dan
+  `.github/workflows/build.yml` TIDAK PERNAH menjadi bagian dari ZIP
+  manapun yang dikirim Claude ke user — keduanya dibuat sekali lewat
+  command Termux langsung saat setup awal proyek (`echo "release.keystore"
+  >> .gitignore`, dan workflow CI dibuat/diedit manual di luar alur ZIP).
+  Ini artinya file ZIP hasil Claude MEMANG selalu tidak berisi kedua file
+  itu — bukan bug, ini fakta soal alur kerja proyek ini. TAPI ini bahaya
+  laten: command update Termux standar (`find . -mindepth 1 -maxdepth 1 !
+  -name '.git' -exec rm -rf {} +` lalu unzip) akan MENGHAPUS keduanya
+  kalau tidak dikecualikan secara eksplisit, dan push berikutnya akan
+  menghapusnya dari GitHub juga → CI mati. **WAJIB**: command Termux yang
+  diberikan ke user setiap update HARUS mengecualikan `.gitignore` DAN
+  `.github` dari langkah `rm -rf` (bukan cuma `.git`), KECUALI user
+  eksplisit minta kedua file itu diperbarui/dihapus. Kalau suatu saat user
+  minta Claude mengelola isi `.gitignore`/`build.yml` lewat ZIP juga
+  (bukan manual lagi), council ini harus di-update dan kedua file itu
+  wajib disertakan di ZIP dari titik itu seterusnya.
+
+- **2026-08-02 (v2.2.0)**: User minta "semua fitur shortcut" untuk navigasi
+  cepat tanpa buka app dulu. Ditambahkan Android App Shortcuts (tekan lama
+  ikon launcher): 2 shortcut statis (Whitelist, Log — `res/xml/shortcuts.xml`)
+  + 2 shortcut dinamis toggle (Nyalakan/Matikan DNS, Nyalakan/Matikan WARP —
+  `util/ShortcutsManager.kt`, disinkronkan otomatis dari `AdShieldApp` tiap
+  `activeMode` berubah). Selama implementasi ditemukan & langsung diperbaiki
+  1 bug logika (bukan regresi dari kode lama, murni salah desain awal di
+  batch ini): `viewModel.activeMode.value` dibaca langsung di cold-start
+  sebelum ada yang subscribe ke StateFlow-nya, sehingga masih seed value
+  `AppMode.NONE`, bukan mode asli tersimpan — bisa bikin toggle shortcut
+  salah arah kalau app baru dibuka lewat shortcut dari kondisi ke-kill total.
+  Diperbaiki dengan `MainViewModel.currentActiveMode()` (baca `.first()`
+  langsung dari `SettingsRepository`, bukan lewat StateFlow yang di-stateIn).
+  Efek samping: 2 method reference (`::stopDnsService`, `::stopWarpService`)
+  sudah lambda sejak v2.0.1, tidak perlu diubah lagi di batch ini.
 - **2026-08-02 (v2.1.0)**: User memberi daftar "Kekurangan AdShield"
   (gap analysis WARP/DNS/Monitoring/UX). Ditanya dulu (sesuai aturan
   analisis dampak arsitektur): (a) validasi device dulu atau lanjut fitur
@@ -220,8 +281,9 @@ data/          BlocklistManager (in-memory), SettingsRepository (DataStore, term
                activeMode), InstalledAppsRepository, data/db/ (Room: log domain)
 receiver/      BootReceiver (restart mode aktif setelah reboot), RestartReceiver
                (watchdog DNS), WarpRestartReceiver (watchdog WARP)
+util/          Constants, AppMode (2 mode mutually-exclusive), ShortcutsManager
+               (push 2 shortcut dinamis toggle DNS/WARP — lihat keputusan #7)
 ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/theme/
-util/          Constants, AppMode (2 mode yang mutually-exclusive)
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
@@ -229,7 +291,9 @@ util/          Constants, AppMode (2 mode yang mutually-exclusive)
 0. **Arahan user (2026-08-02, DIPERBARUI): user sekarang mengizinkan
    fitur baru dari daftar "Kekurangan AdShield" (bukan cuma WARP/WireGuard
    lagi).** Batch-1 (WARP UX: auto reconnect + indikator kualitas) SUDAH
-   SELESAI di v2.1.0. Kategori tersisa dari daftar itu, MENUNGGU user
+   SELESAI di v2.1.0. App Shortcuts (navigasi cepat lewat launcher, bukan
+   dari daftar asli tapi diminta user terpisah) SUDAH SELESAI di v2.2.0.
+   Kategori tersisa dari daftar "Kekurangan AdShield", MENUNGGU user
    pilih batch berikutnya — JANGAN kerjakan semuanya sekaligus dalam satu
    ZIP, tetap satu kategori per batch sesuai aturan pemecahan batch user:
    - DNS AdBlocker: custom DNS (DoH/DoT), auto-update blocklist,

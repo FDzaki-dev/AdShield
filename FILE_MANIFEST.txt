@@ -1,12 +1,22 @@
-# FILE_MANIFEST.txt — output `git ls-files`, versi v2.1.0 (2026-08-02)
-# 47 file dilacak git (46 sebelumnya + 1 baru: warp/WarpConnectionQuality.kt).
-# File yang berubah isinya: warp/WarpTunnelManager.kt, warp/WarpForegroundService.kt,
-# ui/MainViewModel.kt, ui/screens/HomeScreen.kt, ui/theme/Color.kt,
-# app/build.gradle.kts (versionCode/versionName), PROJECT_STATE.md, CHANGELOG.md,
-# README.md.
-# Regenerate tiap rilis dengan: git ls-files | sort
-.github/workflows/build.yml
-.gitignore
+# FILE_MANIFEST.txt — isi ZIP v2.2.0 (2026-08-02), 52 file (tidak termasuk
+# file ini sendiri) — base v2.1.0 hasil extract ZIP GitHub ada 45 file
+# (TERMASUK FILE_MANIFEST.txt lama, TIDAK termasuk .gitignore/.github — lihat
+# catatan di bawah), + 8 file baru batch ini: util/ShortcutsManager.kt,
+# res/xml/shortcuts.xml, 6 ikon vector shortcut (drawable/ic_shortcut_*.xml).
+# File yang isinya berubah: MainActivity.kt, ui/MainViewModel.kt,
+# AdShieldApp.kt, AndroidManifest.xml, res/values/strings.xml,
+# app/build.gradle.kts (versionCode/versionName), PROJECT_STATE.md,
+# CHANGELOG.md, README.md.
+#
+# PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
+# `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
+# ini maupun ZIP ini. Keduanya ada di repo asli tapi dibuat lewat command
+# Termux langsung saat setup awal (bukan lewat ZIP) — lihat catatan di
+# PROJECT_STATE.md § Riwayat insiden 2026-08-02 (v2.2.0). JANGAN hapus
+# keduanya saat update — command Termux di respons pengiriman ZIP ini sudah
+# disesuaikan untuk mengecualikan keduanya dari langkah pembersihan.
+#
+# Regenerate isi ZIP (bukan git ls-files) tiap rilis dengan: find . -type f
 CHANGELOG.md
 PROJECT_STATE.md
 README.md
@@ -32,6 +42,7 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
+app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpAccount.kt
@@ -41,6 +52,12 @@ app/src/main/java/com/fdzaki/adshield/warp/WarpForegroundService.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpRegistrationClient.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt
 app/src/main/res/drawable/ic_launcher_foreground.xml
+app/src/main/res/drawable/ic_shortcut_dns_off.xml
+app/src/main/res/drawable/ic_shortcut_dns_on.xml
+app/src/main/res/drawable/ic_shortcut_logs.xml
+app/src/main/res/drawable/ic_shortcut_warp_off.xml
+app/src/main/res/drawable/ic_shortcut_warp_on.xml
+app/src/main/res/drawable/ic_shortcut_whitelist.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 app/src/main/res/raw/blocklist_default.txt
@@ -48,10 +65,7 @@ app/src/main/res/values/colors.xml
 app/src/main/res/values/ic_launcher_background.xml
 app/src/main/res/values/strings.xml
 app/src/main/res/values/themes.xml
+app/src/main/res/xml/shortcuts.xml
 build.gradle.kts
 gradle.properties
 settings.gradle.kts
-
-# TIDAK dilacak git (sengaja, lihat .gitignore):
-# app/release.keystore     - materi signing, disertakan di ZIP tapi tidak di-push
-# keystore.properties      - kredensial plaintext lokal

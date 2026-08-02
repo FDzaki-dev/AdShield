@@ -93,6 +93,9 @@ Alur saat pertama kali diaktifkan:
 - Bertahan setelah app di-swipe dari Recents (foreground service + `START_STICKY`
   + watchdog AlarmManager untuk OEM agresif seperti XOS/MIUI/ColorOS)
 - **Mutually exclusive** — mengaktifkan salah satu otomatis mematikan yang lain
+- **App Shortcuts** — tekan lama ikon AdShield di launcher: buka
+  Whitelist/Log langsung, atau toggle Nyalakan/Matikan DNS & WARP tanpa
+  buka aplikasi dulu (label shortcut toggle otomatis mengikuti mode aktif)
 
 ## Batasan yang perlu diketahui
 
@@ -123,7 +126,9 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.1.0** — WARP UX: auto reconnect + indikator kualitas koneksi
+- **v2.2.0** — App Shortcuts: tekan lama ikon di launcher untuk buka
+  Whitelist/Log langsung, atau toggle DNS/WARP tanpa buka aplikasi
+- v2.1.0 — WARP UX: auto reconnect + indikator kualitas koneksi
   (latensi & konfirmasi trafik nyata lewat probe Cloudflare). Belum
   divalidasi di device fisik (lihat Batasan di atas)
 - v2.0.1 — perbaikan bug internal: race condition saat pindah mode

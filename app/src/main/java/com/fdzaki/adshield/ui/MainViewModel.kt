@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -129,4 +130,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun forgetWarpAccount() {
         viewModelScope.launch { warpTunnelManager.forgetAccount() }
     }
+
+    /** One-shot read of the true persisted mode, straight from DataStore —
+     *  unlike [activeMode] (a stateIn'd StateFlow), this doesn't depend on
+     *  something already having subscribed to it. Needed when handling a
+     *  toggle shortcut tap on a cold start: at that point activeMode.value
+     *  would still just be its stateIn() seed value (AppMode.NONE), not the
+     *  real persisted mode, since WhileSubscribed(5000) hasn't started
+     *  collecting yet. */
+    suspend fun currentActiveMode(): String = settingsRepository.activeMode.first()
 }
