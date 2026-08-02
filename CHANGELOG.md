@@ -1,5 +1,42 @@
 # Changelog
 
+## v2.1.0 — WARP UX: auto reconnect & indikator kualitas koneksi (2026-08-02)
+
+Batch pertama dari daftar "Kekurangan AdShield" yang diminta user — fokus
+kategori WARP UX saja (bukan DNS AdBlocker/Monitoring/UX, itu batch
+terpisah). Semua fitur di bawah murni tambahan (extend), tidak menyentuh
+alur `connect()`/`disconnect()` yang sudah teruji, dan tidak mengubah
+kontrak/behavior mode Ad-Block DNS sama sekali.
+
+- **Baru: Auto reconnect WARP.** `WarpTunnelManager` sekarang punya
+  watchdog internal yang mengecek konektivitas nyata setiap ~25 detik
+  selama tunnel seharusnya aktif. Kalau 2x probe berturut-turut gagal
+  (atau interface WireGuard-nya ternyata DOWN padahal seharusnya UP),
+  tunnel otomatis di-restart dengan backoff eksponensial (5s → 10s → 20s
+  → 40s → capped 60s), maksimum 5 percobaan per sesi "nyala" — supaya
+  tidak menguras baterai kalau memang tidak ada internet sama sekali.
+  Reset otomatis tiap kali user matikan-nyalakan manual.
+- **Baru: Indikator kualitas koneksi.** Bukan cuma "interface UP" (yang
+  bisa menipu — WireGuard bisa "UP" walau paket tidak benar-benar sampai
+  ke Cloudflare), tapi probe nyata ke `cdn-cgi/trace` Cloudflare tiap
+  siklus watchdog: latensi (ms) dan konfirmasi `warp=on` dari body respons
+  itu sendiri. Ditampilkan sebagai titik status berwarna + teks singkat di
+  bawah toggle WARP (hijau = baik, kuning = agak lambat, merah = trafik
+  belum terkonfirmasi/sedang reconnect), dan juga di teks notifikasi
+  persisten WARP (supaya kelihatan tanpa buka app).
+- Tidak ada perubahan pada mode Ad-Block DNS, tidak ada file yang dihapus,
+  tidak ada regresi pada fitur WARP yang sudah ada (registrasi, mutual
+  exclusion dua mode, EXTRA_MODE_SWITCH, dll — semua utuh).
+
+**Catatan penting (belum berubah dari v2.0.1):** batch ini TIDAK menguji
+WARP di device fisik — itu masih prioritas #1 yang tercatat di
+PROJECT_STATE.md dan belum dilakukan. Auto-reconnect di atas ditulis
+berdasarkan API resmi WireGuard Android (`Backend.getStatistics()`,
+diverifikasi lewat javadoc.io) dan endpoint publik Cloudflare
+(`cdn-cgi/trace`, dipakai luas oleh proyek WARP pihak ketiga untuk cek
+status `warp=on`), tapi keduanya belum pernah dibuktikan jalan nyata di
+HP.
+
 ## v2.0.1 — Perbaikan race condition activeMode (2026-08-02)
 
 Bukan fitur baru — audit kode menyeluruh (diminta user: "bawa aplikasi ke

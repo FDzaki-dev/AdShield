@@ -1,7 +1,9 @@
-# FILE_MANIFEST.txt — output `git ls-files`, versi v2.0.1 (2026-08-02)
-# 46 file dilacak git (sama seperti v2.0.0 — v2.0.1 murni bugfix, tidak ada
-# file baru/dihapus, cuma isi AdBlockVpnService.kt, WarpForegroundService.kt,
-# MainActivity.kt, app/build.gradle.kts yang berubah).
+# FILE_MANIFEST.txt — output `git ls-files`, versi v2.1.0 (2026-08-02)
+# 47 file dilacak git (46 sebelumnya + 1 baru: warp/WarpConnectionQuality.kt).
+# File yang berubah isinya: warp/WarpTunnelManager.kt, warp/WarpForegroundService.kt,
+# ui/MainViewModel.kt, ui/screens/HomeScreen.kt, ui/theme/Color.kt,
+# app/build.gradle.kts (versionCode/versionName), PROJECT_STATE.md, CHANGELOG.md,
+# README.md.
 # Regenerate tiap rilis dengan: git ls-files | sort
 .github/workflows/build.yml
 .gitignore
@@ -34,6 +36,7 @@ app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpAccount.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpAccountRepository.kt
+app/src/main/java/com/fdzaki/adshield/warp/WarpConnectionQuality.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpForegroundService.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpRegistrationClient.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt

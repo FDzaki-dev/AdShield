@@ -24,6 +24,8 @@ import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldSurface
 import com.fdzaki.adshield.ui.theme.ShieldSurfaceAlt
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
+import com.fdzaki.adshield.ui.theme.ShieldWarning
+import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.wireguard.android.backend.Tunnel
 
 @Composable
@@ -44,6 +46,7 @@ fun HomeScreen(
     val warpState by viewModel.warpState.collectAsState()
     val warpConnecting by viewModel.warpConnecting.collectAsState()
     val warpError by viewModel.warpLastError.collectAsState()
+    val warpQuality by viewModel.warpQuality.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
 
     Column(
@@ -103,6 +106,7 @@ fun HomeScreen(
             active = warpUp,
             connecting = warpConnecting,
             error = warpError,
+            quality = warpQuality,
             onToggle = { turnOn ->
                 if (turnOn) onRequestWarpStart() else onStopWarp()
             }
@@ -150,6 +154,7 @@ private fun WarpModeCard(
     active: Boolean,
     connecting: Boolean,
     error: String?,
+    quality: WarpConnectionQuality,
     onToggle: (Boolean) -> Unit
 ) {
     Card(
@@ -179,6 +184,10 @@ private fun WarpModeCard(
                     onCheckedChange = onToggle
                 )
             }
+            if (active) {
+                Spacer(Modifier.height(10.dp))
+                WarpQualityRow(quality)
+            }
             if (error != null) {
                 Spacer(Modifier.height(8.dp))
                 Text(
@@ -188,6 +197,37 @@ private fun WarpModeCard(
                 )
             }
         }
+    }
+}
+
+/**
+ * Small status row shown only while the WARP tunnel is active: a colored dot for
+ * at-a-glance health, plus latency/reconnect text. Reflects [WarpTunnelManager]'s
+ * periodic trace-probe watchdog — not just "interface is up", but "traffic is
+ * confirmed reaching Cloudflare via WARP".
+ */
+@Composable
+private fun WarpQualityRow(quality: WarpConnectionQuality) {
+    val (dotColor, label) = when (quality.level) {
+        WarpConnectionQuality.Level.UNKNOWN -> ShieldTextMuted to "Memeriksa kualitas jalur…"
+        WarpConnectionQuality.Level.GOOD -> ShieldGreen to "Latensi ${quality.latencyMs} ms • jalur baik"
+        WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "Latensi ${quality.latencyMs} ms • agak lambat"
+        WarpConnectionQuality.Level.BAD ->
+            if (quality.reconnectAttempts > 0) {
+                ShieldDanger to "Menyambung ulang… (percobaan ke-${quality.reconnectAttempts})"
+            } else {
+                ShieldDanger to "Trafik belum terkonfirmasi lewat WARP"
+            }
+    }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(dotColor)
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(label, fontSize = 11.sp, color = ShieldTextMuted)
     }
 }
 

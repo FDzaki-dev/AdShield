@@ -3,14 +3,18 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.0.1** (hardening race-condition activeMode, 2026-08-02)
+- **Versi terakhir selesai: v2.1.0** (WARP UX: auto reconnect + indikator
+  kualitas koneksi, 2026-08-02)
 - **Sudah di-push ke GitHub** (dikonfirmasi user 2026-08-02) — catatan lama
   di sini yang bilang "belum pernah push" sudah usang, jangan dipercaya lagi.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
   javadoc resmi library, tapi belum ada bukti langsung "berhasil connect
-  ke Cloudflare" dari device Ted. Ini TETAP prioritas #1.
+  ke Cloudflare" dari device Ted. Ini TETAP prioritas #1 — user secara
+  eksplisit memilih skip validasi dan lanjut ke fitur baru (2026-08-02),
+  jadi fitur v2.1.0 (auto-reconnect, quality probe) JUGA belum pernah
+  dibuktikan jalan nyata, sama seperti tunnel dasarnya.
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
 
@@ -99,8 +103,53 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    mode lain. Hanya tombol Stop langsung dari HomeScreen yang kirim
    `isModeSwitch = false` (default).
 
+6c. **WARP watchdog & connection-quality probe (v2.1.0) — package `warp/`,
+   semua di dalam `WarpTunnelManager`, JANGAN dipindah ke
+   `WarpForegroundService`.** Keputusan yang JANGAN dilanggar:
+   - Watchdog punya scope sendiri (`managerScope`, `SupervisorJob`) yang
+     hidup selama singleton `WarpTunnelManager` hidup (selama proses app),
+     BUKAN scope milik `WarpForegroundService`. Ini sengaja — kalau
+     scope-nya ikut service, watchdog akan mati tiap kali service
+     di-restart oleh sistem, padahal `WarpTunnelManager` sendiri (via
+     `getInstance()`) tetap singleton yang sama.
+   - Flag `desiredRunning` (bukan `state == UP`) yang jadi acuan "apakah
+     seharusnya nyala" — supaya watchdog bisa membedakan "user memang
+     matikan tunnel" vs "tunnel jatuh sendiri padahal harusnya nyala".
+     JANGAN ganti jadi cek `state` langsung, race dengan proses reconnect
+     yang sengaja set state DOWN sesaat sebelum UP lagi.
+   - Sumber kebenaran "tunnel benar-benar jalan" BUKAN `Tunnel.State.UP`
+     saja (itu cuma berarti interface WireGuard terbentuk), tapi probe
+     nyata ke `https://www.cloudflare.com/cdn-cgi/trace` tiap siklus
+     watchdog, dicek apakah body respons mengandung baris `warp=on`
+     (atau `warp=plus`). Endpoint ini dipilih karena Cloudflare sendiri
+     yang mengisi field itu — cuma valid kalau request beneran nyampe
+     lewat edge WARP, bukan asumsi/tebakan.
+   - Auto-reconnect pakai backoff eksponensial dengan cap
+     `MAX_RECONNECT_ATTEMPTS = 5` per sesi connect() — supaya kalau
+     memang tidak ada internet sama sekali, tidak menguras baterai
+     retry tanpa henti. Counter direset otomatis tiap `connect()` baru
+     (matikan-nyalakan manual dari user).
+   - `Statistics` API resmi WireGuard (`Backend.getStatistics(tunnel)`)
+     TIDAK punya method waktu-handshake (`lastHandshakeEpochMillis` dsb)
+     di versi manapun yang diperiksa (2021–2023) — cuma
+     `peers()/peerRx()/peerTx()/totalRx()/totalTx()/isStale()`. JANGAN
+     asumsikan ada API handshake-time di versi library ini; itulah kenapa
+     latensi diukur lewat trace-probe HTTP, bukan dari statistik
+     WireGuard itu sendiri.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-02 (v2.1.0)**: User memberi daftar "Kekurangan AdShield"
+  (gap analysis WARP/DNS/Monitoring/UX). Ditanya dulu (sesuai aturan
+  analisis dampak arsitektur): (a) validasi device dulu atau lanjut fitur
+  baru — user pilih lanjut fitur baru; (b) kategori batch-1 — user pilih
+  "WARP UX (auto reconnect, indikator kualitas koneksi)". Sebelum menulis
+  kode, verifikasi API `Backend.getStatistics()`/`Statistics` lewat
+  javadoc.io resmi (bukan asumsi) — ditemukan API ini TIDAK expose waktu
+  handshake, jadi desain latensi dialihkan ke trace-probe HTTP ke
+  Cloudflare (lihat keputusan arsitektur #6c). Bukan insiden/bug — kerja
+  fitur baru murni, tidak ada regresi pada mode Ad-Block DNS maupun WARP
+  dasar (registrasi, mutual exclusion, EXTRA_MODE_SWITCH semua utuh).
 - **2026-08-02 (v2.0.1)**: Audit kode menyeluruh atas permintaan user
   ("bawa aplikasi ke tahap finish, fokus WARP & WireGuard"). Ditemukan race
   condition: `startDnsService()`/`startWarpService()` di `MainActivity`
@@ -177,19 +226,38 @@ util/          Constants, AppMode (2 mode yang mutually-exclusive)
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-0. **Arahan user (2026-08-02): fokus HANYA WARP & WireGuard sampai
-   "finish".** Jangan bikin fitur roadmap baru yang tidak menunjang WARP
-   (DoH detection, MASQUE, statistik per-app, dll — lihat Roadmap di
-   README) kecuali user minta eksplisit. Mode Ad-Block DNS tetap
-   dipertahankan apa adanya (user sudah konfirmasi TIDAK mau dihapus),
-   cuma tidak ditambah fitur baru untuk sementara.
-1. **PALING PENTING: uji mode WARP di device fisik Ted.** Ini belum pernah
-   divalidasi end-to-end sama sekali (lihat "Status terakhir" di atas).
-   Yang perlu dicek urut: (a) apakah `gradle assembleRelease` di CI sukses
-   compile dengan dependency WireGuard baru, (b) apakah registrasi WARP
-   sukses dapat respons dari Cloudflare, (c) apakah tunnel benar-benar UP
-   dan trafik internet jalan lewat WARP (cek IP publik berubah). Kalau
-   gagal di titik manapun, laporkan pesan error persis dari UI/logcat.
+0. **Arahan user (2026-08-02, DIPERBARUI): user sekarang mengizinkan
+   fitur baru dari daftar "Kekurangan AdShield" (bukan cuma WARP/WireGuard
+   lagi).** Batch-1 (WARP UX: auto reconnect + indikator kualitas) SUDAH
+   SELESAI di v2.1.0. Kategori tersisa dari daftar itu, MENUNGGU user
+   pilih batch berikutnya — JANGAN kerjakan semuanya sekaligus dalam satu
+   ZIP, tetap satu kategori per batch sesuai aturan pemecahan batch user:
+   - DNS AdBlocker: custom DNS (DoH/DoT), auto-update blocklist,
+     whitelist/blacklist UI yang lebih mudah, statistik domain diblokir.
+     **Catatan arsitektur:** DoH/DoT butuh handling TLS baru di
+     `AdBlockVpnService` yang saat ini forward plain-UDP — ini perubahan
+     arsitektur, WAJIB tanya dulu behavior apa yang harus tetap sama
+     sebelum mulai (lihat keputusan #4 soal kenapa loop paket harus tetap
+     ringan).
+   - Monitoring & Diagnostik: log lebih mudah dibaca, halaman diagnostik,
+     error handling lebih jelas.
+   - UX & Onboarding: status WARP/DNS lebih informatif (sebagian sudah
+     kebantu oleh indikator kualitas v2.1.0), onboarding singkat untuk
+     user baru, UI kurang teknis.
+   Mode Ad-Block DNS tetap dipertahankan apa adanya kecuali user minta
+   perubahan eksplisit.
+1. **PALING PENTING, MASIH TERTUNDA: uji mode WARP di device fisik Ted.**
+   Ini belum pernah divalidasi end-to-end sama sekali (lihat "Status
+   terakhir" di atas) — v2.1.0 MENAMBAH fitur di atas fondasi yang belum
+   tervalidasi ini, jadi risiko menumpuk. Yang perlu dicek urut: (a)
+   apakah `gradle assembleRelease` di CI sukses compile dengan dependency
+   WireGuard baru, (b) apakah registrasi WARP sukses dapat respons dari
+   Cloudflare, (c) apakah tunnel benar-benar UP dan trafik internet jalan
+   lewat WARP (cek IP publik berubah), (d) BARU di v2.1.0 — apakah
+   indikator kualitas & auto-reconnect berperilaku benar (coba matikan
+   Wi-Fi/data sebentar saat WARP aktif, lihat apakah dot berubah merah lalu
+   otomatis reconnect saat internet balik). Kalau gagal di titik manapun,
+   laporkan pesan error persis dari UI/logcat.
 2. Uji di device fisik: apakah watchdog AlarmManager di XOS Ted benar-benar
    mencegah service dibunuh saat app di-swipe dari Recents (berlaku untuk
    KEDUA mode, DNS dan WARP).

@@ -9,15 +9,18 @@ import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import com.fdzaki.adshield.MainActivity
 import com.fdzaki.adshield.R
 import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.receiver.WarpRestartReceiver
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.Constants
+import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 /**
@@ -62,7 +65,8 @@ class WarpForegroundService : Service() {
                 return START_NOT_STICKY
             }
             else -> {
-                startForeground(Constants.WARP_NOTIF_ID, buildNotification())
+                startForeground(Constants.WARP_NOTIF_ID, buildNotification(Tunnel.State.DOWN, null))
+                observeQualityForNotification()
                 scope.launch {
                     val connected = tunnelManager.connect()
                     if (connected) settingsRepository.setActiveMode(AppMode.WARP_TUNNEL)
@@ -95,7 +99,21 @@ class WarpForegroundService : Service() {
         }
     }
 
-    private fun buildNotification(): Notification {
+    /** Refreshes the persistent notification whenever tunnel state or connection quality
+     *  changes, so the user can see latency/reconnect status without opening the app. */
+    private fun observeQualityForNotification() {
+        scope.launch {
+            combine(tunnelManager.state, tunnelManager.quality) { state, quality -> state to quality }
+                .collect { (state, quality) ->
+                    runCatching {
+                        NotificationManagerCompat.from(this@WarpForegroundService)
+                            .notify(Constants.WARP_NOTIF_ID, buildNotification(state, quality))
+                    }
+                }
+        }
+    }
+
+    private fun buildNotification(state: Tunnel.State, quality: WarpConnectionQuality?): Notification {
         val openIntent = PendingIntent.getActivity(
             this, 0, Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
@@ -104,9 +122,16 @@ class WarpForegroundService : Service() {
             this, 0, Intent(this, WarpForegroundService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        val contentText = when {
+            state != Tunnel.State.UP -> "Menyambungkan ke Cloudflare WARP…"
+            quality == null || quality.lastCheckedAt == 0L -> "Terhubung — memeriksa kualitas jalur…"
+            quality.reconnectAttempts > 0 -> "Menyambung ulang (percobaan ke-${quality.reconnectAttempts})…"
+            quality.trafficConfirmed -> "Aktif • ${quality.latencyMs} ms lewat Cloudflare WARP"
+            else -> "Terhubung, tapi trafik belum terkonfirmasi lewat WARP"
+        }
         return NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
             .setContentTitle("VPN Tunnel (WARP) aktif")
-            .setContentText("Semua trafik dienkripsi lewat Cloudflare WARP")
+            .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
             .setContentIntent(openIntent)
             .addAction(0, "Stop", stopIntent)

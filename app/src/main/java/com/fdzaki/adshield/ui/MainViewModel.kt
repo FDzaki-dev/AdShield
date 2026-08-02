@@ -10,6 +10,7 @@ import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
 import com.fdzaki.adshield.util.AppMode
+import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.fdzaki.adshield.warp.WarpTunnelManager
 import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val warpState: StateFlow<Tunnel.State> = warpTunnelManager.state
     val warpLastError: StateFlow<String?> = warpTunnelManager.lastError
     val warpConnecting: StateFlow<Boolean> = warpTunnelManager.connecting
+    val warpQuality: StateFlow<WarpConnectionQuality> = warpTunnelManager.quality
 
     private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps

@@ -80,6 +80,13 @@ Alur saat pertama kali diaktifkan:
 **VPN Tunnel (WARP):**
 - Registrasi WARP otomatis, sekali saja (tersimpan untuk connect berikutnya)
 - Status koneksi real-time + pesan error kalau registrasi/handshake gagal
+- **Indikator kualitas koneksi** — bukan cuma "interface UP", tapi probe
+  nyata ke Cloudflare (`cdn-cgi/trace`) tiap ~25 detik: latensi (ms) +
+  konfirmasi trafik benar-benar lewat WARP, ditampilkan sebagai titik
+  status berwarna di Home screen dan di teks notifikasi
+- **Auto reconnect** — kalau probe gagal berturut-turut atau tunnel jatuh
+  sendiri, otomatis disambungkan ulang dengan backoff (maks 5 percobaan
+  per sesi, direset tiap matikan-nyalakan manual)
 
 **Berlaku untuk kedua mode:**
 - Auto-start setelah reboot (mode yang terakhir aktif sebelum shutdown)
@@ -116,7 +123,10 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.0.1** — perbaikan bug internal: race condition saat pindah mode
+- **v2.1.0** — WARP UX: auto reconnect + indikator kualitas koneksi
+  (latensi & konfirmasi trafik nyata lewat probe Cloudflare). Belum
+  divalidasi di device fisik (lihat Batasan di atas)
+- v2.0.1 — perbaikan bug internal: race condition saat pindah mode
   DNS⇄WARP yang bisa merusak auto-restart-setelah-reboot (tidak ada
   perubahan perilaku yang terlihat user)
 - v2.0.0 — mode baru VPN Tunnel (WARP), full-tunnel WireGuard via
@@ -133,7 +143,13 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
-- Validasi mode WARP di device fisik (prioritas #1 saat ini)
+- Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
+  menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
+- **DNS AdBlocker:** custom DNS (DoH/DoT), auto-update blocklist berkala,
+  UI whitelist/blacklist domain yang lebih mudah, statistik domain diblokir
+- **Monitoring & Diagnostik:** log lebih mudah dibaca, halaman diagnostik,
+  error handling yang lebih jelas penyebabnya
+- **Onboarding:** alur singkat untuk user baru saat pertama buka app
 - Deteksi & blokir DNS-over-HTTPS (DoH) umum agar tidak bisa dilewati
 - Import blocklist dari URL custom (field sudah ada di data layer, UI belum)
 - Statistik per-aplikasi (domain mana diblokir untuk app mana)
