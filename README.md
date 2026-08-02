@@ -116,7 +116,10 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.0.0** — mode baru VPN Tunnel (WARP), full-tunnel WireGuard via
+- **v2.0.1** — perbaikan bug internal: race condition saat pindah mode
+  DNS⇄WARP yang bisa merusak auto-restart-setelah-reboot (tidak ada
+  perubahan perilaku yang terlihat user)
+- v2.0.0 — mode baru VPN Tunnel (WARP), full-tunnel WireGuard via
   Cloudflare WARP gratis, terpisah & mutually-exclusive dari Ad-Block DNS
 - v1.2.0 — pematangan: whitelist per-app benar-benar aktif (UID nyata),
   critical allowlist domain esensial konektivitas, DNS forward fallback

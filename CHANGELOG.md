@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.0.1 — Perbaikan race condition activeMode (2026-08-02)
+
+Bukan fitur baru — audit kode menyeluruh (diminta user: "bawa aplikasi ke
+tahap finish, fokus WARP & WireGuard") menemukan dan menutup 1 bug nyata:
+
+- **Fix:** Berpindah mode (Ad-Block DNS ⇄ VPN Tunnel WARP) bisa membuat
+  status mode aktif yang tersimpan (`activeMode`) salah tersimpan sebagai
+  "tidak ada mode aktif", walau salah satu mode sebenarnya sedang jalan.
+  Penyebab: dua service (`AdBlockVpnService`, `WarpForegroundService`)
+  sama-sama menulis status ini dari proses background terpisah tanpa
+  urutan yang terjamin saat perpindahan mode terjadi. Ini bisa merusak
+  fitur auto-restart-setelah-reboot untuk kasus tertentu (device restart
+  tepat setelah user pindah mode, sebelum status sempat "settle").
+  Diperbaiki dengan menandai stop yang terjadi karena perpindahan mode
+  secara eksplisit, supaya cuma satu sisi yang menulis status final.
+- Tidak ada perubahan perilaku yang terlihat user — toggle mode, statistik,
+  whitelist, rules, logs semua tetap sama persis.
+
 ## v2.0.0 — Mode VPN Tunnel (WARP), full-tunnel WireGuard (2026-08-02)
 
 **Fitur besar baru** — mode kedua yang terpisah total dan mutually-exclusive

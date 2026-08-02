@@ -55,7 +55,8 @@ class AdBlockVpnService : VpnService() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
-                stopVpn()
+                val isModeSwitch = intent.getBooleanExtra(EXTRA_MODE_SWITCH, false)
+                stopVpn(isModeSwitch)
                 return START_NOT_STICKY
             }
             else -> startVpn()
@@ -104,13 +105,21 @@ class AdBlockVpnService : VpnService() {
         executor.execute { runPacketLoop(iface) }
     }
 
-    private fun stopVpn() {
+    private fun stopVpn(isModeSwitch: Boolean = false) {
         running.set(false)
         try { vpnInterface?.close() } catch (_: Exception) {}
         vpnInterface = null
         serviceScope.launch {
             settingsRepository.setWasRunning(false)
-            settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.NONE)
+            // When this stop is just the "turn off DNS mode" half of a
+            // DNS->WARP switch, DON'T write NONE here: WarpForegroundService
+            // is about to write WARP_TUNNEL from its own coroutine, and the
+            // two writes race on Dispatchers.IO with no ordering guarantee.
+            // Only a genuine standalone stop (user pressed Stop, no other
+            // mode starting) should reset activeMode to NONE.
+            if (!isModeSwitch) {
+                settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.NONE)
+            }
         }
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
@@ -319,6 +328,9 @@ class AdBlockVpnService : VpnService() {
     companion object {
         const val ACTION_START = "com.fdzaki.adshield.action.START"
         const val ACTION_STOP = "com.fdzaki.adshield.action.STOP"
+        /** True when this STOP is only the "turn off" half of switching to
+         *  the other protection mode, not a standalone user stop. */
+        const val EXTRA_MODE_SWITCH = "com.fdzaki.adshield.extra.MODE_SWITCH"
     }
 }
 

@@ -3,15 +3,14 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.0.0** (mode VPN Tunnel WARP, 2026-08-02)
-- Belum pernah di-push ke GitHub sama sekali — semua versi sejak v1.0.0
-  masih menunggu push pertama dari user. Sinkronkan status ini kalau user
-  kasih tau progress push-nya.
+- **Versi terakhir selesai: v2.0.1** (hardening race-condition activeMode, 2026-08-02)
+- **Sudah di-push ke GitHub** (dikonfirmasi user 2026-08-02) — catatan lama
+  di sini yang bilang "belum pernah push" sudah usang, jangan dipercaya lagi.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
   javadoc resmi library, tapi belum ada bukti langsung "berhasil connect
-  ke Cloudflare" dari device Ted.
+  ke Cloudflare" dari device Ted. Ini TETAP prioritas #1.
 
 ## Keputusan arsitektur utama (JANGAN dilanggar tanpa diskusi eksplisit)
 
@@ -86,8 +85,36 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      `com.wireguard.android:tunnel`, cek changelog resminya dulu sebelum
      asumsikan API sama persis.
 
+6b. **EXTRA_MODE_SWITCH pada intent STOP (v2.0.1) — JANGAN dihapus.**
+   `AdBlockVpnService` dan `WarpForegroundService` masing-masing punya
+   `EXTRA_MODE_SWITCH` pada intent ACTION_STOP mereka. Kalau flag ini
+   `true`, service yang di-stop TIDAK menulis `AppMode.NONE` ke
+   `SettingsRepository.activeMode`. Ini WAJIB ada karena kedua service
+   punya CoroutineScope independen di Dispatchers.IO — kalau service A
+   (yang di-stop) dan service B (yang baru start) sama-sama menulis
+   `activeMode` tanpa koordinasi, urutan tulisnya tidak terjamin, dan bisa
+   berakhir dengan `activeMode = NONE` walau salah satu mode sebenarnya
+   jalan (merusak auto-restart setelah reboot). `MainActivity.startDnsService()`
+   / `startWarpService()` SELALU kirim `isModeSwitch = true` ke stop-nya
+   mode lain. Hanya tombol Stop langsung dari HomeScreen yang kirim
+   `isModeSwitch = false` (default).
+
 ## Riwayat insiden kronologis
 
+- **2026-08-02 (v2.0.1)**: Audit kode menyeluruh atas permintaan user
+  ("bawa aplikasi ke tahap finish, fokus WARP & WireGuard"). Ditemukan race
+  condition: `startDnsService()`/`startWarpService()` di `MainActivity`
+  men-stop mode lain lalu langsung start mode baru, dan KEDUA service
+  menulis `SettingsRepository.activeMode` dari CoroutineScope terpisah
+  tanpa urutan terjamin — hasil akhirnya bisa salah (`NONE` padahal ada
+  mode aktif), merusak auto-restart setelah reboot untuk kasus tertentu.
+  Diperbaiki dengan `EXTRA_MODE_SWITCH` (lihat keputusan arsitektur #6b).
+  Efek samping: referensi method `::stopDnsService`/`::stopWarpService` di
+  `MainActivity` diganti jadi lambda eksplisit (`{ stopDnsService() }`)
+  karena Kotlin tidak menerapkan default parameter value pada method
+  reference yang dicocokkan ke tipe fungsi `() -> Unit` — kalau dibiarkan
+  referensi lama, build akan gagal kompilasi. Tidak ada fitur baru/behavior
+  UI yang berubah, murni perbaikan korektnes internal.
 - **2026-08-02 (v2.0.0)**: User minta fitur "overkill setara WARP/MASQUE/
   WireGuard". Diklarifikasi dulu sebelum kerja (sesuai aturan analisis
   dampak arsitektur di userPreferences) — hasil klarifikasi: mode terpisah
@@ -150,6 +177,12 @@ util/          Constants, AppMode (2 mode yang mutually-exclusive)
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
+0. **Arahan user (2026-08-02): fokus HANYA WARP & WireGuard sampai
+   "finish".** Jangan bikin fitur roadmap baru yang tidak menunjang WARP
+   (DoH detection, MASQUE, statistik per-app, dll — lihat Roadmap di
+   README) kecuali user minta eksplisit. Mode Ad-Block DNS tetap
+   dipertahankan apa adanya (user sudah konfirmasi TIDAK mau dihapus),
+   cuma tidak ditambah fitur baru untuk sementara.
 1. **PALING PENTING: uji mode WARP di device fisik Ted.** Ini belum pernah
    divalidasi end-to-end sama sekali (lihat "Status terakhir" di atas).
    Yang perlu dicek urut: (a) apakah `gradle assembleRelease` di CI sukses

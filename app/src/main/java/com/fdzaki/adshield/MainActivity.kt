@@ -67,9 +67,9 @@ class MainActivity : ComponentActivity() {
                         HomeScreen(
                             viewModel = viewModel,
                             onRequestVpnStart = ::requestVpnPermissionThenStartDns,
-                            onStopVpn = ::stopDnsService,
+                            onStopVpn = { stopDnsService() },
                             onRequestWarpStart = ::requestVpnPermissionThenStartWarp,
-                            onStopWarp = ::stopWarpService,
+                            onStopWarp = { stopWarpService() },
                             onOpenWhitelist = { navController.navigate("whitelist") },
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
@@ -104,28 +104,37 @@ class MainActivity : ComponentActivity() {
 
     /** Modes are mutually exclusive (see PROJECT_STATE.md) — starting one
      *  always sends a stop to the other first. Stopping an already-stopped
-     *  service is a harmless no-op. */
+     *  service is a harmless no-op. The stop sent here is flagged as a mode
+     *  switch (EXTRA_MODE_SWITCH) so the stopping service does NOT also
+     *  write AppMode.NONE — that write would race against the newly
+     *  starting service's own AppMode write, since they run on independent
+     *  coroutine scopes with no ordering guarantee (see AdBlockVpnService /
+     *  WarpForegroundService for details). */
     private fun startDnsService() {
-        stopWarpService()
+        stopWarpService(isModeSwitch = true)
         val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
         viewModel.setVpnActive(true)
     }
 
-    private fun stopDnsService() {
-        val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_STOP)
+    private fun stopDnsService(isModeSwitch: Boolean = false) {
+        val intent = Intent(this, AdBlockVpnService::class.java)
+            .setAction(AdBlockVpnService.ACTION_STOP)
+            .putExtra(AdBlockVpnService.EXTRA_MODE_SWITCH, isModeSwitch)
         startService(intent)
         viewModel.setVpnActive(false)
     }
 
     private fun startWarpService() {
-        stopDnsService()
+        stopDnsService(isModeSwitch = true)
         val intent = Intent(this, WarpForegroundService::class.java).setAction(WarpForegroundService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
     }
 
-    private fun stopWarpService() {
-        val intent = Intent(this, WarpForegroundService::class.java).setAction(WarpForegroundService.ACTION_STOP)
+    private fun stopWarpService(isModeSwitch: Boolean = false) {
+        val intent = Intent(this, WarpForegroundService::class.java)
+            .setAction(WarpForegroundService.ACTION_STOP)
+            .putExtra(WarpForegroundService.EXTRA_MODE_SWITCH, isModeSwitch)
         startService(intent)
     }
 

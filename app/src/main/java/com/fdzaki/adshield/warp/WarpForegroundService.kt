@@ -45,9 +45,17 @@ class WarpForegroundService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                val isModeSwitch = intent.getBooleanExtra(EXTRA_MODE_SWITCH, false)
                 scope.launch {
                     tunnelManager.disconnect()
-                    settingsRepository.setActiveMode(AppMode.NONE)
+                    // See AdBlockVpnService.stopVpn() for why: during a
+                    // WARP->DNS switch, AdBlockVpnService is about to write
+                    // DNS_ADBLOCK from its own coroutine — writing NONE here
+                    // too would race it and could leave DNS_ADBLOCK
+                    // clobbered back to NONE after reboot.
+                    if (!isModeSwitch) {
+                        settingsRepository.setActiveMode(AppMode.NONE)
+                    }
                     stopForeground(STOP_FOREGROUND_REMOVE)
                     stopSelf()
                 }
@@ -115,5 +123,8 @@ class WarpForegroundService : Service() {
     companion object {
         const val ACTION_START = "com.fdzaki.adshield.warp.action.START"
         const val ACTION_STOP = "com.fdzaki.adshield.warp.action.STOP"
+        /** True when this STOP is only the "turn off" half of switching to
+         *  the other protection mode, not a standalone user stop. */
+        const val EXTRA_MODE_SWITCH = "com.fdzaki.adshield.warp.extra.MODE_SWITCH"
     }
 }

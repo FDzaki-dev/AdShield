@@ -1,9 +1,8 @@
-# FILE_MANIFEST.txt — output `git ls-files`, versi v2.0.0 (2026-08-02)
-# 46 file dilacak git (40 dari v1.2.0 + 6 file baru modul warp/).
+# FILE_MANIFEST.txt — output `git ls-files`, versi v2.0.1 (2026-08-02)
+# 46 file dilacak git (sama seperti v2.0.0 — v2.0.1 murni bugfix, tidak ada
+# file baru/dihapus, cuma isi AdBlockVpnService.kt, WarpForegroundService.kt,
+# MainActivity.kt, app/build.gradle.kts yang berubah).
 # Regenerate tiap rilis dengan: git ls-files | sort
-# File baru di v2.0.0: receiver/WarpRestartReceiver.kt, warp/WarpAccount.kt,
-# warp/WarpAccountRepository.kt, warp/WarpForegroundService.kt,
-# warp/WarpRegistrationClient.kt, warp/WarpTunnelManager.kt
 .github/workflows/build.yml
 .gitignore
 CHANGELOG.md
