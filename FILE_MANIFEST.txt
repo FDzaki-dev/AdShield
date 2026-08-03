@@ -1,16 +1,15 @@
-# FILE_MANIFEST.txt — isi ZIP v2.5.0 (2026-08-03), 54 file (tidak termasuk
-# file ini sendiri) — SAMA seperti v2.4.0, tidak ada file baru batch ini.
-# File yang isinya berubah: data/BlocklistManager.kt (full rewrite, bukan
-# protected — tambah remote blocklist set + class BlocklistUpdateWorker di
-# file yang sama), data/SettingsRepository.kt (tambah key
-# blocklist_last_updated + blocklist_update_status), ui/MainViewModel.kt
-# (expose state blocklist URL/status + reconcileBlocklistSchedule +
-# refreshBlocklistNow), ui/screens/RulesScreen.kt (full rewrite, bukan
-# protected — search, validasi domain, bagian Blocklist Kustom URL),
-# vpn/AdBlockVpnService.kt (edit parsial — 1 baris load cache remote list),
-# app/build.gradle.kts (versionCode/versionName, edit parsial — protected),
-# PROJECT_STATE.md, CHANGELOG.md, README.md.
+# FILE_MANIFEST.txt — isi ZIP v2.5.1 (2026-08-03), 54 file (tidak termasuk
+# file ini sendiri) — SAMA seperti v2.5.0, tidak ada file baru/dihapus
+# batch ini. FIX KRITIS, bukan fitur — lihat CHANGELOG.md v2.5.1.
+# File yang isinya berubah: vpn/AdBlockVpnService.kt (edit parsial, BUKAN
+# full rewrite — pisah loopExecutor/forwardExecutor, fix deadlock
+# forwarding DNS non-blocklist yang ada sejak v1.0.0), app/build.gradle.kts
+# (versionCode 11→12, versionName 2.5.0→2.5.1, edit parsial — protected),
+# PROJECT_STATE.md, CHANGELOG.md.
 #
+# (v2.5.0 sebelumnya: data/BlocklistManager.kt full rewrite +
+# BlocklistUpdateWorker, ui/screens/RulesScreen.kt full rewrite,
+# data/SettingsRepository.kt + ui/MainViewModel.kt edit parsial)
 # (v2.4.0 sebelumnya: +ui/screens/OnboardingScreen.kt, edit di
 # data/SettingsRepository.kt, ui/MainViewModel.kt, MainActivity.kt)
 #

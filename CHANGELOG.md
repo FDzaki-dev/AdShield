@@ -1,5 +1,44 @@
 # Changelog
 
+## v2.5.1 — FIX KRITIS: DNS non-blocklist tidak pernah diteruskan (2026-08-03)
+
+> **Ini bukan fitur baru — perbaikan bug fondasi yang ditemukan saat audit
+> stabilitas menyeluruh atas permintaan user ("berhenti update fitur,
+> fokus 100% reliability").**
+
+- **Root cause:** `AdBlockVpnService` memakai satu
+  `Executors.newSingleThreadExecutor()` untuk DUA hal sekaligus: (1)
+  menjalankan `runPacketLoop()` — loop `while(running)` yang tidak pernah
+  selesai selama VPN aktif — dan (2) mengeksekusi `forwardToUpstream()`
+  untuk tiap query yang tidak diblokir. Karena executor itu cuma punya
+  1 thread dan thread itu sudah terpakai selamanya oleh loop, setiap task
+  `forwardToUpstream` yang di-submit hanya masuk antrian dan **tidak
+  pernah benar-benar jalan** sampai VPN dimatikan.
+- **Dampak nyata sebelum fix ini:** domain yang di-blokir tetap dapat
+  balasan (jalur itu sinkron langsung di dalam loop, tidak lewat
+  executor) — tapi domain manapun yang TIDAK ada di blocklist (mayoritas
+  trafik normal: media sosial, banking, streaming, dll) query DNS-nya
+  tidak pernah diteruskan ke resolver upstream sama sekali. Dari sisi
+  user ini terlihat seperti "internet mati total" begitu Ad-Block DNS
+  dinyalakan.
+- **Fix:** pisahkan jadi dua executor terpisah — `loopExecutor`
+  (`newSingleThreadExecutor`, khusus `runPacketLoop`) dan
+  `forwardExecutor` (`newFixedThreadPool(4)`, khusus
+  `forwardToUpstream`). Tidak ada perubahan perilaku lain, tidak ada
+  perubahan pada logic blocking/matching/whitelist.
+- **Scope perubahan:** 1 file kode (`AdBlockVpnService.kt`, edit
+  parsial, protected file — bukan full rewrite) + dokumentasi wajib.
+  Tidak menyentuh arsitektur VPN (`10.111.222.1/32`, packet parsing,
+  BlocklistManager) sama sekali.
+- **Belum bisa diverifikasi:** perbaikan ini adalah analisis statis atas
+  bug konkuren yang teridentifikasi jelas dari kode (single-thread
+  executor + infinite loop + task tambahan ke executor yang sama = tidak
+  mungkin jalan, ini bukan dugaan). Tapi seperti biasa, saya tidak bisa
+  mengklaim sudah verifikasi lewat compile/runtime sungguhan di sandbox
+  ini — WAJIB dicek lewat build CI + tes manual di device (buka browser/
+  app apapun saat Ad-Block DNS aktif, pastikan internet tetap normal
+  untuk domain yang tidak diblokir).
+
 ## v2.5.0 — DNS AdBlocker: Auto-Update Blocklist + UI Lebih Mudah (2026-08-03)
 
 > **Fix (2026-08-03, build kedua):** CI gagal di build pertama —

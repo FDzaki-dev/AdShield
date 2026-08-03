@@ -3,7 +3,21 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v2.5.0 build PERTAMA gagal di CI** (`compileReleaseKotlin FAILED` —
+- **v2.5.1 (2026-08-03) — user secara eksplisit minta STOP semua kerja
+  fitur baru, fokus 100% ke reliability/performance/optimalisasi jangka
+  panjang.** Audit stabilitas menyeluruh menemukan bug KRITIS di
+  `AdBlockVpnService`: executor tunggal dipakai untuk loop paket (tidak
+  pernah selesai) SEKALIGUS untuk forward ke upstream — task forward
+  cuma masuk antrian dan tidak pernah jalan, artinya domain non-blocklist
+  TIDAK PERNAH resolve selama VPN DNS aktif (lihat CHANGELOG v2.5.1 untuk
+  detail lengkap). Sudah diperbaiki: dipisah jadi `loopExecutor` +
+  `forwardExecutor` terpisah. **BELUM dikonfirmasi user via build CI +
+  tes device fisik** — WAJIB minta konfirmasi ini di sesi berikutnya
+  sebelum menganggap masalah selesai. Ditemukan juga saat audit yang sama:
+  Crash Logger bawaan (wajib sejak awal sesuai standing instruction) TIDAK
+  PERNAH benar-benar diimplementasikan di project ini — belum dikerjakan,
+  jadi prioritas #2 di batch berikutnya (lihat "Yang HARUS dikerjakan").
+- v2.5.0 build PERTAMA gagal di CI (`compileReleaseKotlin FAILED` —
   lihat insiden di bawah), sudah diperbaiki di sesi yang sama. ZIP hasil
   fix dikirim ke user, TAPI belum dikonfirmasi build KEDUA berhasil.
   **WAJIB minta log build terbaru dari user di sesi berikutnya kalau belum
@@ -260,6 +274,23 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.5.1, insiden BUKAN dari laporan user — ditemukan lewat
+  audit stabilitas proaktif atas permintaan eksplisit "stop fitur, fokus
+  100% reliability")**: `AdBlockVpnService` sejak v1.0.0 memakai
+  `Executors.newSingleThreadExecutor()` yang sama untuk `runPacketLoop()`
+  (loop tak-berhenti) dan `forwardToUpstream()` (dipanggil per-query lewat
+  `executor.execute { ... }` di dalam loop itu sendiri). Karena hanya ada
+  1 thread di pool dan thread itu selamanya sibuk menjalankan loop, setiap
+  task forward yang di-submit tidak pernah benar-benar dieksekusi — bug
+  ini SUDAH ADA sejak arsitektur awal (v1.0.0), bukan regresi dari batch
+  manapun setelahnya, dan baru terlihat sekarang karena belum ada
+  pengujian device fisik yang mengonfirmasi domain non-blocklist bisa
+  resolve normal saat DNS mode aktif. Diperbaiki dengan memisah jadi
+  `loopExecutor`/`forwardExecutor`. **Pelajaran:** analisis konkurensi
+  (thread pool + tugas berjalan selamanya + tugas tambahan ke pool yang
+  sama) harus jadi bagian rutin self-verifikasi ke depan, bukan cuma cek
+  brace balance/import — kelas bug ini tidak akan terdeteksi checklist
+  statis manapun yang sudah ada sebelum ini.
 - **2026-08-03 (v2.5.0, build pertama GAGAL)**: User upload log CI
   (`logs_83484826529.zip`) — `compileReleaseKotlin FAILED` dengan 12 error
   identik: "This foundation API is experimental and is likely to change or
@@ -455,6 +486,30 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
+
+**Arahan user (2026-08-03, TERBARU — MENGGANTIKAN arahan #0 di bawah
+untuk sementara): STOP semua kerja fitur baru. Fokus 100% ke
+reliability/performance/optimalisasi. Jangan kembali ke daftar "Kekurangan
+AdShield"/fitur baru manapun kecuali user eksplisit minta lanjut lagi.**
+Urutan kerja yang disepakati:
+  1. ✅ SELESAI (v2.5.1): fix deadlock executor `AdBlockVpnService`.
+     Belum dikonfirmasi build+device — cek ini duluan di sesi berikutnya.
+  2. **BELUM DIKERJAKAN: pasang Crash Logger bawaan** sesuai spesifikasi
+     lengkap standing instruction user (MediaStore API 29+, folder publik
+     `Documents/AdShield/logs/`, nama file
+     `crash_<yyyyMMdd_HHmmss>_<UUID>.txt`, metadata lengkap versi app/OS/
+     device/thread/stack trace, retention FIFO maks 50 file, fail-safe
+     total anti-secondary-crash). Ini WAJIB sebelum lanjut ke #3, karena
+     tanpa ini kita tidak akan tahu detail crash apapun yang muncul saat
+     validasi device fisik.
+  3. Unit test dasar untuk `DnsPacket` (parsing) dan `BlocklistManager`
+     (exact/wildcard/critical-allowlist matching) — bagian paling kritis
+     & paling gampang salah, belum ada satu pun test sejauh ini.
+  4. Baru setelah #1-#3 terkonfirmasi solid: lanjut validasi mode WARP
+     di device fisik (lihat item #1 lama di bawah — prioritasnya TETAP
+     tinggi, cuma urutannya sekarang setelah fondasi dibereskan dulu).
+
+---
 
 0. **Arahan user (2026-08-03, DIPERBARUI): user mengizinkan fitur baru
    dari daftar "Kekurangan AdShield", dikerjakan satu kategori/scope per
