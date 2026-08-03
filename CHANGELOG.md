@@ -2,6 +2,17 @@
 
 ## v2.5.0 — DNS AdBlocker: Auto-Update Blocklist + UI Lebih Mudah (2026-08-03)
 
+> **Fix (2026-08-03, build kedua):** CI gagal di build pertama —
+> `HorizontalPager`/`rememberPagerState` di `OnboardingScreen.kt` (v2.4.0)
+> pakai API experimental Compose Foundation tanpa anotasi `@OptIn`.
+> Kotlin compiler treat itu sebagai error (bukan warning) di versi
+> Foundation yang dipakai project ini. Fix: tambah
+> `@OptIn(ExperimentalFoundationApi::class)` di fungsi `OnboardingScreen`.
+> Tidak ada perubahan perilaku — murni anotasi compiler. versionCode/
+> versionName TIDAK dinaikkan lagi karena build pertama v2.5.0 gagal total
+> (tidak pernah menghasilkan APK), jadi ini masih rilis v2.5.0 yang sama,
+> bukan versi baru.
+
 Batch kedua dari sisa daftar "Kekurangan AdShield" — kategori DNS AdBlocker,
 scope "ringan" (bukan DoH/DoT, itu sengaja disisihkan jadi batch tersendiri
 karena perubahan arsitektur di `AdBlockVpnService`).

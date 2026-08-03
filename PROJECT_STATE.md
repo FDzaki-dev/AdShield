@@ -3,13 +3,15 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.5.0** (DNS AdBlocker — auto-update blocklist
-  via URL setiap 24 jam + UI Aturan Kustom lebih mudah: validasi domain,
-  pencarian, pesan kondisi kosong, 2026-08-03)
+- **v2.5.0 build PERTAMA gagal di CI** (`compileReleaseKotlin FAILED` —
+  lihat insiden di bawah), sudah diperbaiki di sesi yang sama. ZIP hasil
+  fix dikirim ke user, TAPI belum dikonfirmasi build KEDUA berhasil.
+  **WAJIB minta log build terbaru dari user di sesi berikutnya kalau belum
+  ada konfirmasi eksplisit "build sukses"** — jangan asumsikan fix ini
+  otomatis berhasil hanya karena akar masalahnya sudah jelas.
 - Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.5.0 —
-  ZIP baru saja dikirim di sesi ini. Cek `git log` di sesi berikutnya
-  sebelum asumsikan sudah ter-push (begitu juga v2.3.0 dan v2.4.0 kalau
-  belum dikonfirmasi juga).
+  cek `git log` di sesi berikutnya sebelum asumsikan sudah ter-push
+  (begitu juga v2.3.0 dan v2.4.0 kalau belum dikonfirmasi juga).
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -258,6 +260,31 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.5.0, build pertama GAGAL)**: User upload log CI
+  (`logs_83484826529.zip`) — `compileReleaseKotlin FAILED` dengan 12 error
+  identik: "This foundation API is experimental and is likely to change or
+  be removed in the future" di `OnboardingScreen.kt`, semuanya menunjuk ke
+  `rememberPagerState`/`HorizontalPager`/`pagerState.currentPage`/
+  `animateScrollToPage`. **Akar masalah:** API itu ada di bawah
+  `@ExperimentalFoundationApi` di versi Compose Foundation yang dipakai
+  project ini (via compose-bom 2024.06.00) — Kotlin compiler treat
+  penggunaan API experimental tanpa `@OptIn` sebagai ERROR saat kompilasi
+  release (bukan cuma lint warning), makanya lolos dari semua static check
+  batch v2.4.0 (brace/paren balance, cross-reference import) tapi gagal di
+  compiler sungguhan. Ini persis kelas kegagalan yang sudah dicatat sebagai
+  keterbatasan di "Scope of Guarantee" instruksi user: AI tidak bisa
+  mengklaim sudah verifikasi hasil kompilasi kalau lingkungan eksekusi
+  (sandbox ini) tidak mendukung Gradle/compiler Kotlin sungguhan. **Fix:**
+  tambah `import androidx.compose.foundation.ExperimentalFoundationApi` +
+  `@OptIn(ExperimentalFoundationApi::class)` di fungsi `OnboardingScreen`.
+  Tidak ada perubahan file lain, tidak ada perubahan perilaku aplikasi.
+  versionCode/versionName TETAP di 11/2.5.0 (build pertama gagal total,
+  tidak pernah menghasilkan APK, jadi belum pernah benar-benar "rilis").
+  **Pelajaran untuk batch selanjutnya yang pakai Compose Foundation API
+  baru (Pager, LazyStaggeredGrid, dll.):** SELALU cek dokumentasi resmi
+  apakah API itu masih `@ExperimentalFoundationApi` di versi Foundation
+  yang terpasang, jangan asumsikan stabil hanya karena API-nya sudah lama
+  ada di Compose secara umum.
 - **2026-08-03 (v2.5.0)**: User pilih scope "ringan" dari kategori DNS
   AdBlocker: auto-update blocklist berkala + UI Aturan Kustom lebih mudah.
   DoH/DoT sengaja TIDAK dikerjakan di batch ini (disepakati eksplisit oleh
