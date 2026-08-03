@@ -76,6 +76,7 @@ class AdBlockVpnService : VpnService() {
 
         serviceScope.launch {
             blocklist.loadDefaultList(applicationContext)
+            blocklist.loadCachedRemoteListIfPresent(applicationContext)
             blocklist.setCustomBlocked(settingsRepository.customBlockedDomains.firstValue())
             blocklist.setCustomAllowed(settingsRepository.customAllowedDomains.firstValue())
             blocklist.setWhitelistedApps(settingsRepository.whitelistedApps.firstValue())

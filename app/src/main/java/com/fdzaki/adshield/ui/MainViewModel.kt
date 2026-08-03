@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.fdzaki.adshield.data.BlocklistManager
+import com.fdzaki.adshield.data.BlocklistUpdateWorker
 import com.fdzaki.adshield.data.InstalledApp
 import com.fdzaki.adshield.data.InstalledAppsRepository
 import com.fdzaki.adshield.data.SettingsRepository
@@ -13,6 +14,13 @@ import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.vpn.AdBlockVpnService
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.fdzaki.adshield.warp.WarpTunnelManager
+import androidx.work.Constraints
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.ExistingWorkPolicy
+import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -21,6 +29,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.concurrent.TimeUnit
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -75,6 +84,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val autoStartOnBoot: StateFlow<Boolean> = settingsRepository.autoStartOnBoot
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
+    val customBlocklistUrl: StateFlow<String> = settingsRepository.customBlocklistUrl
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val blocklistLastUpdated: StateFlow<Long> = settingsRepository.blocklistLastUpdated
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
+
+    val blocklistUpdateStatus: StateFlow<String> = settingsRepository.blocklistUpdateStatus
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
     init {
         viewModelScope.launch { _installedApps.value = installedAppsRepository.loadUserFacingApps() }
 
@@ -89,6 +107,60 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             settingsRepository.whitelistedApps.collect { blocklist.setWhitelistedApps(it) }
         }
+
+        // Reconcile the periodic auto-update schedule against whatever URL is
+        // currently saved. enqueueUniquePeriodicWork(..., KEEP) is idempotent,
+        // so calling this every time the ViewModel is (re)created is safe and
+        // cheap — it does NOT restart an already-running periodic schedule.
+        viewModelScope.launch {
+            reconcileBlocklistSchedule(settingsRepository.customBlocklistUrl.first())
+        }
+    }
+
+    private fun reconcileBlocklistSchedule(url: String) {
+        val workManager = WorkManager.getInstance(getApplication())
+        if (url.isBlank()) {
+            workManager.cancelUniqueWork(BlocklistUpdateWorker.PERIODIC_WORK_NAME)
+            return
+        }
+        val request = PeriodicWorkRequestBuilder<BlocklistUpdateWorker>(
+            BlocklistUpdateWorker.PERIODIC_INTERVAL_HOURS, TimeUnit.HOURS
+        ).setConstraints(
+            Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build()
+        ).build()
+        workManager.enqueueUniquePeriodicWork(
+            BlocklistUpdateWorker.PERIODIC_WORK_NAME,
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
+    }
+
+    /** Saves the URL and immediately reconciles the auto-update schedule
+     *  (enqueues periodic work if non-blank, cancels it if cleared). Does
+     *  NOT trigger an immediate fetch — call [refreshBlocklistNow] for that,
+     *  same as the Rules screen's "Simpan & Perbarui" button does. */
+    fun setCustomBlocklistUrl(url: String) {
+        viewModelScope.launch {
+            settingsRepository.setCustomBlocklistUrl(url)
+            reconcileBlocklistSchedule(url)
+        }
+    }
+
+    /** Enqueues a one-time fetch right away, separate from the periodic
+     *  schedule (own unique work name, see BlocklistUpdateWorker) so this
+     *  never cancels/replaces the scheduled periodic run. Sets a transient
+     *  "Memperbarui…" status immediately so the Rules screen shows instant
+     *  feedback instead of looking stuck until the Worker finishes. */
+    fun refreshBlocklistNow() {
+        viewModelScope.launch { settingsRepository.setBlocklistUpdateStatus("Memperbarui…") }
+        val request = OneTimeWorkRequestBuilder<BlocklistUpdateWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(getApplication()).enqueueUniqueWork(
+            BlocklistUpdateWorker.MANUAL_WORK_NAME,
+            ExistingWorkPolicy.REPLACE,
+            request
+        )
     }
 
     fun setVpnActive(active: Boolean) {

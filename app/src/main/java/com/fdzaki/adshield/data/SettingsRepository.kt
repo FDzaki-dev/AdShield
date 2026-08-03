@@ -34,6 +34,8 @@ class SettingsRepository(private val context: Context) {
         val LOGGING_ENABLED = booleanPreferencesKey("logging_enabled")
         val ACTIVE_MODE = stringPreferencesKey("active_mode")
         val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
+        val BLOCKLIST_LAST_UPDATED = longPreferencesKey("blocklist_last_updated")
+        val BLOCKLIST_UPDATE_STATUS = stringPreferencesKey("blocklist_update_status")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -59,6 +61,25 @@ class SettingsRepository(private val context: Context) {
 
     val customBlocklistUrl: Flow<String> =
         context.dataStore.data.map { it[Keys.CUSTOM_BLOCKLIST_URL] ?: "" }
+
+    /** Epoch millis of the last successful (or attempted) BlocklistUpdateWorker
+     *  run. 0L means "never" — Rules screen shows "Belum pernah" for that. */
+    val blocklistLastUpdated: Flow<Long> =
+        context.dataStore.data.map { it[Keys.BLOCKLIST_LAST_UPDATED] ?: 0L }
+
+    /** Human-readable outcome of the last update attempt (e.g. "Berhasil: 3421
+     *  domain dimuat" or "Gagal: file kosong…") — written by BlocklistUpdateWorker,
+     *  read directly by the Rules screen. Empty string means never attempted. */
+    val blocklistUpdateStatus: Flow<String> =
+        context.dataStore.data.map { it[Keys.BLOCKLIST_UPDATE_STATUS] ?: "" }
+
+    suspend fun setBlocklistLastUpdated(timestamp: Long) {
+        context.dataStore.edit { it[Keys.BLOCKLIST_LAST_UPDATED] = timestamp }
+    }
+
+    suspend fun setBlocklistUpdateStatus(status: String) {
+        context.dataStore.edit { it[Keys.BLOCKLIST_UPDATE_STATUS] = status }
+    }
 
     val loggingEnabled: Flow<Boolean> =
         context.dataStore.data.map { it[Keys.LOGGING_ENABLED] ?: true }

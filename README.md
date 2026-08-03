@@ -103,6 +103,14 @@ Alur saat pertama kali diaktifkan:
 - **Onboarding** — 4 layar pengenalan singkat saat pertama kali buka app:
   jelaskan kedua mode & kenapa mutually-exclusive, plus ajakan mengecualikan
   dari optimasi baterai. Bisa dilewati kapan saja, hanya muncul sekali.
+- **Blocklist Kustom via URL** — tempel URL raw blocklist (format hosts
+  atau satu domain per baris), diperbarui otomatis tiap 24 jam kalau ada
+  koneksi internet, atau manual kapan saja lewat tombol "Perbarui
+  Sekarang". Domain dari sini terpisah dari blocklist bawaan & aturan
+  manual, jadi kalau unduhannya gagal, keduanya tetap utuh.
+- **Aturan Kustom lebih mudah dikelola** — validasi format domain langsung
+  saat mengetik, pencarian di dalam daftar (untuk daftar panjang), pesan
+  kondisi kosong yang jelas
 
 ## Batasan yang perlu diketahui
 
@@ -133,7 +141,12 @@ Alur saat pertama kali diaktifkan:
 
 ## Status proyek
 
-- **v2.4.0** — UX & Onboarding: layar Onboarding 4-slide untuk pengguna
+- **v2.5.0** — DNS AdBlocker (scope ringan): blocklist kustom via URL
+  dengan auto-update tiap 24 jam (WorkManager), UI Aturan Kustom lebih
+  mudah dikelola (validasi domain, pencarian, pesan kondisi kosong).
+  Custom DNS terenkripsi (DoH/DoT) sengaja disisihkan ke batch terpisah
+  — itu perubahan arsitektur, bukan penambahan UI biasa (lihat Roadmap)
+- v2.4.0 — UX & Onboarding: layar Onboarding 4-slide untuk pengguna
   baru (penjelasan kedua mode + pengecualian baterai), tampil sekali lalu
   tidak lagi (bisa dilewati kapan saja)
 - v2.3.0 — Monitoring & Diagnostik: layar Diagnostik baru (status
@@ -163,11 +176,9 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
-- **DNS AdBlocker:** custom DNS (DoH/DoT), auto-update blocklist berkala,
-  UI whitelist/blacklist domain yang lebih mudah (statistik dasar domain
-  diblokir/diizinkan sudah ada sejak awal, lihat Fitur di atas)
-- Deteksi & blokir DNS-over-HTTPS (DoH) umum agar tidak bisa dilewati
-- Import blocklist dari URL custom (field sudah ada di data layer, UI belum)
+- **DNS AdBlocker:** custom DNS terenkripsi (DoH/DoT) — satu-satunya item
+  tersisa dari kategori ini, butuh perubahan arsitektur di
+  `AdBlockVpnService` (sekarang forward plain-UDP), lihat PROJECT_STATE.md
 - Statistik per-aplikasi (domain mana diblokir untuk app mana)
 - Dark/light theme toggle (saat ini dark-only)
 - MASQUE (protokol QUIC dari IETF, dipakai iCloud Private Relay) — sengaja

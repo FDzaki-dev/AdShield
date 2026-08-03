@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.5.0 — DNS AdBlocker: Auto-Update Blocklist + UI Lebih Mudah (2026-08-03)
+
+Batch kedua dari sisa daftar "Kekurangan AdShield" — kategori DNS AdBlocker,
+scope "ringan" (bukan DoH/DoT, itu sengaja disisihkan jadi batch tersendiri
+karena perubahan arsitektur di `AdBlockVpnService`).
+
+- **Baru: Blocklist Kustom via URL, auto-update tiap 24 jam** — tempel URL
+  raw ke file blocklist (format hosts atau satu domain per baris) di layar
+  Aturan Kustom. `BlocklistUpdateWorker` (WorkManager, dependency sudah ada
+  sejak lama tapi belum pernah dipakai) mengunduh, memvalidasi, cache ke
+  penyimpanan lokal (write-then-rename, tahan crash saat proses berjalan),
+  lalu langsung diterapkan ke `BlocklistManager` yang sedang aktif tanpa
+  perlu restart VPN. Ada tombol "Perbarui Sekarang" untuk trigger manual
+  kapan saja, plus status terakhir (berhasil/gagal + waktu) ditampilkan
+  langsung di layar.
+- Domain dari blocklist kustom disimpan di **set terpisah** dari blocklist
+  bawaan & aturan manual — kalau URL gagal diunduh atau kosong, blocklist
+  bawaan dan aturan kustom manual TIDAK terpengaruh sama sekali (lihat
+  keputusan arsitektur di `PROJECT_STATE.md`).
+- **UI Aturan Kustom lebih mudah dikelola:**
+  - Validasi format domain langsung saat mengetik (border merah + pesan
+    kalau formatnya tidak valid atau domain sudah ada di daftar)
+  - Pencarian di dalam daftar Blokir/Izinkan (muncul otomatis kalau daftar
+    lebih dari 5 domain, supaya tidak makan tempat kalau daftarnya masih
+    pendek)
+  - Pesan kondisi kosong yang jelas ("Belum ada domain..." vs "Tidak ada
+    yang cocok pencarian")
+- Tidak ada perubahan pada matching logic (`isBlocked`) untuk blocklist
+  bawaan maupun aturan manual — murni penambahan sumber blocklist ketiga
+  yang independen.
+
 ## v2.4.0 — UX & Onboarding (2026-08-03)
 
 Batch ketiga dari daftar "Kekurangan AdShield" — kategori UX & Onboarding.

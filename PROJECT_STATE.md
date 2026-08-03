@@ -3,15 +3,13 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.4.0** (UX & Onboarding — layar Onboarding
-  4-slide untuk pengguna baru, 2026-08-03)
-- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.4.0 —
+- **Versi terakhir selesai: v2.5.0** (DNS AdBlocker — auto-update blocklist
+  via URL setiap 24 jam + UI Aturan Kustom lebih mudah: validasi domain,
+  pencarian, pesan kondisi kosong, 2026-08-03)
+- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.5.0 —
   ZIP baru saja dikirim di sesi ini. Cek `git log` di sesi berikutnya
-  sebelum asumsikan sudah ter-push.
-- v2.3.0 (Monitoring & Diagnostik — layar Diagnostik + salin clipboard,
-  Log Domain bisa dicari/difilter, kegagalan Ad-Block DNS kini terlihat)
-  status push-nya juga belum dikonfirmasi eksplisit oleh user di sesi ini
-  — cek `git log` untuk keduanya (v2.3.0 dan v2.4.0) sekaligus.
+  sebelum asumsikan sudah ter-push (begitu juga v2.3.0 dan v2.4.0 kalau
+  belum dikonfirmasi juga).
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -212,8 +210,71 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      JANGAN "perbaiki" dengan menambah migrasi/deteksi versi lama kecuali
      user melapor ini benar-benar mengganggu.
 
+10. **Auto-update blocklist (v2.5.0) — `BlocklistManager.kt` (sekarang
+    juga berisi `class BlocklistUpdateWorker`), `SettingsRepository`
+    (`custom_blocklist_url` — sudah ada dari sebelumnya tapi belum pernah
+    dipakai; + `blocklist_last_updated`, `blocklist_update_status` baru).**
+    Keputusan yang JANGAN dilanggar:
+    - `BlocklistUpdateWorker` SENGAJA ditaruh di file `BlocklistManager.kt`
+      yang sama (bukan file terpisah) — supaya batch ini tetap di bawah
+      batas 10 file. Kalau nanti Worker ini berkembang jadi jauh lebih
+      besar (misal nambah dukungan multiple URL), BOLEH dipisah ke file
+      sendiri di batch yang lain — itu bukan pelanggaran, cuma refactor.
+    - Domain dari blocklist remote (URL) disimpan di
+      `remoteBlockedExact`/`remoteBlockedWildcardBases` — **set TERPISAH**
+      dari `blockedExact`/`blockedWildcardBases` (yang berisi gabungan
+      default+custom). JANGAN digabung jadi satu set. Alasannya:
+      `loadRemoteList()` melakukan clear-then-fill total setiap kali
+      dipanggil (bukan diff incremental seperti `setCustomBlocked`) — kalau
+      remote & default/custom berbagi set yang sama, kegagalan/kekosongan
+      fetch remote bisa ikut menghapus entry default/custom yang masih
+      valid. Set terpisah membuat kegagalan blocklist remote murni
+      additive-safe: paling buruk, remote list-nya kosong, tapi default +
+      custom tetap utuh.
+    - `BlocklistUpdateWorker` berjalan **in-process** (app ini tidak
+      mendeklarasikan proses terpisah untuk WorkManager) — makanya boleh
+      langsung panggil `BlocklistManager.getInstance().loadRemoteList(...)`
+      dari dalam Worker setelah fetch sukses, supaya perubahan langsung
+      berlaku tanpa perlu restart VPN. JANGAN asumsikan ini di proses
+      terpisah kalau nanti ada perubahan ke `AndroidManifest.xml` yang
+      menambah `android:process` pada WorkManager initializer/service.
+    - Cache lokal ditulis dengan pola write-then-rename (`.tmp` lalu
+      `renameTo`) — JANGAN diubah jadi direct-write, supaya proses yang
+      mati di tengah unduhan tidak meninggalkan cache setengah-jadi yang
+      akan dibaca lagi saat VPN start berikutnya.
+    - `MainViewModel.reconcileBlocklistSchedule()` dipanggil di `init{}`
+      dengan `ExistingPeriodicWorkPolicy.KEEP` — idempotent dengan sengaja,
+      supaya tidak me-reset jadwal periodic yang sudah berjalan setiap kali
+      ViewModel dibuat ulang (misal saat rotasi layar/navigasi).
+    - Interval auto-update 24 jam + `Constraints` wajib `NetworkType.CONNECTED`
+      — TIDAK retry agresif saat gagal (`Result.failure()`, bukan
+      `Result.retry()`), konsisten dengan filosofi backoff WARP di
+      `WarpTunnelManager` (jangan boros baterai kalau memang lagi tidak ada
+      jaringan/URL-nya salah).
+    - **Belum dikerjakan (sengaja disisihkan ke batch terpisah):** Custom
+      DNS terenkripsi (DoH/DoT). Ini butuh perubahan arsitektur di
+      `AdBlockVpnService` (yang sekarang forward plain-UDP ke upstream),
+      BUKAN sekadar tambahan UI seperti batch ini. Lihat item #0 di bawah.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.5.0)**: User pilih scope "ringan" dari kategori DNS
+  AdBlocker: auto-update blocklist berkala + UI Aturan Kustom lebih mudah.
+  DoH/DoT sengaja TIDAK dikerjakan di batch ini (disepakati eksplisit oleh
+  user sebagai batch terpisah karena itu perubahan arsitektur, bukan
+  UI/fitur tambahan biasa). Bukan insiden/bug — kerja fitur baru murni.
+  Batch ini menyentuh 10 file (`BlocklistManager.kt` — full rewrite,
+  BUKAN protected file, sekarang juga berisi `BlocklistUpdateWorker`;
+  `SettingsRepository.kt`, `MainViewModel.kt` — edit parsial;
+  `RulesScreen.kt` — full rewrite, bukan protected file;
+  `AdBlockVpnService.kt` — edit parsial, satu baris; `app/build.gradle.kts`
+  — edit parsial versionCode/versionName, protected; +
+  `PROJECT_STATE.md`, `CHANGELOG.md`, `FILE_MANIFEST.txt`, `README.md`),
+  PAS di batas maksimal batch (10 file) — `BlocklistUpdateWorker`
+  ditaruh di file yang sama dengan `BlocklistManager` khusus supaya tidak
+  melebihi batas ini alih-alih perlu Atomic Change Exception (lihat
+  keputusan arsitektur #10). Jumlah file fisik proyek TIDAK bertambah
+  (tetap 53) karena tidak ada file baru — cek `FILE_MANIFEST.txt`.
 - **2026-08-03 (v2.4.0)**: User pilih batch "UX & Onboarding" dari daftar
   "Kekurangan AdShield" (kategori tersisa terakhir dari 2 pilihan: DNS
   AdBlocker atau UX/Onboarding). Ditambahkan layar Onboarding 4-slide baru
@@ -369,23 +430,25 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
 0. **Arahan user (2026-08-03, DIPERBARUI): user mengizinkan fitur baru
-   dari daftar "Kekurangan AdShield", dikerjakan satu kategori per batch.**
-   Sudah selesai: Batch-1 WARP UX (v2.1.0), App Shortcuts di luar daftar
-   asli (v2.2.0), Batch-2 Monitoring & Diagnostik (v2.3.0), Batch-3 UX &
-   Onboarding (v2.4.0 — layar onboarding 4-slide; "UI kurang teknis" secara
-   umum masih bisa diperdalam lebih lanjut kalau user minta redesign
-   spesifik, tidak dianggap "selesai total" hanya karena onboarding sudah
-   ada). Kategori tersisa dari daftar asli, MENUNGGU user pilih:
-   - DNS AdBlocker: custom DNS (DoH/DoT), auto-update blocklist,
-     whitelist/blacklist UI yang lebih mudah, statistik domain diblokir
-     (statistik dasar sudah ada sejak awal — kalau dikerjakan, fokus ke
-     item yang belum: custom DNS, auto-update blocklist, UI kelola yang
-     lebih mudah).
-     **Catatan arsitektur:** DoH/DoT butuh handling TLS baru di
-     `AdBlockVpnService` yang saat ini forward plain-UDP — ini perubahan
-     arsitektur, WAJIB tanya dulu behavior apa yang harus tetap sama
-     sebelum mulai (lihat keputusan #4 soal kenapa loop paket harus tetap
-     ringan).
+   dari daftar "Kekurangan AdShield", dikerjakan satu kategori/scope per
+   batch.** Sudah selesai: Batch-1 WARP UX (v2.1.0), App Shortcuts di luar
+   daftar asli (v2.2.0), Batch-2 Monitoring & Diagnostik (v2.3.0), Batch-3
+   UX & Onboarding (v2.4.0), Batch-4 DNS AdBlocker scope ringan — auto-
+   update blocklist + UI Aturan Kustom lebih mudah (v2.5.0). Satu-satunya
+   item tersisa dari daftar asli "Kekurangan AdShield":
+   - **Custom DNS terenkripsi (DoH/DoT).** SENGAJA disisihkan terpisah
+     dari batch v2.5.0 karena ini perubahan arsitektur, bukan UI biasa:
+     `AdBlockVpnService` saat ini forward query DNS ke upstream
+     (`1.1.1.1`/`8.8.8.8`) lewat **plain UDP polos**. DoH/DoT butuh paket
+     dibungkus TLS/HTTPS sebelum dikirim — nambah beban di packet loop
+     yang sekarang sengaja didesain ringan (lihat keputusan #4). WAJIB
+     tanya dulu ke user: behavior apa yang harus tetap sama (fallback ke
+     plain DNS kalau DoH gagal? provider mana saja yang didukung dulu?)
+     sebelum mulai coding — JANGAN langsung reka sendiri.
+   Di luar daftar asli "Kekurangan AdShield" tapi berpotensi relevan kalau
+   user minta: WARP belum divalidasi di device fisik manapun (baca bagian
+   "Belum diverifikasi" di README.md) — ini butuh testing manual oleh
+   user, bukan sesuatu yang bisa "dikerjakan" lewat kode semata.
    Mode Ad-Block DNS tetap dipertahankan apa adanya kecuali user minta
    perubahan eksplisit.
 1. **PALING PENTING, MASIH TERTUNDA: uji mode WARP di device fisik Ted.**

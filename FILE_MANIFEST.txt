@@ -1,15 +1,18 @@
-# FILE_MANIFEST.txt — isi ZIP v2.4.0 (2026-08-03), 54 file (tidak termasuk
-# file ini sendiri) — base v2.3.0 ada 53 file, + 1 file baru batch ini:
-# ui/screens/OnboardingScreen.kt.
-# File yang isinya berubah: data/SettingsRepository.kt (tambah key
-# has_seen_onboarding), ui/MainViewModel.kt (expose currentHasSeenOnboarding
-# + markOnboardingComplete), MainActivity.kt (route onboarding + gate
-# NavHost start destination, edit parsial — Navigation Graph & MainActivity
-# protected), app/build.gradle.kts (versionCode/versionName, edit parsial
-# — protected), PROJECT_STATE.md, CHANGELOG.md, README.md.
+# FILE_MANIFEST.txt — isi ZIP v2.5.0 (2026-08-03), 54 file (tidak termasuk
+# file ini sendiri) — SAMA seperti v2.4.0, tidak ada file baru batch ini.
+# File yang isinya berubah: data/BlocklistManager.kt (full rewrite, bukan
+# protected — tambah remote blocklist set + class BlocklistUpdateWorker di
+# file yang sama), data/SettingsRepository.kt (tambah key
+# blocklist_last_updated + blocklist_update_status), ui/MainViewModel.kt
+# (expose state blocklist URL/status + reconcileBlocklistSchedule +
+# refreshBlocklistNow), ui/screens/RulesScreen.kt (full rewrite, bukan
+# protected — search, validasi domain, bagian Blocklist Kustom URL),
+# vpn/AdBlockVpnService.kt (edit parsial — 1 baris load cache remote list),
+# app/build.gradle.kts (versionCode/versionName, edit parsial — protected),
+# PROJECT_STATE.md, CHANGELOG.md, README.md.
 #
-# (v2.3.0 sebelumnya: +ui/screens/DiagnosticsScreen.kt, edit di
-# vpn/AdBlockVpnService.kt, ui/screens/HomeScreen.kt, ui/screens/LogsScreen.kt)
+# (v2.4.0 sebelumnya: +ui/screens/OnboardingScreen.kt, edit di
+# data/SettingsRepository.kt, ui/MainViewModel.kt, MainActivity.kt)
 #
 # PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
 # `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
