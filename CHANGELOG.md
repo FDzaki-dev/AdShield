@@ -2,6 +2,20 @@
 
 ## v2.6.0 — Quick Settings Tile (2026-08-03)
 
+> **Fix (2026-08-03, build kedua):** CI gagal lagi di build pertama —
+> `compileReleaseKotlin FAILED`: "'public' subclass exposes its
+> 'private-in-file' supertype BaseAdShieldTileService" di
+> `AdShieldTileServices.kt`. `BaseAdShieldTileService` dideklarasikan
+> `private` (hanya terlihat dalam file itu), tapi `DnsAdBlockTileService`/
+> `WarpTunnelTileService` yang mewarisinya bersifat `public` (default,
+> WAJIB public supaya Android system bisa instantiate lewat reflection
+> dari `AndroidManifest.xml`). Kotlin melarang class public punya
+> supertype yang visibilitasnya lebih terbatas. Fix: hapus modifier
+> `private` dari `BaseAdShieldTileService` (jadi default/package-visible,
+> tetap bukan `public` API yang perlu diekspos ke luar). Tidak ada
+> perubahan perilaku. versionCode/versionName TIDAK dinaikkan lagi
+> (build pertama gagal total, belum pernah menghasilkan APK).
+
 Di luar daftar asli "Kekurangan AdShield" — permintaan langsung user
 (terinspirasi tile 1.1.1.1). Karena AdShield punya 2 mode terpisah yang
 mutually-exclusive, dipilih desain **2 tile terpisah** (bukan 1 tile

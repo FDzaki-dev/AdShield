@@ -3,15 +3,20 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **Versi terakhir selesai: v2.6.0** (Quick Settings Tile — 2 tile
-  terpisah untuk DNS Ad-Block & WARP, di luar daftar asli "Kekurangan
-  AdShield", permintaan langsung user, 2026-08-03)
-- v2.5.0 build KEDUA (setelah fix `@OptIn(ExperimentalFoundationApi)`)
-  belum dikonfirmasi berhasil oleh user — belum ada log CI baru yang
-  dikirim sejak fix itu. Jangan asumsikan sukses.
-- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.6.0 —
-  cek `git log` di sesi berikutnya sebelum asumsikan sudah ter-push
-  (begitu juga v2.3.0/v2.4.0/v2.5.0 kalau belum dikonfirmasi juga).
+- **v2.6.0 build PERTAMA gagal di CI** (`compileReleaseKotlin FAILED` —
+  lihat insiden di bawah), sudah diperbaiki di sesi yang sama. ZIP hasil
+  fix dikirim ke user, TAPI belum dikonfirmasi build KEDUA berhasil.
+  **WAJIB minta log build terbaru dari user di sesi berikutnya kalau
+  belum ada konfirmasi eksplisit "build sukses".**
+- **Kabar baik tersirat dari log ini:** fix v2.5.0 (`@OptIn
+  ExperimentalFoundationApi` di `OnboardingScreen.kt`) TERBUKTI berhasil
+  — log build v2.6.0 ini menunjukkan compiler sudah lewat semua file
+  v2.4.0/v2.5.0 dengan sukses dan baru gagal di file baru v2.6.0
+  (`AdShieldTileServices.kt`). Jadi v2.5.0 sudah confirmed jalan, TIDAK
+  perlu ditanyakan lagi ke user.
+- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk hasil fix
+  v2.6.0 ini — cek `git log` di sesi berikutnya sebelum asumsikan sudah
+  ter-push.
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -303,6 +308,34 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.6.0, build pertama GAGAL)**: User upload log CI
+  (`logs_83675463865.zip`) — `compileReleaseKotlin FAILED` dengan 2 error
+  identik di `AdShieldTileServices.kt` baris 104 & 113: `'public'
+  subclass exposes its 'private-in-file' supertype
+  BaseAdShieldTileService`. **Akar masalah:** `BaseAdShieldTileService`
+  dideklarasikan `private` (visibilitas file-only), tapi
+  `DnsAdBlockTileService`/`WarpTunnelTileService` yang mewarisinya WAJIB
+  `public` (default) supaya Android system bisa instantiate lewat
+  reflection dari `AndroidManifest.xml` — Kotlin melarang kombinasi ini
+  (class public tidak boleh punya supertype yang visibilitasnya lebih
+  sempit). **Fix:** hapus modifier `private` dari
+  `BaseAdShieldTileService`. Tidak ada perubahan file lain, tidak ada
+  perubahan perilaku. versionCode/versionName TETAP di 12/2.6.0 (build
+  pertama gagal total). **Kabar baik dari log yang sama:** compiler
+  sukses lewat SEMUA file v2.4.0/v2.5.0 sebelum gagal di file baru
+  v2.6.0 ini — jadi fix `@OptIn(ExperimentalFoundationApi)` untuk v2.5.0
+  (insiden sebelumnya) TERBUKTI berhasil, sudah dikonfirmasi tidak
+  langsung dari user tapi dari bukti compiler lewat. **Pelajaran:** pola
+  "base class private-in-file + subclass public" ini gampang lolos dari
+  semua static check yang bisa dilakukan tanpa compiler Kotlin
+  sungguhan (brace/paren balance, cross-reference import) — kelas
+  kegagalan yang sama seperti insiden v2.5.0 sebelumnya (experimental
+  API tanpa OptIn), sama-sama termasuk keterbatasan "Scope of
+  Guarantee". **Untuk batch selanjutnya:** kalau bikin base
+  class+subclass pattern di file yang sama untuk hemat jumlah file,
+  base class visibility TIDAK BOLEH lebih sempit dari subclass
+  publiknya — cek ini secara eksplisit sebelum kirim ZIP, bukan cuma
+  andalkan brace/paren balance.
 - **2026-08-03 (v2.6.0)**: User minta Quick Settings Tile (terinspirasi
   app 1.1.1.1), di luar daftar asli "Kekurangan AdShield". Ditanya dulu
   preferensi desain (2 tile terpisah / 1 tile cycle / 1 tile generik) —

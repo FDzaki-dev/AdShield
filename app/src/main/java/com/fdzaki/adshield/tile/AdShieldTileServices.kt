@@ -37,8 +37,15 @@ import kotlinx.coroutines.launch
  * one) — correct enough for this app's usage pattern (user pulls down QS
  * panel, tile refreshes then) without the added complexity/battery cost of
  * android:meta-data ACTIVE_TILE + onTileAdded polling.
+ *
+ * NOT `private` — Kotlin forbids a public class (DnsAdBlockTileService /
+ * WarpTunnelTileService below, both public so the Android system can
+ * instantiate them via reflection from AndroidManifest.xml) from extending
+ * a supertype with narrower visibility ("public subclass exposes its
+ * private-in-file supertype"). Package-visibility default is intentional
+ * here, don't add `private` back.
  */
-private abstract class BaseAdShieldTileService(
+abstract class BaseAdShieldTileService(
     private val targetMode: String,
     private val toggleAction: String,
     private val pendingIntentRequestCode: Int,
