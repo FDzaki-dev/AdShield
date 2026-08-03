@@ -111,6 +111,11 @@ Alur saat pertama kali diaktifkan:
 - **Aturan Kustom lebih mudah dikelola** — validasi format domain langsung
   saat mengetik, pencarian di dalam daftar (untuk daftar panjang), pesan
   kondisi kosong yang jelas
+- **Quick Settings Tile** — 2 tile terpisah ("AdShield: DNS" dan
+  "AdShield: WARP") bisa ditambahkan ke panel Quick Settings (tarik ke
+  bawah 2 jari), untuk toggle tanpa buka aplikasi penuh. Tap tile
+  membuka app sebentar lalu langsung kembali ke panel — bukan toggle
+  instan diam-diam, karena izin VPN pertama kali butuh dialog Activity.
 
 ## Batasan yang perlu diketahui
 
@@ -139,26 +144,12 @@ Alur saat pertama kali diaktifkan:
   aktif** — WARP itu tunnel WireGuard mentah tanpa filtering apa pun, cuma
   enkripsi. Kalau mau blokir iklan, pakai mode Ad-Block DNS.
 
-## Crash Logger bawaan
-
-[#crash-logger-bawaan](#crash-logger-bawaan)
-
-Sejak v2.6.0, AdShield otomatis menyimpan laporan crash setiap kali
-aplikasi mengalami uncaught exception:
-
-- **Android 10 ke atas:** `Documents/AdShield/logs/` (folder publik,
-  bisa dibuka lewat app Files/Berkas bawaan).
-- **Android 9 ke bawah:** `Android/data/com.fdzaki.adshield/files/AdShield/logs/`
-  (penyimpanan privat app — tidak butuh izin storage tambahan).
-
-Maksimal 50 file terbaru disimpan (file tertua otomatis dihapus). Kalau
-melaporkan crash, sertakan isi file `crash_...txt` terbaru dari folder
-tersebut — ini jauh lebih cepat didiagnosis dibanding hanya deskripsi
-gejala.
-
 ## Status proyek
 
-- **v2.5.0** — DNS AdBlocker (scope ringan): blocklist kustom via URL
+- **v2.6.0** — Quick Settings Tile: 2 tile terpisah (DNS Ad-Block, WARP)
+  di panel Quick Settings, di luar daftar asli "Kekurangan AdShield" —
+  permintaan langsung user
+- v2.5.0 — DNS AdBlocker (scope ringan): blocklist kustom via URL
   dengan auto-update tiap 24 jam (WorkManager), UI Aturan Kustom lebih
   mudah dikelola (validasi domain, pencarian, pesan kondisi kosong).
   Custom DNS terenkripsi (DoH/DoT) sengaja disisihkan ke batch terpisah

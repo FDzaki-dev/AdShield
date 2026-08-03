@@ -1,88 +1,42 @@
 # Changelog
 
-## v2.6.0 — Crash Logger Bawaan (2026-08-03)
+## v2.6.0 — Quick Settings Tile (2026-08-03)
 
-> **Peningkatan MAJOR, bukan fitur user-facing biasa — bagian dari fokus
-> "100% reliability" yang diminta user. Ini menutup gap yang seharusnya
-> ada sejak v1.0.0 tapi belum pernah diimplementasikan.**
+Di luar daftar asli "Kekurangan AdShield" — permintaan langsung user
+(terinspirasi tile 1.1.1.1). Karena AdShield punya 2 mode terpisah yang
+mutually-exclusive, dipilih desain **2 tile terpisah** (bukan 1 tile
+cycle atau 1 tile generik) — paling konsisten dengan App Shortcuts
+(v2.2.0) yang sudah ada, dan paling jelas buat user tile mana yang
+mengontrol mode mana.
 
-- **Baru: `util/CrashLogger.kt`** — dipasang sekali di
-  `AdShieldApp.onCreate()` (baris PERTAMA, sebelum kode lain di
-  `onCreate()`, supaya crash startup apapun juga tertangkap). Menangkap
-  SEMUA uncaught exception di proses app, menulis laporan crash lengkap,
-  lalu selalu meneruskan (chain) ke handler sebelumnya (default Android)
-  supaya perilaku crash normal (dialog "app berhenti", proses dimatikan)
-  tetap sama seperti biasa.
-- **Lokasi & format sesuai spesifikasi:**
-  - **API 29+ (Android 10 ke atas):** ditulis via MediaStore ke folder
-    publik `Documents/AdShield/logs/` — TIDAK menambah izin storage
-    legacy apa pun.
-  - **API 24–28:** MediaStore Documents collection tidak tersedia di versi
-    ini, dan menulis ke folder publik butuh izin legacy
-    `WRITE_EXTERNAL_STORAGE` yang sengaja tidak ditambahkan hanya untuk
-    logging (sesuai aturan baku). Sebagai gantinya, log ditulis ke
-    penyimpanan eksternal privat app
-    (`Android/data/com.fdzaki.adshield/files/AdShield/logs/`) — tidak
-    butuh izin apa pun di versi Android manapun. Ini trade-off yang
-    disengaja & didokumentasikan (lihat PROJECT_STATE.md Assumption Log),
-    bukan bug: lokasi sedikit kurang mudah ditemukan di Android lama,
-    tapi tetap ada dan tetap bisa diambil lewat file manager.
-  - Nama file: `crash_<yyyyMMdd_HHmmss>_<8-char UUID>.txt` — unik, tidak
-    pernah bentrok/timpa.
-  - Isi laporan: nama & versi app (versionName + versionCode), versi
-    Android OS + API level, manufacturer & model device, timestamp
-    kejadian, nama & ID thread yang crash, stack trace lengkap.
-- **Retention FIFO maks 50 file** — begitu melebihi 50, file crash log
-  TERLAMA dihapus duluan. Query/hapus HANYA menyasar file yang cocok
-  folder + prefix nama milik logger ini sendiri (`crash_*`) — tidak
-  pernah menyentuh file diagnostik lain milik user atau app lain.
-- **Fail-safe total:** seluruh proses (buat folder, tulis file,
-  format stack trace, query & hapus log lama) dibungkus try-catch.
-  Kalau logging gagal karena alasan apa pun, kegagalan itu diam-diam
-  diabaikan — tidak pernah menyebabkan crash kedua atau mengganggu
-  proses crash asli.
-- Tidak ada perubahan pada fitur/perilaku aplikasi yang terlihat user
-  sehari-hari (tidak ada UI baru untuk ini) — murni infrastruktur
-  diagnostik untuk sesi debugging berikutnya.
-
-## v2.5.1 — FIX KRITIS: DNS non-blocklist tidak pernah diteruskan (2026-08-03)
-
-> **Ini bukan fitur baru — perbaikan bug fondasi yang ditemukan saat audit
-> stabilitas menyeluruh atas permintaan user ("berhenti update fitur,
-> fokus 100% reliability").**
-
-- **Root cause:** `AdBlockVpnService` memakai satu
-  `Executors.newSingleThreadExecutor()` untuk DUA hal sekaligus: (1)
-  menjalankan `runPacketLoop()` — loop `while(running)` yang tidak pernah
-  selesai selama VPN aktif — dan (2) mengeksekusi `forwardToUpstream()`
-  untuk tiap query yang tidak diblokir. Karena executor itu cuma punya
-  1 thread dan thread itu sudah terpakai selamanya oleh loop, setiap task
-  `forwardToUpstream` yang di-submit hanya masuk antrian dan **tidak
-  pernah benar-benar jalan** sampai VPN dimatikan.
-- **Dampak nyata sebelum fix ini:** domain yang di-blokir tetap dapat
-  balasan (jalur itu sinkron langsung di dalam loop, tidak lewat
-  executor) — tapi domain manapun yang TIDAK ada di blocklist (mayoritas
-  trafik normal: media sosial, banking, streaming, dll) query DNS-nya
-  tidak pernah diteruskan ke resolver upstream sama sekali. Dari sisi
-  user ini terlihat seperti "internet mati total" begitu Ad-Block DNS
-  dinyalakan.
-- **Fix:** pisahkan jadi dua executor terpisah — `loopExecutor`
-  (`newSingleThreadExecutor`, khusus `runPacketLoop`) dan
-  `forwardExecutor` (`newFixedThreadPool(4)`, khusus
-  `forwardToUpstream`). Tidak ada perubahan perilaku lain, tidak ada
-  perubahan pada logic blocking/matching/whitelist.
-- **Scope perubahan:** 1 file kode (`AdBlockVpnService.kt`, edit
-  parsial, protected file — bukan full rewrite) + dokumentasi wajib.
-  Tidak menyentuh arsitektur VPN (`10.111.222.1/32`, packet parsing,
-  BlocklistManager) sama sekali.
-- **Belum bisa diverifikasi:** perbaikan ini adalah analisis statis atas
-  bug konkuren yang teridentifikasi jelas dari kode (single-thread
-  executor + infinite loop + task tambahan ke executor yang sama = tidak
-  mungkin jalan, ini bukan dugaan). Tapi seperti biasa, saya tidak bisa
-  mengklaim sudah verifikasi lewat compile/runtime sungguhan di sandbox
-  ini — WAJIB dicek lewat build CI + tes manual di device (buka browser/
-  app apapun saat Ad-Block DNS aktif, pastikan internet tetap normal
-  untuk domain yang tidak diblokir).
+- **Baru: Tile "AdShield: DNS" dan "AdShield: WARP"** di Quick Settings
+  (tarik ke bawah 2 jari dari notification shade → edit tiles → tambah).
+  Tap tile membuka `MainActivity` sebentar lalu langsung collapse balik
+  ke QS panel — BUKAN toggle diam-diam di background. Ini bukan
+  keterbatasan implementasi, tapi konsekuensi nyata:
+  `VpnService.prepare()` (dialog izin VPN pertama kali) butuh Activity,
+  jadi truly-silent toggle dari TileService memang tidak mungkin dijamin
+  di semua kondisi.
+- Tile pakai **intent yang sama persis** dengan launcher shortcut
+  (`ACTION_TOGGLE_DNS`/`ACTION_TOGGLE_WARP` ke `MainActivity`) — nol
+  logic toggle baru, nol risiko baru terhadap aturan mutual-exclusion
+  DNS↔WARP yang sudah ada sejak v2.0.0.
+- Ikon tile sengaja dibuat monokrom satu warna (bukan reuse ikon
+  shortcut yang berwarna) — ikon QS tile di-tint otomatis oleh sistem
+  sesuai state aktif/nonaktif, ikon multi-warna berisiko keliru
+  ditampilkan di beberapa OEM.
+- Status tile (nyala/mati + label "Nyalakan.../Matikan...") diperbarui
+  saat panel QS dibuka (`onStartListening`) — bukan live-update terus
+  menerus saat panel sudah terbuka. Cukup untuk pola pakai wajar (buka
+  panel → lihat status terkini), tanpa biaya baterai tambahan dari
+  polling aktif.
+- **Perhatian khusus Android 14+ (device target user: Android 15/XOS):**
+  `TileService.startActivityAndCollapse(Intent)` di-deprecate DAN akan
+  throw `UnsupportedOperationException` di Android 14+ untuk app dengan
+  `targetSdk` 34+ (app ini `targetSdk 34`). Sudah ditangani dengan
+  overload `PendingIntent` untuk API 34+, fallback ke overload `Intent`
+  lama untuk di bawahnya — lihat komentar di kode, JANGAN disederhanakan
+  jadi satu jalur saja.
 
 ## v2.5.0 — DNS AdBlocker: Auto-Update Blocklist + UI Lebih Mudah (2026-08-03)
 

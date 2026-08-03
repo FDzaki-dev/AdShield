@@ -3,43 +3,15 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v2.6.0 (2026-08-03) — Crash Logger bawaan SELESAI diimplementasikan**
-  (`util/CrashLogger.kt` + panggilan `install()` di baris pertama
-  `AdShieldApp.onCreate()`). Ini menutup gap yang sudah tercatat sejak
-  audit v2.5.1. **BELUM dikonfirmasi build CI + belum pernah memicu
-  crash sungguhan di device untuk membuktikan file log benar-benar
-  muncul di lokasi yang diharapkan** — WAJIB jadi hal pertama yang dicek
-  di sesi berikutnya sebelum menganggap ini "selesai total". Assumption
-  teknis yang dibuat (lihat AI Assumption Log di bawah): MediaStore
-  Files collection (bukan Downloads) dipakai untuk insert generik ke
-  `Documents/AdShield/logs/` pada API 29+; belum diverifikasi lewat
-  pengujian nyata bahwa file benar-benar muncul & terlihat di aplikasi
-  Files/Berkas bawaan Android setelahnya — cuma diverifikasi lewat
-  pengetahuan API resmi (ContentResolver.insert + RELATIVE_PATH), bukan
-  observasi langsung.
-- v2.5.1 (2026-08-03) — user secara eksplisit minta STOP semua kerja
-  fitur baru, fokus 100% ke reliability/performance/optimalisasi jangka
-  panjang. Audit stabilitas menyeluruh menemukan bug KRITIS di
-  `AdBlockVpnService`: executor tunggal dipakai untuk loop paket (tidak
-  pernah selesai) SEKALIGUS untuk forward ke upstream — task forward
-  cuma masuk antrian dan tidak pernah jalan, artinya domain non-blocklist
-  TIDAK PERNAH resolve selama VPN DNS aktif (lihat CHANGELOG v2.5.1 untuk
-  detail lengkap). Sudah diperbaiki: dipisah jadi `loopExecutor` +
-  `forwardExecutor` terpisah. **BELUM dikonfirmasi user via build CI +
-  tes device fisik** — WAJIB minta konfirmasi ini di sesi berikutnya
-  sebelum menganggap masalah selesai. Ditemukan juga saat audit yang sama:
-  Crash Logger bawaan (wajib sejak awal sesuai standing instruction) TIDAK
-  PERNAH benar-benar diimplementasikan di project ini — belum dikerjakan,
-  jadi prioritas #2 di batch berikutnya (lihat "Yang HARUS dikerjakan").
-- v2.5.0 build PERTAMA gagal di CI (`compileReleaseKotlin FAILED` —
-  lihat insiden di bawah), sudah diperbaiki di sesi yang sama. ZIP hasil
-  fix dikirim ke user, TAPI belum dikonfirmasi build KEDUA berhasil.
-  **WAJIB minta log build terbaru dari user di sesi berikutnya kalau belum
-  ada konfirmasi eksplisit "build sukses"** — jangan asumsikan fix ini
-  otomatis berhasil hanya karena akar masalahnya sudah jelas.
-- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.5.0 —
+- **Versi terakhir selesai: v2.6.0** (Quick Settings Tile — 2 tile
+  terpisah untuk DNS Ad-Block & WARP, di luar daftar asli "Kekurangan
+  AdShield", permintaan langsung user, 2026-08-03)
+- v2.5.0 build KEDUA (setelah fix `@OptIn(ExperimentalFoundationApi)`)
+  belum dikonfirmasi berhasil oleh user — belum ada log CI baru yang
+  dikirim sejak fix itu. Jangan asumsikan sukses.
+- Belum dikonfirmasi sudah di-push ke GitHub oleh user untuk v2.6.0 —
   cek `git log` di sesi berikutnya sebelum asumsikan sudah ter-push
-  (begitu juga v2.3.0 dan v2.4.0 kalau belum dikonfirmasi juga).
+  (begitu juga v2.3.0/v2.4.0/v2.5.0 kalau belum dikonfirmasi juga).
 - Belum pernah dites di device asli. Mode WARP KHUSUSNYA belum pernah
   divalidasi end-to-end (registrasi + handshake + trafik lewat tunnel) di
   device fisik manapun — kode sudah diverifikasi API-nya cocok dengan
@@ -286,76 +258,69 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
       `AdBlockVpnService` (yang sekarang forward plain-UDP ke upstream),
       BUKAN sekadar tambahan UI seperti batch ini. Lihat item #0 di bawah.
 
-11. **`AdBlockVpnService` — dua executor terpisah (v2.5.1), JANGAN
-    disatukan lagi.** `loopExecutor` (`newSingleThreadExecutor`) HANYA
-    untuk `runPacketLoop()` (loop tak-berhenti selama VPN aktif).
-    `forwardExecutor` (`newFixedThreadPool(4)`) HANYA untuk
-    `forwardToUpstream()`. JANGAN kembalikan ke satu executor bersama —
-    itu persis bug yang bikin domain non-blocklist tidak pernah resolve
-    (lihat riwayat insiden 2026-08-03 / CHANGELOG v2.5.1). Kalau nambah
-    jenis pekerjaan async baru di service ini, pertimbangkan apakah dia
-    lebih mirip "loop yang tidak pernah selesai" (butuh thread sendiri)
-    atau "task pendek per-event" (aman di `forwardExecutor`) sebelum
-    memutuskan mau ditaruh di mana.
-
-12. **`util/CrashLogger.kt` (v2.6.0) — kontrak fail-safe yang JANGAN
-    dilonggarkan.** `CrashLogger.install()` dipanggil SEKALI, di baris
-    PERTAMA `AdShieldApp.onCreate()` (sebelum kode lain apa pun) —
-    JANGAN pindahkan ke tempat lain atau taruh setelah inisialisasi lain
-    yang mungkin crash duluan sebelum logger terpasang. Kontrak yang
-    tidak boleh dilanggar:
-    - SELALU chain ke `previousHandler` di blok `finally`, apa pun yang
-      terjadi saat logging (sukses atau gagal). JANGAN pernah membiarkan
-      throwable "berhenti" di logger ini tanpa diteruskan — itu akan
-      mengubah perilaku crash normal Android (dialog "app berhenti" +
-      kill process) jadi tidak terjadi sama sekali.
-    - SEMUA operasi I/O (buat folder, tulis file, query/hapus log lama)
-      dibungkus try-catch yang membiarkan kegagalan diam-diam gagal —
-      JANGAN tambahkan operasi baru di sini tanpa pembungkus yang sama,
-      atau logger ini sendiri bisa jadi sumber crash kedua.
-    - Retention (FIFO, maks 50) HANYA menghapus file yang cocok folder
-      (`Documents/AdShield/logs/` atau padanan privat di API lama) DAN
-      prefix nama (`crash_*`) milik logger ini sendiri — JANGAN perluas
-      selection/filter query ini tanpa mempertahankan kedua syarat
-      tersebut, supaya tidak pernah menyentuh file diagnostik lain milik
-      user atau app lain (lihat Koeksistensi Log Diagnostik di
-      instruksi baku).
-    - Split API level (MediaStore untuk 29+, app-private external untuk
-      di bawahnya) adalah keputusan SADAR untuk menghindari penambahan
-      izin storage legacy — JANGAN "perbaiki" dengan menambah
-      `WRITE_EXTERNAL_STORAGE` ke manifest demi menyatukan lokasi log di
-      semua versi Android.
+11. **Quick Settings Tile (v2.6.0) — `tile/AdShieldTileServices.kt`
+    (`DnsAdBlockTileService`, `WarpTunnelTileService`), manifest
+    `<service>` × 2, `res/drawable/ic_tile_dns.xml` + `ic_tile_warp.xml`.**
+    Keputusan yang JANGAN dilanggar:
+    - **2 tile terpisah, BUKAN 1 tile cycle/generik.** Ini keputusan
+      desain eksplisit (user delegasikan ke AI, dipilih demi konsistensi
+      dengan App Shortcuts v2.2.0 yang juga 2 entitas terpisah). Kalau
+      user nanti minta "gabung jadi 1 tile", itu bukan bug, itu perubahan
+      requirement — tanya dulu perilaku cycle yang diinginkan sebelum
+      redesign, jangan tebak sendiri urutan Mati→DNS→WARP atau
+      DNS→WARP→Mati.
+    - Tap tile **WAJIB** lewat `Intent` ke `MainActivity` dengan action
+      `ACTION_TOGGLE_DNS`/`ACTION_TOGGLE_WARP` (persis yang dipakai
+      shortcut) — **JANGAN PERNAH** panggil `AdBlockVpnService`/
+      `WarpForegroundService`/`WarpTunnelManager` langsung dari
+      `TileService`. Ini bukan cuma soal konsistensi kode: `TileService`
+      tidak punya cara andal memicu dialog izin `VpnService.prepare()`
+      (butuh Activity), jadi mode-start langsung dari situ akan gagal
+      diam-diam persis di percobaan pertama user (izin VPN belum pernah
+      diberikan).
+    - **Kritis, JANGAN disederhanakan:** klik tile HARUS cabang berdasar
+      `Build.VERSION.SDK_INT >= UPSIDE_DOWN_CAKE` (34) — pakai
+      `startActivityAndCollapse(PendingIntent)` di atas situ,
+      `startActivityAndCollapse(Intent)` (deprecated) di bawahnya. Overload
+      `Intent` THROW `UnsupportedOperationException` di Android 14+ untuk
+      app dengan `targetSdk` 34+ (app ini `targetSdk 34` — lihat
+      `app/build.gradle.kts`). Device utama user (Infinix, Android
+      15/16/XOS) MASUK kategori yang akan crash kalau cabang ini dihapus.
+    - Ikon tile (`ic_tile_dns.xml`, `ic_tile_warp.xml`) SENGAJA satu
+      `fillColor` per file (bukan reuse ikon shortcut yang 2 warna) —
+      sistem men-tint ikon tile secara uniform sesuai state aktif/nonaktif,
+      ikon 2 warna berisiko detail keduanya jadi warna sama (kontras
+      hilang) tergantung implementasi SystemUI OEM. Kalau nanti mau
+      tambah detail visual di ikon tile, pakai `fillType="evenOdd"` untuk
+      bikin "lubang" transparan dalam satu path (seperti keyhole di
+      `ic_tile_warp.xml`), JANGAN tambah `<path>` kedua dengan warna beda.
+    - Status tile hanya di-refresh di `onStartListening()` (passive tile,
+      bukan `ACTIVE_TILE` meta-data + polling). Ini pilihan sadar
+      (baterai vs live-update saat panel sudah terbuka) — kalau user
+      komplain tile "telat update" saat panel QS dibiarkan terbuka lama
+      sambil toggle dari tempat lain, itu bukan bug, itu trade-off yang
+      sudah didokumentasikan di sini.
 
 ## Riwayat insiden kronologis
 
-- **2026-08-03 (v2.6.0)**: User minta "peningkatan major, bukan minor" —
-  lanjutan langsung dari arahan "stop fitur, fokus 100% reliability"
-  (v2.5.1). Dikerjakan sesuai urutan prioritas #2 yang sudah disepakati:
-  Crash Logger bawaan, gap yang sudah tercatat sejak audit sebelumnya
-  tapi belum pernah benar-benar diimplementasikan sejak v1.0.0. Bukan
-  insiden/bug — kerja infrastruktur diagnostik murni, tidak ada
-  perubahan pada fitur/perilaku user-facing apa pun. Batch ini menyentuh
-  2 file (`util/CrashLogger.kt` baru, `AdShieldApp.kt` — edit parsial,
-  Application Class protected — hanya tambah 1 import + 1 baris
-  pemanggilan di awal `onCreate()`, + `app/build.gradle.kts` versionCode/
-  versionName), jauh di bawah batas maksimal batch (10 file).
-- **2026-08-03 (v2.5.1, insiden BUKAN dari laporan user — ditemukan lewat
-  audit stabilitas proaktif atas permintaan eksplisit "stop fitur, fokus
-  100% reliability")**: `AdBlockVpnService` sejak v1.0.0 memakai
-  `Executors.newSingleThreadExecutor()` yang sama untuk `runPacketLoop()`
-  (loop tak-berhenti) dan `forwardToUpstream()` (dipanggil per-query lewat
-  `executor.execute { ... }` di dalam loop itu sendiri). Karena hanya ada
-  1 thread di pool dan thread itu selamanya sibuk menjalankan loop, setiap
-  task forward yang di-submit tidak pernah benar-benar dieksekusi — bug
-  ini SUDAH ADA sejak arsitektur awal (v1.0.0), bukan regresi dari batch
-  manapun setelahnya, dan baru terlihat sekarang karena belum ada
-  pengujian device fisik yang mengonfirmasi domain non-blocklist bisa
-  resolve normal saat DNS mode aktif. Diperbaiki dengan memisah jadi
-  `loopExecutor`/`forwardExecutor`. **Pelajaran:** analisis konkurensi
-  (thread pool + tugas berjalan selamanya + tugas tambahan ke pool yang
-  sama) harus jadi bagian rutin self-verifikasi ke depan, bukan cuma cek
-  brace balance/import — kelas bug ini tidak akan terdeteksi checklist
-  statis manapun yang sudah ada sebelum ini.
+- **2026-08-03 (v2.6.0)**: User minta Quick Settings Tile (terinspirasi
+  app 1.1.1.1), di luar daftar asli "Kekurangan AdShield". Ditanya dulu
+  preferensi desain (2 tile terpisah / 1 tile cycle / 1 tile generik) —
+  user delegasikan keputusan ke AI ("sesuaikan dengan yang terbaik aja"),
+  dipilih **2 tile terpisah** demi konsistensi dengan App Shortcuts
+  (v2.2.0) dan risiko implementasi paling rendah (tiap tile cuma peduli
+  1 mode, tidak perlu state machine cycle). Bukan insiden/bug — kerja
+  fitur baru murni. Batch ini menyentuh 9 file (`AndroidManifest.xml` —
+  edit parsial, protected, tambah 2 `<service>`; `tile/AdShieldTileServices.kt`
+  — baru, berisi 1 base class + 2 tile service; `res/drawable/ic_tile_dns.xml`
+  + `ic_tile_warp.xml` — baru; `app/build.gradle.kts` — edit parsial
+  versionCode/versionName, protected; + `PROJECT_STATE.md`, `CHANGELOG.md`,
+  `FILE_MANIFEST.txt`, `README.md`), di bawah batas maksimal batch (10
+  file). Ditemukan & ditangani satu gotcha spesifik Android 14+ sebelum
+  sempat jadi bug produksi: `TileService.startActivityAndCollapse(Intent)`
+  throw exception di device Android 14+ untuk app `targetSdk` 34+ (app
+  ini persis begitu) — lihat keputusan arsitektur #11 untuk detail
+  percabangan `PendingIntent` vs `Intent` yang WAJIB dipertahankan.
 - **2026-08-03 (v2.5.0, build pertama GAGAL)**: User upload log CI
   (`logs_83484826529.zip`) — `compileReleaseKotlin FAILED` dengan 12 error
   identik: "This foundation API is experimental and is likely to change or
@@ -551,28 +516,6 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
-
-**Arahan user (2026-08-03, TERBARU — MENGGANTIKAN arahan #0 di bawah
-untuk sementara): STOP semua kerja fitur baru. Fokus 100% ke
-reliability/performance/optimalisasi. Jangan kembali ke daftar "Kekurangan
-AdShield"/fitur baru manapun kecuali user eksplisit minta lanjut lagi.**
-Urutan kerja yang disepakati:
-  1. ✅ SELESAI (v2.5.1): fix deadlock executor `AdBlockVpnService`.
-     Belum dikonfirmasi build+device — cek ini duluan di sesi berikutnya.
-  2. ✅ SELESAI (v2.6.0): Crash Logger bawaan (`util/CrashLogger.kt`).
-     Belum dikonfirmasi build CI + belum pernah memicu crash sungguhan
-     di device untuk membuktikan file log benar-benar muncul — cek ini
-     juga di sesi berikutnya, idealnya SEKALIAN dengan #1 (satu build
-     CI, satu sesi tes device, dua hal dicek bareng).
-  3. **BELUM DIKERJAKAN — prioritas berikutnya:** Unit test dasar untuk
-     `DnsPacket` (parsing) dan `BlocklistManager` (exact/wildcard/
-     critical-allowlist matching) — bagian paling kritis & paling
-     gampang salah, belum ada satu pun test sejauh ini.
-  4. Baru setelah #1-#3 terkonfirmasi solid: lanjut validasi mode WARP
-     di device fisik (lihat item #1 lama di bawah — prioritasnya TETAP
-     tinggi, cuma urutannya sekarang setelah fondasi dibereskan dulu).
-
----
 
 0. **Arahan user (2026-08-03, DIPERBARUI): user mengizinkan fitur baru
    dari daftar "Kekurangan AdShield", dikerjakan satu kategori/scope per

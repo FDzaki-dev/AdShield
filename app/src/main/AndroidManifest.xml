@@ -99,5 +99,32 @@
             android:name=".receiver.WarpRestartReceiver"
             android:exported="false" />
 
+        <!-- Quick Settings tiles — tapping either one opens MainActivity
+             with the same ACTION_TOGGLE_DNS/ACTION_TOGGLE_WARP intent the
+             launcher shortcuts use, so mode start/stop logic stays in one
+             place (see MainActivity.handleShortcutToggleIntent). minSdk 24
+             already covers TileService's own minimum (API 24). -->
+        <service
+            android:name=".tile.DnsAdBlockTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_dns"
+            android:label="@string/shortcut_dns_on_short"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
+        <service
+            android:name=".tile.WarpTunnelTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile_warp"
+            android:label="@string/shortcut_warp_on_short"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+
     </application>
 </manifest>

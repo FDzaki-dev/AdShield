@@ -1,20 +1,15 @@
-# FILE_MANIFEST.txt — isi ZIP v2.6.0 (2026-08-03), 55 file (tidak termasuk
-# file ini sendiri) — +1 file baru dari v2.5.1: util/CrashLogger.kt.
-# Peningkatan MAJOR (Crash Logger bawaan), bukan fitur — lihat CHANGELOG.md
-# v2.6.0.
-# File yang isinya berubah: AdShieldApp.kt (edit parsial — Application
-# Class protected, hanya +1 import & +1 baris pemanggilan install() di
-# awal onCreate()), app/build.gradle.kts (versionCode 12→13, versionName
-# 2.5.1→2.6.0, edit parsial — protected), PROJECT_STATE.md, CHANGELOG.md,
-# README.md (tambah bagian lokasi crash log).
+# FILE_MANIFEST.txt — isi ZIP v2.6.0 (2026-08-03), 57 file (tidak termasuk
+# file ini sendiri) — base v2.5.0 ada 54 file, + 3 file baru batch ini:
+# tile/AdShieldTileServices.kt, drawable/ic_tile_dns.xml, drawable/ic_tile_warp.xml.
+# File yang isinya berubah: AndroidManifest.xml (tambah 2 <service> untuk
+# Quick Settings Tile, edit parsial — protected), app/build.gradle.kts
+# (versionCode/versionName, edit parsial — protected), PROJECT_STATE.md,
+# CHANGELOG.md, README.md.
 #
-# (v2.5.1 sebelumnya: vpn/AdBlockVpnService.kt edit parsial — fix deadlock
-# executor, app/build.gradle.kts versionCode/versionName)
-# (v2.5.0 sebelumnya: data/BlocklistManager.kt full rewrite +
-# BlocklistUpdateWorker, ui/screens/RulesScreen.kt full rewrite,
-# data/SettingsRepository.kt + ui/MainViewModel.kt edit parsial)
-# (v2.4.0 sebelumnya: +ui/screens/OnboardingScreen.kt, edit di
-# data/SettingsRepository.kt, ui/MainViewModel.kt, MainActivity.kt)
+# (v2.5.0 sebelumnya: full rewrite data/BlocklistManager.kt & ui/screens/
+# RulesScreen.kt, edit di data/SettingsRepository.kt, ui/MainViewModel.kt,
+# vpn/AdBlockVpnService.kt. Fix build v2.5.0: 1 baris @OptIn di
+# ui/screens/OnboardingScreen.kt, tidak menambah/mengurangi file fisik.)
 #
 # PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
 # `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
@@ -52,8 +47,8 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
-app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
+app/src/main/java/com/fdzaki/adshield/tile/AdShieldTileServices.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpAccount.kt
@@ -69,6 +64,8 @@ app/src/main/res/drawable/ic_shortcut_logs.xml
 app/src/main/res/drawable/ic_shortcut_warp_off.xml
 app/src/main/res/drawable/ic_shortcut_warp_on.xml
 app/src/main/res/drawable/ic_shortcut_whitelist.xml
+app/src/main/res/drawable/ic_tile_dns.xml
+app/src/main/res/drawable/ic_tile_warp.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 app/src/main/res/raw/blocklist_default.txt
