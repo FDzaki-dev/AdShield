@@ -308,6 +308,35 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-04 (CI-only, tidak menyentuh kode app, versionCode/versionName
+  TETAP 12/2.6.0)**: User laporkan APK v2.6.0 hasil build sukses tetap
+  gagal diinstall di device ("paket tampaknya tidak valid") walau sudah
+  dipastikan bukan kasus zip-vs-apk (artifact di-extract benar). Diagnosis
+  sumber source code (bukan asumsi): `signingConfigs`, `AndroidManifest.xml`,
+  `build.gradle.kts` semua diperiksa langsung — tidak ada bug jelas di
+  konfigurasi. Kemungkinan tersisa: signature conflict dengan install lama
+  (keystore beda), storage penuh, atau keystore CI corrupt saat decode
+  base64. User minta CI otomatis mendeteksi masalah signing ke depan.
+  **Ditambahkan:** step `apksigner verify --verbose --print-certs` di
+  `.github/workflows/build.yml` setelah rename APK, sebelum upload artifact
+  — job akan GAGAL (merah) kalau APK tidak tertandatangani dengan benar,
+  alih-alih lolos diam-diam seperti sebelumnya. Step ini juga mencetak
+  SHA-256 + ukuran file APK ke `$GITHUB_STEP_SUMMARY` supaya user bisa
+  cross-check hash antara yang di-build CI vs yang benar-benar sampai ke
+  HP (mendeteksi kasus download/transfer korup).
+  **PENTING — supersede catatan 2026-08-02 (v2.2.0) di bawah:**
+  `.github/workflows/build.yml` SEKARANG masuk ke ZIP pengiriman Claude
+  mulai sesi ini dan seterusnya (bukan lagi murni file manual di luar
+  alur ZIP), karena user eksplisit minta Claude mengelola isinya.
+  `.gitignore` MASIH manual (belum diminta), jadi command Termux
+  pengecualian `rm -rf` untuk `.gitignore` TETAP WAJIB ADA, tapi
+  pengecualian untuk `.github` SUDAH TIDAK PERLU LAGI mulai command di
+  respons ini — `.github/workflows/build.yml` boleh ikut ter-overwrite
+  oleh isi ZIP baru karena sekarang itu sumber kebenarannya. Kalau ada
+  sesi mendatang yang lupa dan menambahkan lagi pengecualian `.github` ke
+  command Termux, itu regresi — cek riwayat ini dulu sebelum asumsikan
+  pengecualian itu masih perlu.
+
 - **2026-08-03 (v2.6.0, build pertama GAGAL)**: User upload log CI
   (`logs_83675463865.zip`) — `compileReleaseKotlin FAILED` dengan 2 error
   identik di `AdShieldTileServices.kt` baris 104 & 113: `'public'

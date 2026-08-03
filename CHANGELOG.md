@@ -1,5 +1,24 @@
 # Changelog
 
+## CI-patch (2026-08-04) — Verifikasi tanda tangan APK otomatis
+
+> **CI-only, tidak ada perubahan kode app.** versionCode/versionName tetap
+> 12/2.6.0.
+
+- **Baru:** Step `apksigner verify --verbose --print-certs` ditambahkan ke
+  `.github/workflows/build.yml`, jalan setelah APK di-rename dan sebelum
+  di-upload sebagai artifact. Kalau APK gagal verifikasi tanda tangan
+  (keystore corrupt, skema v1/v2/v3 tidak lengkap, dll.), job CI sekarang
+  **gagal (merah)** dengan pesan jelas — sebelumnya masalah seperti ini
+  bisa lolos sebagai "build sukses" padahal APK tidak valid untuk
+  diinstall.
+- Step yang sama juga mencetak SHA-256 + ukuran file APK ke ringkasan run
+  GitHub Actions, supaya bisa dicocokkan manual dengan file yang benar-benar
+  sampai di HP (mendeteksi transfer/download yang korup).
+- `.github/workflows/build.yml` sekarang resmi dikelola lewat ZIP Claude
+  (lihat `PROJECT_STATE.md` § Riwayat insiden 2026-08-04) — sebelumnya
+  file ini murni manual di luar alur ZIP.
+
 ## v2.6.0 — Quick Settings Tile (2026-08-03)
 
 > **Fix (2026-08-03, build kedua):** CI gagal lagi di build pertama —

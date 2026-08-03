@@ -47,6 +47,23 @@ jobs:
           cp app/build/outputs/apk/release/app-release.apk \
              "out/AdShield_v${{ steps.version.outputs.version_name }}.apk"
 
+      - name: Verify APK signature (apksigner)
+        run: |
+          set -e
+          APK_PATH="out/AdShield_v${{ steps.version.outputs.version_name }}.apk"
+          BUILD_TOOLS_DIR=$(find "$ANDROID_HOME/build-tools" -maxdepth 1 -mindepth 1 -type d | sort -V | tail -1)
+          echo "Using build-tools: $BUILD_TOOLS_DIR"
+          "$BUILD_TOOLS_DIR/apksigner" verify --verbose --print-certs "$APK_PATH"
+          echo "--- APK signature verified OK ---"
+          ls -la "$APK_PATH"
+          sha256sum "$APK_PATH" | tee apk.sha256
+          {
+            echo "### APK Signature & Integrity"
+            echo "- File: \`AdShield_v${{ steps.version.outputs.version_name }}.apk\`"
+            echo "- SHA-256: \`$(cut -d' ' -f1 apk.sha256)\`"
+            echo "- Size: $(stat -c%s "$APK_PATH") bytes"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Upload APK artifact
         uses: actions/upload-artifact@v4
         with:

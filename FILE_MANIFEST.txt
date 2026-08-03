@@ -1,25 +1,26 @@
-# FILE_MANIFEST.txt — isi ZIP v2.6.0 (2026-08-03), 57 file (tidak termasuk
-# file ini sendiri) — base v2.5.0 ada 54 file, + 3 file baru batch ini:
-# tile/AdShieldTileServices.kt, drawable/ic_tile_dns.xml, drawable/ic_tile_warp.xml.
-# File yang isinya berubah: AndroidManifest.xml (tambah 2 <service> untuk
-# Quick Settings Tile, edit parsial — protected), app/build.gradle.kts
-# (versionCode/versionName, edit parsial — protected), PROJECT_STATE.md,
-# CHANGELOG.md, README.md.
+# FILE_MANIFEST.txt — isi ZIP CI-patch 2026-08-04 (base app tetap v2.6.0,
+# versionCode/versionName TIDAK berubah — ini perubahan CI-only), 58 file
+# (tidak termasuk file ini sendiri) — base v2.6.0 ada 57 file (tanpa
+# .github/workflows/build.yml), + 1 file yang SEKARANG PERTAMA KALI masuk
+# ZIP: .github/workflows/build.yml (tambah step "Verify APK signature
+# (apksigner)"). File lain yang isinya berubah: PROJECT_STATE.md (catat
+# transisi build.yml jadi ZIP-managed + insiden install invalid).
 #
-# (v2.5.0 sebelumnya: full rewrite data/BlocklistManager.kt & ui/screens/
-# RulesScreen.kt, edit di data/SettingsRepository.kt, ui/MainViewModel.kt,
-# vpn/AdBlockVpnService.kt. Fix build v2.5.0: 1 baris @OptIn di
-# ui/screens/OnboardingScreen.kt, tidak menambah/mengurangi file fisik.)
+# PENTING — PERUBAHAN KEBIJAKAN mulai rilis ini (supersede catatan lama):
+# `.github/workflows/build.yml` SEKARANG BAGIAN RESMI dari ZIP ini dan
+# seterusnya (user eksplisit minta Claude mengelola isinya sejak sesi
+# 2026-08-04). `.gitignore` MASIH di luar alur ZIP (belum diminta) — lihat
+# PROJECT_STATE.md § Riwayat insiden 2026-08-04 untuk detail lengkap
+# transisi ini dan dampaknya ke command Termux (pengecualian `.github` di
+# `rm -rf` sudah TIDAK diperlukan lagi, `.gitignore` tetap dikecualikan).
 #
-# PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
-# `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
-# ini maupun ZIP ini. Keduanya ada di repo asli tapi dibuat lewat command
-# Termux langsung saat setup awal (bukan lewat ZIP) — lihat catatan di
-# PROJECT_STATE.md § Riwayat insiden 2026-08-02 (v2.2.0). JANGAN hapus
-# keduanya saat update — command Termux di respons pengiriman ZIP ini sudah
-# disesuaikan untuk mengecualikan keduanya dari langkah pembersihan.
+# (v2.6.0 sebelumnya: 3 file baru tile/AdShieldTileServices.kt,
+# drawable/ic_tile_dns.xml, drawable/ic_tile_warp.xml. v2.5.0: full rewrite
+# data/BlocklistManager.kt & ui/screens/RulesScreen.kt, edit di
+# data/SettingsRepository.kt, ui/MainViewModel.kt, vpn/AdBlockVpnService.kt.)
 #
 # Regenerate isi ZIP (bukan git ls-files) tiap rilis dengan: find . -type f
+.github/workflows/build.yml
 CHANGELOG.md
 PROJECT_STATE.md
 README.md
