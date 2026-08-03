@@ -3,9 +3,23 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v2.5.1 (2026-08-03) — user secara eksplisit minta STOP semua kerja
+- **v2.6.0 (2026-08-03) — Crash Logger bawaan SELESAI diimplementasikan**
+  (`util/CrashLogger.kt` + panggilan `install()` di baris pertama
+  `AdShieldApp.onCreate()`). Ini menutup gap yang sudah tercatat sejak
+  audit v2.5.1. **BELUM dikonfirmasi build CI + belum pernah memicu
+  crash sungguhan di device untuk membuktikan file log benar-benar
+  muncul di lokasi yang diharapkan** — WAJIB jadi hal pertama yang dicek
+  di sesi berikutnya sebelum menganggap ini "selesai total". Assumption
+  teknis yang dibuat (lihat AI Assumption Log di bawah): MediaStore
+  Files collection (bukan Downloads) dipakai untuk insert generik ke
+  `Documents/AdShield/logs/` pada API 29+; belum diverifikasi lewat
+  pengujian nyata bahwa file benar-benar muncul & terlihat di aplikasi
+  Files/Berkas bawaan Android setelahnya — cuma diverifikasi lewat
+  pengetahuan API resmi (ContentResolver.insert + RELATIVE_PATH), bukan
+  observasi langsung.
+- v2.5.1 (2026-08-03) — user secara eksplisit minta STOP semua kerja
   fitur baru, fokus 100% ke reliability/performance/optimalisasi jangka
-  panjang.** Audit stabilitas menyeluruh menemukan bug KRITIS di
+  panjang. Audit stabilitas menyeluruh menemukan bug KRITIS di
   `AdBlockVpnService`: executor tunggal dipakai untuk loop paket (tidak
   pernah selesai) SEKALIGUS untuk forward ke upstream — task forward
   cuma masuk antrian dan tidak pernah jalan, artinya domain non-blocklist
@@ -272,8 +286,59 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
       `AdBlockVpnService` (yang sekarang forward plain-UDP ke upstream),
       BUKAN sekadar tambahan UI seperti batch ini. Lihat item #0 di bawah.
 
+11. **`AdBlockVpnService` — dua executor terpisah (v2.5.1), JANGAN
+    disatukan lagi.** `loopExecutor` (`newSingleThreadExecutor`) HANYA
+    untuk `runPacketLoop()` (loop tak-berhenti selama VPN aktif).
+    `forwardExecutor` (`newFixedThreadPool(4)`) HANYA untuk
+    `forwardToUpstream()`. JANGAN kembalikan ke satu executor bersama —
+    itu persis bug yang bikin domain non-blocklist tidak pernah resolve
+    (lihat riwayat insiden 2026-08-03 / CHANGELOG v2.5.1). Kalau nambah
+    jenis pekerjaan async baru di service ini, pertimbangkan apakah dia
+    lebih mirip "loop yang tidak pernah selesai" (butuh thread sendiri)
+    atau "task pendek per-event" (aman di `forwardExecutor`) sebelum
+    memutuskan mau ditaruh di mana.
+
+12. **`util/CrashLogger.kt` (v2.6.0) — kontrak fail-safe yang JANGAN
+    dilonggarkan.** `CrashLogger.install()` dipanggil SEKALI, di baris
+    PERTAMA `AdShieldApp.onCreate()` (sebelum kode lain apa pun) —
+    JANGAN pindahkan ke tempat lain atau taruh setelah inisialisasi lain
+    yang mungkin crash duluan sebelum logger terpasang. Kontrak yang
+    tidak boleh dilanggar:
+    - SELALU chain ke `previousHandler` di blok `finally`, apa pun yang
+      terjadi saat logging (sukses atau gagal). JANGAN pernah membiarkan
+      throwable "berhenti" di logger ini tanpa diteruskan — itu akan
+      mengubah perilaku crash normal Android (dialog "app berhenti" +
+      kill process) jadi tidak terjadi sama sekali.
+    - SEMUA operasi I/O (buat folder, tulis file, query/hapus log lama)
+      dibungkus try-catch yang membiarkan kegagalan diam-diam gagal —
+      JANGAN tambahkan operasi baru di sini tanpa pembungkus yang sama,
+      atau logger ini sendiri bisa jadi sumber crash kedua.
+    - Retention (FIFO, maks 50) HANYA menghapus file yang cocok folder
+      (`Documents/AdShield/logs/` atau padanan privat di API lama) DAN
+      prefix nama (`crash_*`) milik logger ini sendiri — JANGAN perluas
+      selection/filter query ini tanpa mempertahankan kedua syarat
+      tersebut, supaya tidak pernah menyentuh file diagnostik lain milik
+      user atau app lain (lihat Koeksistensi Log Diagnostik di
+      instruksi baku).
+    - Split API level (MediaStore untuk 29+, app-private external untuk
+      di bawahnya) adalah keputusan SADAR untuk menghindari penambahan
+      izin storage legacy — JANGAN "perbaiki" dengan menambah
+      `WRITE_EXTERNAL_STORAGE` ke manifest demi menyatukan lokasi log di
+      semua versi Android.
+
 ## Riwayat insiden kronologis
 
+- **2026-08-03 (v2.6.0)**: User minta "peningkatan major, bukan minor" —
+  lanjutan langsung dari arahan "stop fitur, fokus 100% reliability"
+  (v2.5.1). Dikerjakan sesuai urutan prioritas #2 yang sudah disepakati:
+  Crash Logger bawaan, gap yang sudah tercatat sejak audit sebelumnya
+  tapi belum pernah benar-benar diimplementasikan sejak v1.0.0. Bukan
+  insiden/bug — kerja infrastruktur diagnostik murni, tidak ada
+  perubahan pada fitur/perilaku user-facing apa pun. Batch ini menyentuh
+  2 file (`util/CrashLogger.kt` baru, `AdShieldApp.kt` — edit parsial,
+  Application Class protected — hanya tambah 1 import + 1 baris
+  pemanggilan di awal `onCreate()`, + `app/build.gradle.kts` versionCode/
+  versionName), jauh di bawah batas maksimal batch (10 file).
 - **2026-08-03 (v2.5.1, insiden BUKAN dari laporan user — ditemukan lewat
   audit stabilitas proaktif atas permintaan eksplisit "stop fitur, fokus
   100% reliability")**: `AdBlockVpnService` sejak v1.0.0 memakai
@@ -494,17 +559,15 @@ AdShield"/fitur baru manapun kecuali user eksplisit minta lanjut lagi.**
 Urutan kerja yang disepakati:
   1. ✅ SELESAI (v2.5.1): fix deadlock executor `AdBlockVpnService`.
      Belum dikonfirmasi build+device — cek ini duluan di sesi berikutnya.
-  2. **BELUM DIKERJAKAN: pasang Crash Logger bawaan** sesuai spesifikasi
-     lengkap standing instruction user (MediaStore API 29+, folder publik
-     `Documents/AdShield/logs/`, nama file
-     `crash_<yyyyMMdd_HHmmss>_<UUID>.txt`, metadata lengkap versi app/OS/
-     device/thread/stack trace, retention FIFO maks 50 file, fail-safe
-     total anti-secondary-crash). Ini WAJIB sebelum lanjut ke #3, karena
-     tanpa ini kita tidak akan tahu detail crash apapun yang muncul saat
-     validasi device fisik.
-  3. Unit test dasar untuk `DnsPacket` (parsing) dan `BlocklistManager`
-     (exact/wildcard/critical-allowlist matching) — bagian paling kritis
-     & paling gampang salah, belum ada satu pun test sejauh ini.
+  2. ✅ SELESAI (v2.6.0): Crash Logger bawaan (`util/CrashLogger.kt`).
+     Belum dikonfirmasi build CI + belum pernah memicu crash sungguhan
+     di device untuk membuktikan file log benar-benar muncul — cek ini
+     juga di sesi berikutnya, idealnya SEKALIAN dengan #1 (satu build
+     CI, satu sesi tes device, dua hal dicek bareng).
+  3. **BELUM DIKERJAKAN — prioritas berikutnya:** Unit test dasar untuk
+     `DnsPacket` (parsing) dan `BlocklistManager` (exact/wildcard/
+     critical-allowlist matching) — bagian paling kritis & paling
+     gampang salah, belum ada satu pun test sejauh ini.
   4. Baru setelah #1-#3 terkonfirmasi solid: lanjut validasi mode WARP
      di device fisik (lihat item #1 lama di bawah — prioritasnya TETAP
      tinggi, cuma urutannya sekarang setelah fondasi dibereskan dulu).

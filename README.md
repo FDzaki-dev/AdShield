@@ -139,6 +139,23 @@ Alur saat pertama kali diaktifkan:
   aktif** — WARP itu tunnel WireGuard mentah tanpa filtering apa pun, cuma
   enkripsi. Kalau mau blokir iklan, pakai mode Ad-Block DNS.
 
+## Crash Logger bawaan
+
+[#crash-logger-bawaan](#crash-logger-bawaan)
+
+Sejak v2.6.0, AdShield otomatis menyimpan laporan crash setiap kali
+aplikasi mengalami uncaught exception:
+
+- **Android 10 ke atas:** `Documents/AdShield/logs/` (folder publik,
+  bisa dibuka lewat app Files/Berkas bawaan).
+- **Android 9 ke bawah:** `Android/data/com.fdzaki.adshield/files/AdShield/logs/`
+  (penyimpanan privat app — tidak butuh izin storage tambahan).
+
+Maksimal 50 file terbaru disimpan (file tertua otomatis dihapus). Kalau
+melaporkan crash, sertakan isi file `crash_...txt` terbaru dari folder
+tersebut — ini jauh lebih cepat didiagnosis dibanding hanya deskripsi
+gejala.
+
 ## Status proyek
 
 - **v2.5.0** — DNS AdBlocker (scope ringan): blocklist kustom via URL

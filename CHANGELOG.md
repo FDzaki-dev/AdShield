@@ -1,5 +1,50 @@
 # Changelog
 
+## v2.6.0 — Crash Logger Bawaan (2026-08-03)
+
+> **Peningkatan MAJOR, bukan fitur user-facing biasa — bagian dari fokus
+> "100% reliability" yang diminta user. Ini menutup gap yang seharusnya
+> ada sejak v1.0.0 tapi belum pernah diimplementasikan.**
+
+- **Baru: `util/CrashLogger.kt`** — dipasang sekali di
+  `AdShieldApp.onCreate()` (baris PERTAMA, sebelum kode lain di
+  `onCreate()`, supaya crash startup apapun juga tertangkap). Menangkap
+  SEMUA uncaught exception di proses app, menulis laporan crash lengkap,
+  lalu selalu meneruskan (chain) ke handler sebelumnya (default Android)
+  supaya perilaku crash normal (dialog "app berhenti", proses dimatikan)
+  tetap sama seperti biasa.
+- **Lokasi & format sesuai spesifikasi:**
+  - **API 29+ (Android 10 ke atas):** ditulis via MediaStore ke folder
+    publik `Documents/AdShield/logs/` — TIDAK menambah izin storage
+    legacy apa pun.
+  - **API 24–28:** MediaStore Documents collection tidak tersedia di versi
+    ini, dan menulis ke folder publik butuh izin legacy
+    `WRITE_EXTERNAL_STORAGE` yang sengaja tidak ditambahkan hanya untuk
+    logging (sesuai aturan baku). Sebagai gantinya, log ditulis ke
+    penyimpanan eksternal privat app
+    (`Android/data/com.fdzaki.adshield/files/AdShield/logs/`) — tidak
+    butuh izin apa pun di versi Android manapun. Ini trade-off yang
+    disengaja & didokumentasikan (lihat PROJECT_STATE.md Assumption Log),
+    bukan bug: lokasi sedikit kurang mudah ditemukan di Android lama,
+    tapi tetap ada dan tetap bisa diambil lewat file manager.
+  - Nama file: `crash_<yyyyMMdd_HHmmss>_<8-char UUID>.txt` — unik, tidak
+    pernah bentrok/timpa.
+  - Isi laporan: nama & versi app (versionName + versionCode), versi
+    Android OS + API level, manufacturer & model device, timestamp
+    kejadian, nama & ID thread yang crash, stack trace lengkap.
+- **Retention FIFO maks 50 file** — begitu melebihi 50, file crash log
+  TERLAMA dihapus duluan. Query/hapus HANYA menyasar file yang cocok
+  folder + prefix nama milik logger ini sendiri (`crash_*`) — tidak
+  pernah menyentuh file diagnostik lain milik user atau app lain.
+- **Fail-safe total:** seluruh proses (buat folder, tulis file,
+  format stack trace, query & hapus log lama) dibungkus try-catch.
+  Kalau logging gagal karena alasan apa pun, kegagalan itu diam-diam
+  diabaikan — tidak pernah menyebabkan crash kedua atau mengganggu
+  proses crash asli.
+- Tidak ada perubahan pada fitur/perilaku aplikasi yang terlihat user
+  sehari-hari (tidak ada UI baru untuk ini) — murni infrastruktur
+  diagnostik untuk sesi debugging berikutnya.
+
 ## v2.5.1 — FIX KRITIS: DNS non-blocklist tidak pernah diteruskan (2026-08-03)
 
 > **Ini bukan fitur baru — perbaikan bug fondasi yang ditemukan saat audit

@@ -1,12 +1,15 @@
-# FILE_MANIFEST.txt — isi ZIP v2.5.1 (2026-08-03), 54 file (tidak termasuk
-# file ini sendiri) — SAMA seperti v2.5.0, tidak ada file baru/dihapus
-# batch ini. FIX KRITIS, bukan fitur — lihat CHANGELOG.md v2.5.1.
-# File yang isinya berubah: vpn/AdBlockVpnService.kt (edit parsial, BUKAN
-# full rewrite — pisah loopExecutor/forwardExecutor, fix deadlock
-# forwarding DNS non-blocklist yang ada sejak v1.0.0), app/build.gradle.kts
-# (versionCode 11→12, versionName 2.5.0→2.5.1, edit parsial — protected),
-# PROJECT_STATE.md, CHANGELOG.md.
+# FILE_MANIFEST.txt — isi ZIP v2.6.0 (2026-08-03), 55 file (tidak termasuk
+# file ini sendiri) — +1 file baru dari v2.5.1: util/CrashLogger.kt.
+# Peningkatan MAJOR (Crash Logger bawaan), bukan fitur — lihat CHANGELOG.md
+# v2.6.0.
+# File yang isinya berubah: AdShieldApp.kt (edit parsial — Application
+# Class protected, hanya +1 import & +1 baris pemanggilan install() di
+# awal onCreate()), app/build.gradle.kts (versionCode 12→13, versionName
+# 2.5.1→2.6.0, edit parsial — protected), PROJECT_STATE.md, CHANGELOG.md,
+# README.md (tambah bagian lokasi crash log).
 #
+# (v2.5.1 sebelumnya: vpn/AdBlockVpnService.kt edit parsial — fix deadlock
+# executor, app/build.gradle.kts versionCode/versionName)
 # (v2.5.0 sebelumnya: data/BlocklistManager.kt full rewrite +
 # BlocklistUpdateWorker, ui/screens/RulesScreen.kt full rewrite,
 # data/SettingsRepository.kt + ui/MainViewModel.kt edit parsial)
@@ -49,6 +52,7 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
+app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
