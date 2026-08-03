@@ -18,6 +18,12 @@
 - `.github/workflows/build.yml` sekarang resmi dikelola lewat ZIP Claude
   (lihat `PROJECT_STATE.md` § Riwayat insiden 2026-08-04) — sebelumnya
   file ini murni manual di luar alur ZIP.
+- **Baru:** APK yang lolos verifikasi signature otomatis dipublish sebagai
+  **GitHub Release** (tag `v<versionName>`, mis. `v2.6.0`) — bisa
+  didownload langsung sebagai `.apk` murni dari tab **Releases**, tanpa
+  perlu extract `.zip` dari tab Actions lagi. Artifact zip di Actions
+  tetap ada seperti biasa (tidak dihapus), Releases cuma jalur tambahan
+  yang lebih nyaman.
 
 ## v2.6.0 — Quick Settings Tile (2026-08-03)
 

@@ -336,6 +336,23 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
   sesi mendatang yang lupa dan menambahkan lagi pengecualian `.github` ke
   command Termux, itu regresi — cek riwayat ini dulu sebelum asumsikan
   pengecualian itu masih perlu.
+  **Lanjutan sesi yang sama:** user tanya kenapa artifact CI selalu `.zip`
+  — dijelaskan itu perilaku baku `actions/upload-artifact` (GitHub selalu
+  bungkus jadi zip, di luar kendali workflow). User minta ditambahkan
+  publish otomatis ke GitHub Releases supaya APK bisa didownload langsung
+  tanpa extract. **Ditambahkan:** `permissions: contents: write` di level
+  job (WAJIB, tanpa ini `GITHUB_TOKEN` default read-only di beberapa
+  setting repo/org dan step release akan gagal 403) + step
+  `softprops/action-gh-release@v2` di akhir job, HANYA jalan kalau step
+  `apksigner verify` sebelumnya lolos (default behavior GitHub Actions:
+  step gagal → job berhenti, tidak perlu kondisi `if` eksplisit). Tag
+  release = `v${versionName}` (mis. `v2.6.0`) — kalau versionName SAMA
+  dipush ulang (seperti CI-patch ini sendiri, app version tidak naik),
+  `action-gh-release` **update release yang sudah ada** (upsert asset),
+  BUKAN gagal karena tag bentrok — jadi aman dipush berkali-kali tanpa
+  perlu selalu naikkan versionName. Artifact zip di tab Actions TETAP ada
+  (tidak dihapus, masih berguna untuk debug run tertentu) — Releases jadi
+  jalur TAMBAHAN yang lebih nyaman, bukan pengganti.
 
 - **2026-08-03 (v2.6.0, build pertama GAGAL)**: User upload log CI
   (`logs_83675463865.zip`) — `compileReleaseKotlin FAILED` dengan 2 error

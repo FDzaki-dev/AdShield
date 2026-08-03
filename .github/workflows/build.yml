@@ -8,6 +8,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -69,3 +71,12 @@ jobs:
         with:
           name: AdShield_v${{ steps.version.outputs.version_name }}
           path: out/*.apk
+
+      - name: Publish GitHub Release with APK asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.version.outputs.version_name }}
+          name: AdShield v${{ steps.version.outputs.version_name }}
+          files: out/*.apk
+          generate_release_notes: true
+          make_latest: true
