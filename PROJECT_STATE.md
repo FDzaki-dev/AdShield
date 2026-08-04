@@ -3,7 +3,23 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.5.0 (2026-08-04) — Audit performa proaktif, 1 fix diterapkan.** User
+- **v3.6.0 (2026-08-04) — Socket pooling upstream DNS, lanjutan v3.5.0.**
+  User pilih "berikan hasil yang maksimal" untuk pertanyaan behavior
+  fallback-antar-resolver (dikonfirmasi: boleh tetap socket yang sama
+  dalam satu query, tinggal soal apakah socket itu di-reuse LINTAS query
+  atau tidak). Diimplementasikan: `ThreadLocal<DatagramSocket>` di
+  `AdBlockVpnService` — 1 socket persisten per worker thread
+  `forwardExecutor` (4 thread), dipakai ulang lintas query alih-alih
+  create+protect+destroy tiap query. Aman tanpa demux transaction-ID
+  karena satu socket tidak pernah dibagi antar-thread. `stopVpn()`
+  sekarang panggil `closeUpstreamSockets()` supaya socket ditutup
+  deterministik, tidak menggantung di thread yang memang tidak pernah
+  di-shutdown. Detail lengkap di CHANGELOG.md v3.6.0 & keputusan
+  arsitektur #11b di bawah. **BELUM dikonfirmasi build CI + belum ada
+  pengujian konkurensi/throughput nyata di device** — WAJIB dicek di
+  sesi berikutnya, idealnya SEKALIGUS dengan v3.5.0 (custom blocklist URL
+  besar) karena keduanya sama-sama "perf work belum diukur nyata".
+- v3.5.0 (2026-08-04) — Audit performa proaktif, 1 fix diterapkan. User
   minta "debugging sampai tuntas di segmen performance & optimalisasi"
   setelah CI v3.3.3+v3.4.0 dikonfirmasi hijau (lihat entri di bawah).
   Diaudit statis: `AdBlockVpnService` (packet loop), `DnsPacket`
@@ -539,6 +555,28 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
     lebih mirip "loop yang tidak pernah selesai" (butuh thread sendiri)
     atau "task pendek per-event" (aman di `forwardExecutor`) sebelum
     memutuskan mau ditaruh di mana.
+
+11b. **Upstream `DatagramSocket` di-pool per-thread (v3.6.0) —
+    `ThreadLocal<DatagramSocket>` + `openUpstreamSockets` registry,
+    JANGAN dikembalikan ke "socket baru tiap query".** Sebelumnya
+    `forwardToUpstream()` bikin+`protect()`+`close()` satu
+    `DatagramSocket` baru untuk SETIAP query DNS non-blocked — mahal
+    dipanggil di hot path. Sekarang tiap salah satu dari 4 worker thread
+    `forwardExecutor` punya socket persisten sendiri, dipakai ulang
+    lintas query. AMAN tanpa demux logic karena satu socket hanya pernah
+    dipakai oleh SATU thread, SATU query pada satu waktu (tidak pernah
+    dibagi antar-thread) — beda dengan skema pooling umum yang butuh
+    matching balasan by transaction-ID. Perilaku fallback antar-resolver
+    DALAM satu query TETAP sama persis (socket yang sama dicoba ke
+    server berikutnya secara berurutan) — yang berubah cuma socket-nya
+    hidup lintas-query, bukan dibuang tiap query. `closeUpstreamSockets()`
+    WAJIB dipanggil dari `stopVpn()` (sudah ada) supaya socket tidak
+    menggantung selamanya di thread `forwardExecutor` yang memang tidak
+    pernah di-`shutdown()`. Kalau socket masuk state error/tertutup tak
+    terduga, `discardUpstreamSocket()` membuang referensi ThreadLocal-nya
+    supaya `getOrCreateUpstreamSocket()` bikin yang baru di panggilan
+    berikutnya — jangan hapus fallback pembuatan ulang ini, itu jaring
+    pengaman kalau ada IOException yang bikin socket tak terpakai lagi.
 
 12. **`util/CrashLogger.kt` (v2.6.0) — kontrak fail-safe yang JANGAN
     dilonggarkan.** `CrashLogger.install()` dipanggil SEKALI, di baris

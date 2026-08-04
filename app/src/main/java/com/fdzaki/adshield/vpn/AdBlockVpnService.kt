@@ -57,6 +57,18 @@ class AdBlockVpnService : VpnService() {
     // PackageManager every time; cleared each time the VPN restarts.
     private val uidToPackageCache = java.util.concurrent.ConcurrentHashMap<Int, String?>()
 
+    // Perf (v3.6.0, see PROJECT_STATE.md decision #11b): one persistent UDP
+    // socket per forwardExecutor worker thread instead of creating/protect()ing/
+    // destroying a new DatagramSocket for every single forwarded DNS query.
+    // Safe without any demux logic because each of forwardExecutor's 4 worker
+    // threads only ever touches its OWN thread-local socket, synchronously,
+    // one query at a time — no cross-thread sharing, so no risk of mismatched
+    // replies. openUpstreamSockets tracks every live socket so stopVpn() can
+    // close them all deterministically instead of leaking them for the
+    // lifetime of the (never-shutdown) forwardExecutor threads.
+    private val upstreamSocket = ThreadLocal<DatagramSocket>()
+    private val openUpstreamSockets = java.util.concurrent.ConcurrentHashMap.newKeySet<DatagramSocket>()
+
     override fun onCreate() {
         super.onCreate()
         settingsRepository = SettingsRepository(applicationContext)
@@ -133,6 +145,7 @@ class AdBlockVpnService : VpnService() {
         running.set(false)
         try { vpnInterface?.close() } catch (_: Exception) {}
         vpnInterface = null
+        closeUpstreamSockets()
         serviceScope.launch {
             settingsRepository.setWasRunning(false)
             // When this stop is just the "turn off DNS mode" half of a
@@ -224,12 +237,8 @@ class AdBlockVpnService : VpnService() {
     }
 
     private fun forwardToUpstream(query: DnsPacket.ParsedQuery, output: FileOutputStream) {
-        var socket: DatagramSocket? = null
         try {
-            socket = DatagramSocket()
-            protect(socket) // exclude this socket from the VPN's own routing (avoid loop)
-            socket.soTimeout = 2500
-
+            val socket = getOrCreateUpstreamSocket()
             val dnsRequest = buildForwardedRequest(query)
             val replyBuf = ByteArray(1500)
 
@@ -239,6 +248,10 @@ class AdBlockVpnService : VpnService() {
             // query looks identical to a blocked one from the requesting
             // app's point of view — this is what stops a flaky/blocked
             // upstream from masquerading as false-positive ad-blocking.
+            // Same socket is reused across resolver attempts within one
+            // query, exactly as before this pooling change — only the
+            // socket's LIFETIME changed (now spans many queries), not the
+            // per-query fallback sequence.
             for (server in Constants.UPSTREAM_DNS_SERVERS) {
                 try {
                     val upstream = InetSocketAddress(server, Constants.DNS_PORT)
@@ -262,10 +275,44 @@ class AdBlockVpnService : VpnService() {
             // requesting app's own DNS client will retry, same as any
             // ordinary network hiccup — this is not a block, just silence.
         } catch (_: Exception) {
-            // Socket creation/protect() failure: nothing more we can do for this query.
-        } finally {
-            socket?.close()
+            // Socket creation/protect() failure, or the pooled socket ended up
+            // in a bad state — discard it so the next query on this thread
+            // gets a fresh one instead of repeatedly failing on a broken socket.
+            discardUpstreamSocket()
         }
+    }
+
+    /** Returns this worker thread's persistent upstream socket, creating +
+     *  protect()ing a fresh one if this thread doesn't have one yet (or its
+     *  previous one was closed/discarded after an error). */
+    private fun getOrCreateUpstreamSocket(): DatagramSocket {
+        val existing = upstreamSocket.get()
+        if (existing != null && !existing.isClosed) return existing
+
+        val socket = DatagramSocket()
+        protect(socket) // exclude this socket from the VPN's own routing (avoid loop)
+        socket.soTimeout = 2500
+        upstreamSocket.set(socket)
+        openUpstreamSockets.add(socket)
+        return socket
+    }
+
+    private fun discardUpstreamSocket() {
+        upstreamSocket.get()?.let { socket ->
+            runCatching { socket.close() }
+            openUpstreamSockets.remove(socket)
+        }
+        upstreamSocket.remove()
+    }
+
+    /** Closes every pooled upstream socket across all forwardExecutor worker
+     *  threads. Called from stopVpn() so sockets don't sit open for the
+     *  lifetime of the (never-shutdown) executor threads after protection
+     *  is turned off — getOrCreateUpstreamSocket() transparently makes a
+     *  fresh one next time a thread needs it (e.g. after the VPN restarts). */
+    private fun closeUpstreamSockets() {
+        openUpstreamSockets.forEach { runCatching { it.close() } }
+        openUpstreamSockets.clear()
     }
 
     private fun buildForwardedRequest(query: DnsPacket.ParsedQuery): ByteArray {

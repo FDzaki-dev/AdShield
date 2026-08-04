@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.6.0 — Perf: pool upstream DatagramSocket per-thread (2026-08-04)
+
+> Lanjutan langsung dari v3.5.0 — user minta "berikan hasil yang maksimal"
+> untuk temuan sekunder yang kemarin sengaja disisihkan (socket-per-query),
+> setelah dikonfirmasi behavior fallback antar-resolver boleh tetap sama.
+
+**Sebelumnya**: `forwardToUpstream()` bikin `DatagramSocket` baru + panggil
+`protect()` + `close()` untuk **setiap query DNS non-blocked** — biaya
+create/protect/destroy soket dibayar per-query, di jalur paling sering
+dieksekusi di app (setiap domain yang TIDAK diblokir).
+
+**Fix**: `ThreadLocal<DatagramSocket>` — masing-masing dari 4 worker thread
+`forwardExecutor` sekarang punya 1 socket persisten yang dipakai ulang
+lintas query, bukan dibuang tiap query. **Aman tanpa demux by
+transaction-ID** (yang biasanya dibutuhkan skema connection-pooling) karena
+satu socket cuma pernah disentuh satu thread, satu query pada satu waktu —
+tidak pernah dibagi bareng antar-thread. Perilaku fallback antar-resolver
+DALAM satu query (coba server berikutnya kalau timeout/gagal) **persis
+sama** seperti sebelumnya — cuma lifetime socket-nya yang berubah, dari
+"per-query" jadi "per-thread selama VPN aktif".
+
+**Resource safety**: `openUpstreamSockets` (registry `ConcurrentHashMap`
+keySet) melacak semua socket hidup supaya `stopVpn()` bisa menutup semuanya
+secara deterministik — mencegah socket menggantung selamanya karena
+`forwardExecutor` sendiri memang tidak pernah di-`shutdown()`. Kalau socket
+masuk state error tak terduga, `discardUpstreamSocket()` membuang referensi
+ThreadLocal-nya supaya panggilan berikutnya bikin yang baru (bukan terus
+gagal di socket rusak).
+
+Scope MURNI 1 file kode (`AdBlockVpnService.kt`) + version bump — 0 file
+baru/dihapus, 0 perubahan behavior yang terlihat user.
+
+**Confidence Rating: 88%** — logika thread-confinement diverifikasi manual
+(tidak ada titik di kode yang membagi satu `DatagramSocket` antar-thread),
+tapi belum ada pengujian konkurensi nyata di device (banyak app query DNS
+bersamaan, load tinggi) untuk membuktikan tidak ada race yang terlewat.
+**BELUM dikonfirmasi build CI + belum diukur throughput/CPU nyata sebelum-
+sesudah di device** — WAJIB dicek di sesi berikutnya, idealnya sekaligus
+dengan pengukuran v3.5.0 (custom blocklist URL besar).
+
 ## v3.5.0 — Perf audit: wildcard matching O(n)→O(depth) (2026-08-04)
 
 > User minta "debugging sampai tuntas di segmen performance & optimalisasi"
