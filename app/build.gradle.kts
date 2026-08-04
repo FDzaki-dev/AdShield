@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 12
-        versionName = "2.6.0"
+        versionCode = 14
+        versionName = "2.6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -104,4 +104,9 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
+
+    // Local JVM unit tests (app/src/test) — no Android framework/emulator
+    // needed since DnsPacket and BlocklistManager's matching logic are
+    // pure Kotlin/java.net, see PROJECT_STATE.md item #13.
+    testImplementation("junit:junit:4.13.2")
 }

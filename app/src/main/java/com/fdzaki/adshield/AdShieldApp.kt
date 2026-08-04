@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.os.Build
 import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.util.Constants
+import com.fdzaki.adshield.util.CrashLogger
 import com.fdzaki.adshield.util.ShortcutsManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,6 +24,10 @@ class AdShieldApp : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Installed FIRST, before anything else in onCreate, so that any
+        // crash during the rest of startup (notification channel creation,
+        // shortcut sync, etc.) is also captured.
+        CrashLogger.install(this)
         createNotificationChannel()
         syncToggleShortcutsWithActiveMode()
     }

@@ -39,7 +39,15 @@ class AdBlockVpnService : VpnService() {
 
     private var vpnInterface: ParcelFileDescriptor? = null
     private val running = AtomicBoolean(false)
-    private val executor = Executors.newSingleThreadExecutor()
+
+    // IMPORTANT (fixed 2026-08-03, see PROJECT_STATE.md incident log):
+    // the packet-read loop below runs forever on its own dedicated thread
+    // and must NEVER share a thread pool with forwardToUpstream(). A single
+    // shared single-thread executor previously caused every forwarded query
+    // to queue behind the infinite loop and never actually run — meaning
+    // no non-blocked domain could ever resolve while DNS mode was on.
+    private val loopExecutor = Executors.newSingleThreadExecutor()
+    private val forwardExecutor = Executors.newFixedThreadPool(4)
     private val serviceScope = CoroutineScope(Dispatchers.IO + Job())
 
     private lateinit var settingsRepository: SettingsRepository
@@ -118,7 +126,7 @@ class AdBlockVpnService : VpnService() {
         _lastError.value = null
         running.set(true)
         startForeground(Constants.NOTIF_ID, buildNotification())
-        executor.execute { runPacketLoop(iface) }
+        loopExecutor.execute { runPacketLoop(iface) }
     }
 
     private fun stopVpn(isModeSwitch: Boolean = false) {
@@ -169,8 +177,9 @@ class AdBlockVpnService : VpnService() {
                 logAndCount(query.queryDomain, true)
             } else {
                 // Fire-and-forget async forward so a slow upstream lookup never
-                // stalls the packet loop for other concurrent queries.
-                executor.execute { forwardToUpstream(query, output) }
+                // stalls the packet loop for other concurrent queries. Must use
+                // forwardExecutor (NOT loopExecutor) — see field comment above.
+                forwardExecutor.execute { forwardToUpstream(query, output) }
                 logAndCount(query.queryDomain, false)
             }
         }

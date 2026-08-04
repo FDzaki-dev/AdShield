@@ -1,26 +1,29 @@
-# FILE_MANIFEST.txt — isi ZIP CI-patch 2026-08-04 (base app tetap v2.6.0,
-# versionCode/versionName TIDAK berubah — ini perubahan CI-only), 58 file
-# (tidak termasuk file ini sendiri) — base v2.6.0 ada 57 file (tanpa
-# .github/workflows/build.yml), + 1 file yang SEKARANG PERTAMA KALI masuk
-# ZIP: .github/workflows/build.yml (tambah step "Verify APK signature
-# (apksigner)"). File lain yang isinya berubah: PROJECT_STATE.md (catat
-# transisi build.yml jadi ZIP-managed + insiden install invalid).
+# FILE_MANIFEST.txt — isi ZIP v2.6.1 (2026-08-03), 57 file (tidak termasuk
+# file ini sendiri) — +2 file baru dari v2.6.0: src/test/.../DnsPacketTest.kt
+# dan src/test/.../BlocklistManagerTest.kt. Unit test dasar, BELUM PERNAH
+# DIJALANKAN (sesi dihentikan atas permintaan user) — lihat CHANGELOG.md
+# v2.6.1 & PROJECT_STATE.md "Status terakhir".
+# File yang isinya berubah: app/build.gradle.kts (versionCode 13→14,
+# versionName 2.6.0→2.6.1, edit parsial — protected, +1 baris
+# testImplementation junit), PROJECT_STATE.md, CHANGELOG.md.
 #
-# PENTING — PERUBAHAN KEBIJAKAN mulai rilis ini (supersede catatan lama):
-# `.github/workflows/build.yml` SEKARANG BAGIAN RESMI dari ZIP ini dan
-# seterusnya (user eksplisit minta Claude mengelola isinya sejak sesi
-# 2026-08-04). `.gitignore` MASIH di luar alur ZIP (belum diminta) — lihat
-# PROJECT_STATE.md § Riwayat insiden 2026-08-04 untuk detail lengkap
-# transisi ini dan dampaknya ke command Termux (pengecualian `.github` di
-# `rm -rf` sudah TIDAK diperlukan lagi, `.gitignore` tetap dikecualikan).
+# (v2.6.0 sebelumnya: +util/CrashLogger.kt, AdShieldApp.kt edit parsial,
+# app/build.gradle.kts versionCode/versionName, README.md)
+# (v2.5.1 sebelumnya: vpn/AdBlockVpnService.kt edit parsial — fix deadlock
+# executor, app/build.gradle.kts versionCode/versionName)
+# (v2.5.0 sebelumnya: data/BlocklistManager.kt full rewrite +
+# BlocklistUpdateWorker, ui/screens/RulesScreen.kt full rewrite,
+# data/SettingsRepository.kt + ui/MainViewModel.kt edit parsial)
 #
-# (v2.6.0 sebelumnya: 3 file baru tile/AdShieldTileServices.kt,
-# drawable/ic_tile_dns.xml, drawable/ic_tile_warp.xml. v2.5.0: full rewrite
-# data/BlocklistManager.kt & ui/screens/RulesScreen.kt, edit di
-# data/SettingsRepository.kt, ui/MainViewModel.kt, vpn/AdBlockVpnService.kt.)
+# PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
+# `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
+# ini maupun ZIP ini. Keduanya ada di repo asli tapi dibuat lewat command
+# Termux langsung saat setup awal (bukan lewat ZIP) — lihat catatan di
+# PROJECT_STATE.md § Riwayat insiden 2026-08-02 (v2.2.0). JANGAN hapus
+# keduanya saat update — command Termux di respons pengiriman ZIP ini sudah
+# disesuaikan untuk mengecualikan keduanya dari langkah pembersihan.
 #
 # Regenerate isi ZIP (bukan git ls-files) tiap rilis dengan: find . -type f
-.github/workflows/build.yml
 CHANGELOG.md
 PROJECT_STATE.md
 README.md
@@ -48,8 +51,8 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
+app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
-app/src/main/java/com/fdzaki/adshield/tile/AdShieldTileServices.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
 app/src/main/java/com/fdzaki/adshield/warp/WarpAccount.kt
@@ -65,8 +68,6 @@ app/src/main/res/drawable/ic_shortcut_logs.xml
 app/src/main/res/drawable/ic_shortcut_warp_off.xml
 app/src/main/res/drawable/ic_shortcut_warp_on.xml
 app/src/main/res/drawable/ic_shortcut_whitelist.xml
-app/src/main/res/drawable/ic_tile_dns.xml
-app/src/main/res/drawable/ic_tile_warp.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 app/src/main/res/raw/blocklist_default.txt
@@ -75,6 +76,8 @@ app/src/main/res/values/ic_launcher_background.xml
 app/src/main/res/values/strings.xml
 app/src/main/res/values/themes.xml
 app/src/main/res/xml/shortcuts.xml
+app/src/test/java/com/fdzaki/adshield/data/BlocklistManagerTest.kt
+app/src/test/java/com/fdzaki/adshield/vpn/DnsPacketTest.kt
 build.gradle.kts
 gradle.properties
 settings.gradle.kts
