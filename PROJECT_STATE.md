@@ -3,6 +3,27 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.4.0 (2026-08-04) — Legibility-max pass, `Color.kt` dirombak total.**
+  User audit ulang setelah v3.1.0 pakai pilihan multi-select: SEMUA 4
+  kategori (caption kecil, bg/card kurang beda gelap, border/ikon card nav
+  pudar, ring/tombol proteksi) masih ditandai susah dibaca —
+  "pokoknya legibility harus maksimal!!". Diinvestigasi lewat pengukuran
+  kontras WCAG (relative luminance), bukan tebakan visual: ketemu 2 akar
+  masalah di elevation ladder lama — (1) lightness step antar-tingkat cuma
+  ~4-5%, (2) hue drift tak konsisten antar warna (220°→210°→195°→180°→94°→
+  157°). Fix: 1 hue konsisten (45° warm-neutral) untuk seluruh ladder +
+  step dilebarkan ke ~6-8%; `ShieldOutline` L32→46 (sumber tunggal semua
+  border/divider/ring-track, di-grep-verifikasi — 1 perubahan ini otomatis
+  benerin SEMUA card nav); `ShieldAccentDim` dinaikkan; `ShieldTextFaint`
+  L58→68 (sebelumnya 4.04:1 vs surf2, di bawah floor AA 4.5:1 untuk teks
+  kecil — sekarang 5.0-6.9:1). Detail angka lengkap di CHANGELOG.md.
+  **Scope MURNI nilai warna** — 0 file baru, 0 perubahan logic/struktur,
+  hanya `Color.kt` + version bump (`build.gradle.kts`). Hotfix v3.3.3
+  (import `padding` di `MainActivity.kt`) sudah terbawa di codebase ini,
+  TIDAK di-revert. **BELUM dikonfirmasi CI hijau maupun dilihat di device
+  fisik** — WAJIB jadi hal pertama dicek di sesi berikutnya, SEKALIGUS
+  dengan hotfix v3.3.3 yang juga belum pernah dikonfirmasi (satu push,
+  dua hal dicek bareng: build sukses + screenshot legibility baru).
 - **v3.3.3 (2026-08-04) — HOTFIX build CI gagal dari push v3.3.2.** User
   upload log GitHub Actions: `Build signed release APK` gagal —
   `MainActivity.kt:160:41 Unresolved reference: padding`. Penyebab:

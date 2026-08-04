@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.4.0 — Legibility-max pass, palet ulang total (2026-08-04)
+
+> User audit ulang setelah v3.1.0: SEMUA 4 kategori masih ditandai susah
+> dibaca — caption kecil, bg/card kurang beda gelap, border/ikon card nav
+> pudar, ring/tombol proteksi. Bukan preferensi subjektif — diukur pakai
+> kontras WCAG relative-luminance, root cause ketemu di `Color.kt`.
+
+**Akar masalah (ditemukan lewat pengukuran, bukan tebakan)**: v3.1.0 benar
+soal kontras teks-vs-surface, tapi elevation ladder (bg→surf→surf2→surf3)
+cuma berjarak ~4-5% lightness per step, DAN tiap step pakai hue yang
+berbeda-beda (220°→210°→195°→180°→94°→157° — drift, bukan palet
+konsisten). Itu sebabnya border/elevation kelihatan "pudar" walau angka
+kontras teks lolos AA.
+
+**Fix — palet dirombak total di `Color.kt`** (satu-satunya sumber warna,
+di-grep-verifikasi 0 hex literal liar di file screen manapun):
+- Elevation ladder: 1 hue konsisten (45°, warm-neutral), lightness step
+  dilebarkan (~6-8pt, sebelumnya ~4-5pt) — `ShieldBgDark` #181816,
+  `ShieldSurface` #282724, `ShieldSurface2` #383733, `ShieldSurface3`
+  #4E4C46.
+- `ShieldOutline` #52564F→#7C796E (L32→46) — SATU perubahan ini otomatis
+  memperbaiki border card nav, divider, dan ring track inaktif di SEMUA
+  layar (dipakai di `NavGroup`, `NavDivider`, `StatCard`, `WarpModeCard`,
+  `ProtectionRing`, dst — sumber tunggal, sudah di-grep).
+- `ShieldAccentDim` #2B4038→#345142 — disc ring/chip proteksi aktif lebih
+  kelihatan sebagai isian, bukan blob gelap nyaris tak terlihat.
+- `ShieldTextFaint` (caption/deskripsi kecil) #93988F→#ADB1AA (L58→68) —
+  sebelumnya 4.04:1 vs surf2 (di bawah floor AA 4.5:1 untuk teks kecil),
+  sekarang 5.0-6.9:1 di semua elevation step.
+- `ShieldGreen`/`Warning`/`Danger`/`White` TIDAK disentuh — sudah solid
+  (7:1+) dari v3.1.0, tidak terdampak rombakan ladder/outline.
+
+**Confidence Rating: 92%** — perubahan murni nilai warna (`Color.kt` +
+version bump), 0 perubahan struktur/logic/import baru, static check
+brace-balance clean. -8% karena: belum ada verifikasi CI (v3.3.3 di bawah
+masih belum dikonfirmasi hijau juga) dan belum dilihat langsung di device
+fisik — kontras dihitung matematis (WCAG relative luminance), bukan
+screenshot visual asli.
+
 ## v3.3.3 — HOTFIX: CI build gagal, missing import di MainActivity.kt (2026-08-04)
 
 > User upload log GitHub Actions dari push v3.3.2 — `Build signed release
