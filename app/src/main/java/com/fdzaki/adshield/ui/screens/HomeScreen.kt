@@ -378,10 +378,14 @@ private fun WarpModeCard(
  */
 @Composable
 private fun WarpQualityRow(quality: WarpConnectionQuality) {
+    // v3.7.1: surface packet-loss (v3.7.0 field, previously computed but never
+    // shown anywhere) as a compact suffix — only when it's actually non-zero,
+    // so the common case (0% loss) doesn't clutter this glance-level row.
+    val lossSuffix = if (quality.packetLossPercent > 0) " · loss ${quality.packetLossPercent}%" else ""
     val (dotColor, label) = when (quality.level) {
         WarpConnectionQuality.Level.UNKNOWN -> ShieldTextMuted to "Memeriksa kualitas jalur…"
-        WarpConnectionQuality.Level.GOOD -> ShieldGreen to "${quality.latencyMs} ms · jalur baik"
-        WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "${quality.latencyMs} ms · agak lambat"
+        WarpConnectionQuality.Level.GOOD -> ShieldGreen to "${quality.latencyMs} ms · jalur baik$lossSuffix"
+        WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "${quality.latencyMs} ms · agak lambat$lossSuffix"
         WarpConnectionQuality.Level.BAD ->
             if (quality.reconnectAttempts > 0) {
                 ShieldDanger to "Menyambung ulang… (percobaan ke-${quality.reconnectAttempts})"

@@ -1,5 +1,24 @@
 # Changelog
 
+## v3.7.1 — Tampilkan MTU/endpoint/packet-loss WARP di UI (2026-08-05)
+
+> Tindak lanjut v3.7.0: field `mtuUsed`, `endpointUsed`, `packetLossPercent`
+> di `WarpConnectionQuality` sudah dihitung sejak v3.7.0 tapi belum pernah
+> ditampilkan di layar manapun. Murni perubahan UI, tidak ada perubahan
+> logic/data layer.
+
+**Diubah:**
+1. **DiagnosticsScreen** — 3 baris baru di kartu "VPN Tunnel (WARP)":
+   Packet loss (%, merah kalau >10%), MTU dipakai, Endpoint dipakai. Juga
+   ditambahkan ke teks "salin info diagnostik".
+2. **HomeScreen** (`WarpQualityRow`) — suffix ringkas `· loss N%` di baris
+   status WARP, hanya muncul kalau packet loss > 0% (supaya kasus umum 0%
+   tidak menuh-menuhin tampilan glance-level).
+
+**Belum dikonfirmasi build CI + belum dicoba tampil dengan data WARP nyata
+di device** (WARP sendiri masih belum divalidasi end-to-end — lihat
+PROJECT_STATE.md) — WAJIB dicek sesi berikutnya.
+
 ## v3.7.0 — Internet Surfing Optimization: DNS cache, Auto MTU, Smart endpoint, Fast reconnect, DNS leak protection (2026-08-05)
 
 > User minta paket optimasi VPN "Internet Surfing Optimization" dengan 5

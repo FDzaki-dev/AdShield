@@ -136,6 +136,9 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             appendLine("--- VPN Tunnel (WARP) ---")
             appendLine("Status: $warpStateLabel")
             appendLine("Kualitas koneksi: $qualityLabel")
+            appendLine("Packet loss: ${warpQuality.packetLossPercent}%")
+            appendLine("MTU dipakai: ${if (warpQuality.mtuUsed > 0) warpQuality.mtuUsed.toString() else "-"}")
+            appendLine("Endpoint dipakai: ${warpQuality.endpointUsed.ifBlank { "-" }}")
             appendLine("Percobaan reconnect: ${warpQuality.reconnectAttempts}")
             appendLine("Error terakhir: ${warpLastError ?: "-"}")
         }
@@ -217,6 +220,19 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     valueColor = if (warpState == Tunnel.State.UP) ShieldGreen else ShieldTextMuted
                 )
                 DiagnosticRow("Kualitas koneksi", qualityLabel)
+                DiagnosticRow(
+                    "Packet loss",
+                    "${warpQuality.packetLossPercent}%",
+                    valueColor = if (warpQuality.packetLossPercent > 10) ShieldDanger else ShieldTextMuted
+                )
+                DiagnosticRow(
+                    "MTU dipakai",
+                    if (warpQuality.mtuUsed > 0) warpQuality.mtuUsed.toString() else "-"
+                )
+                DiagnosticRow(
+                    "Endpoint dipakai",
+                    warpQuality.endpointUsed.ifBlank { "-" }
+                )
                 DiagnosticRow("Percobaan reconnect", warpQuality.reconnectAttempts.toString())
                 if (warpLastError != null) {
                     DiagnosticRow("Error terakhir", warpLastError ?: "-", valueColor = ShieldDanger)

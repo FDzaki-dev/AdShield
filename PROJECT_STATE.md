@@ -3,7 +3,16 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.7.0 (2026-08-05) — Internet Surfing Optimization (VPN) — SELESAI
+- **v3.7.1 (2026-08-05) — UI display MTU/endpoint/packet-loss WARP —
+  SELESAI, menutup item "kerja sesi berikutnya" dari v3.7.0.** Murni UI:
+  `DiagnosticsScreen.kt` (3 baris baru + masuk teks copy) dan
+  `HomeScreen.kt` (`WarpQualityRow` suffix `· loss N%` kalau >0%). Tidak
+  ada perubahan data layer/logic — field `mtuUsed`/`endpointUsed`/
+  `packetLossPercent` sendiri sudah ada dari v3.7.0. **BELUM dikonfirmasi
+  build CI + belum pernah dilihat terisi data nyata di device** (nunggu
+  WARP tervalidasi end-to-end dulu — lihat item #1 prioritas di bawah).
+  Brace/paren balance dicek statis, OK.
+- v3.7.0 (2026-08-05) — Internet Surfing Optimization (VPN) — SELESAI
   implementasi statis, BELUM diuji throughput/latency nyata di device.**
   Scope: 5 prioritas dari permintaan user (DNS cache, Auto MTU, Smart
   endpoint selection, Fast reconnect, DNS leak protection) + beberapa item
