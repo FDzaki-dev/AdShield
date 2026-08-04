@@ -1,5 +1,29 @@
 # Changelog
 
+## v3.0.1 — Fix kontras/legibility palet matte (2026-08-04)
+
+> User laporan langsung dari device (screenshot): warna kegelapan, legibility
+> tidak membaik sama sekali dari sebelum redesign. Root cause: v3.0.0 lolos
+> "terlihat matte premium" di color-picker tapi jarak antar step elevation
+> & warna teks terlalu rapat secara actual contrast ratio di panel device.
+> HANYA `Color.kt` yang diubah (nilai hex saja) — nol perubahan struktur
+> file lain, otomatis merambat ke semua layar via `Theme.kt`.
+
+- `ShieldSurface` (kartu): `#14170F` → `#1A1F1A` — sebelumnya nyaris tak
+  beda dari background, kartu "menyatu" dengan latar.
+- `ShieldSurface2`/`ShieldSurfaceAlt` (chip ikon nav): `#1B1F17` → `#262E25`.
+- `ShieldOutline` (hairline border kartu): `#262C24` → `#4A5346` —
+  sebelumnya nyaris tidak kelihatan, sekarang batas kartu benar-benar
+  terlihat.
+- `ShieldTextMuted`: `#8B9690` → `#AEB9B0` — teks sekunder (subjudul,
+  deskripsi WARP) sebelumnya di bawah ambang baca nyaman.
+- `ShieldTextFaint`: `#5C655F` → `#828D85` — caption/footnote sebelumnya
+  nyaris invisible di screenshot user.
+- `ShieldGreen` (signal/accent): `#2FBE86` → `#3ED696` — sedikit lebih
+  terang supaya ikon di chip nav & ring proteksi kelihatan jelas, tetap
+  matte (bukan neon).
+- `ShieldDanger`/`ShieldWarning` dinaikkan tipis untuk konsistensi step.
+
 ## v3.0.0 — Redesign UI/UX: identitas visual "Matte Graphite / Jade Signal" (2026-08-04)
 
 > Perubahan presentasi layer saja — nol perubahan logic/state/ViewModel.

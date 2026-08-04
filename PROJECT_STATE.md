@@ -3,7 +3,20 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.0.0 (2026-08-04) — Redesign UI/UX SELESAI ("Matte Graphite / Jade
+- **v3.0.1 (2026-08-04) — Fix kontras/legibility SELESAI**, respons langsung
+  ke laporan user disertai screenshot device (background/kartu/teks kegelapan,
+  "gak membaik sama sekali" dari sebelum redesign v3.0.0). Root cause: nilai
+  hex v3.0.0 lolos di color-picker tapi jarak antar elevation step & warna
+  teks terlalu rapat secara contrast ratio nyata di panel OLED. HANYA
+  `Color.kt` yang diubah (lihat CHANGELOG untuk diff nilai hex lengkap) —
+  `Type.kt`/`Shape.kt`/`Theme.kt`/screens TIDAK disentuh, semua otomatis
+  ikut lewat `MaterialTheme`. **BELUM dikonfirmasi user via screenshot baru**
+  — WAJIB jadi hal pertama yang dicek di sesi berikutnya sebelum
+  menganggap kontras sudah cukup. Kalau masih kurang, jangan cuma naikkan
+  nilai lagi sedikit-sedikit — tanya user elemen mana spesifik yang masih
+  susah dibaca (nama layar, ukuran teks, kondisi lighting) supaya perbaikan
+  terarah, bukan trial-and-error hex value berulang.
+- v3.0.0 (2026-08-04) — Redesign UI/UX SELESAI ("Matte Graphite / Jade
   Signal").** User minta explisit: matte, "native Android ultra premium &
   expensive", tetap khas app VPN. Scope MURNI presentation layer:
   `ui/theme/Color.kt` (palet baru, nama konstanta lama dipertahankan
