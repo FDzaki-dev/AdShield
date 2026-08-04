@@ -1,13 +1,20 @@
 package com.fdzaki.adshield.ui.screens
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BugReport
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
@@ -15,20 +22,37 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.theme.ShieldAccentDim
+import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
+import com.fdzaki.adshield.ui.theme.ShieldMonoStat
+import com.fdzaki.adshield.ui.theme.ShieldOutline
 import com.fdzaki.adshield.ui.theme.ShieldSurface
-import com.fdzaki.adshield.ui.theme.ShieldSurfaceAlt
+import com.fdzaki.adshield.ui.theme.ShieldSurface2
+import com.fdzaki.adshield.ui.theme.ShieldTextFaint
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
 import com.fdzaki.adshield.ui.theme.ShieldWarning
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.wireguard.android.backend.Tunnel
 
+/**
+ * v3.0.0 visual identity — "Matte Graphite / Jade Signal". Same
+ * ViewModel/state wiring as before; only the presentation layer changed.
+ * Signature element: the status ring (`ProtectionRing`) — a matte disc with
+ * a thin instrument-style ring instead of a flat-filled button, echoing how
+ * premium VPN clients (Mullvad, WARP) present connection state as something
+ * closer to hardware than a checkbox. Definition throughout comes from 1dp
+ * hairline borders (`ShieldOutline`), not drop shadows — that's the "matte"
+ * half of the brief.
+ */
 @Composable
 fun HomeScreen(
     viewModel: MainViewModel,
@@ -54,42 +78,39 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .background(ShieldBgDark)
+            .padding(horizontal = 20.dp)
+            .verticalScroll(rememberScrollState()),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        Spacer(Modifier.height(24.dp))
-        Text("AdShield", fontSize = 26.sp, fontWeight = FontWeight.Bold)
-        Text(
-            "Pemblokir iklan & pelacak on-device",
-            color = ShieldTextMuted,
-            fontSize = 13.sp
-        )
+        Spacer(Modifier.height(28.dp))
+        BrandHeader()
 
-        Spacer(Modifier.height(40.dp))
+        Spacer(Modifier.height(36.dp))
 
-        ShieldToggleButton(active = vpnActive) {
+        ProtectionRing(active = vpnActive) {
             if (vpnActive) onStopVpn() else onRequestVpnStart()
         }
 
-        Spacer(Modifier.height(16.dp))
+        Spacer(Modifier.height(20.dp))
         Text(
-            if (vpnActive) "Perlindungan aktif" else "Perlindungan nonaktif",
-            color = if (vpnActive) ShieldGreen else ShieldTextMuted,
-            fontWeight = FontWeight.SemiBold
+            if (vpnActive) "PERLINDUNGAN AKTIF" else "PERLINDUNGAN NONAKTIF",
+            style = MaterialTheme.typography.labelLarge,
+            color = if (vpnActive) ShieldGreen else ShieldTextMuted
         )
 
-        Spacer(Modifier.height(32.dp))
+        Spacer(Modifier.height(28.dp))
 
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             StatCard(
                 modifier = Modifier.weight(1f),
-                label = "Diblokir",
+                label = "DIBLOKIR",
                 value = blockedCount.toString(),
                 color = ShieldDanger
             )
             StatCard(
                 modifier = Modifier.weight(1f),
-                label = "Diizinkan",
+                label = "DIIZINKAN",
                 value = allowedCount.toString(),
                 color = ShieldGreen
             )
@@ -99,10 +120,12 @@ fun HomeScreen(
 
         OutlinedButton(
             onClick = { viewModel.resetCounters() },
-            modifier = Modifier.fillMaxWidth()
-        ) { Text("Reset statistik") }
+            modifier = Modifier.fillMaxWidth(),
+            border = BorderStroke(1.dp, ShieldOutline),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldTextMuted)
+        ) { Text("Reset statistik", style = MaterialTheme.typography.labelLarge) }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
 
         WarpModeCard(
             active = warpUp,
@@ -117,33 +140,104 @@ fun HomeScreen(
             "Registrasi otomatis ke API gratis Cloudflare WARP yang tidak resmi " +
                 "(dipakai proyek open-source seperti wgcf) — bisa berhenti berfungsi " +
                 "kalau Cloudflare mengubah API tanpa pemberitahuan.",
-            color = ShieldTextMuted,
+            color = ShieldTextFaint,
             fontSize = 10.sp,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
         )
 
-        Spacer(Modifier.height(28.dp))
+        Spacer(Modifier.height(12.dp))
 
-        NavRow(icon = Icons.Filled.List, label = "Daftar Log Domain", onClick = onOpenLogs)
-        Spacer(Modifier.height(10.dp))
-        NavRow(icon = Icons.Filled.Rule, label = "Whitelist per Aplikasi", onClick = onOpenWhitelist)
-        Spacer(Modifier.height(10.dp))
-        NavRow(icon = Icons.Filled.Shield, label = "Aturan Kustom (Block/Allow)", onClick = onOpenRules)
-        Spacer(Modifier.height(10.dp))
-        NavRow(icon = Icons.Filled.BugReport, label = "Diagnostik", onClick = onOpenDiagnostics)
+        NavGroup {
+            NavRow(icon = Icons.Filled.List, label = "Daftar Log Domain", onClick = onOpenLogs)
+            NavDivider()
+            NavRow(icon = Icons.Filled.Rule, label = "Whitelist per Aplikasi", onClick = onOpenWhitelist)
+            NavDivider()
+            NavRow(icon = Icons.Filled.Shield, label = "Aturan Kustom (Block/Allow)", onClick = onOpenRules)
+            NavDivider()
+            NavRow(icon = Icons.Filled.BugReport, label = "Diagnostik", onClick = onOpenDiagnostics)
+        }
 
         Spacer(Modifier.height(20.dp))
 
         TextButton(onClick = onRequestBatteryExemption) {
-            Text("Kecualikan dari optimasi baterai (disarankan)", fontSize = 12.sp)
+            Text(
+                "Kecualikan dari optimasi baterai (disarankan)",
+                fontSize = 12.sp,
+                color = ShieldGreen
+            )
         }
         Text(
             "Agar servis tidak dimatikan sistem XOS/MIUI/ColorOS saat idle, izinkan " +
                 "\"No restrictions\" di pengaturan baterai perangkat untuk AdShield.",
-            color = ShieldTextMuted,
+            color = ShieldTextFaint,
             fontSize = 11.sp,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp)
         )
+        Spacer(Modifier.height(28.dp))
+    }
+}
+
+@Composable
+private fun BrandHeader() {
+    Text(
+        "ADSHIELD",
+        style = MaterialTheme.typography.labelLarge,
+        color = ShieldTextMuted
+    )
+    Spacer(Modifier.height(2.dp))
+    Text(
+        "Pemblokir iklan & pelacak on-device",
+        style = MaterialTheme.typography.bodySmall,
+        color = ShieldTextFaint
+    )
+}
+
+/**
+ * Signature element. A matte disc (elevation via tone, not shadow) framed by
+ * a thin instrument ring: solid + bright when protection is on, a faint
+ * hairline track when off. No fill animation on toggle — deliberately
+ * restrained, a single calm state change rather than a flashy transition.
+ */
+@Composable
+private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
+    val ringColor = ShieldGreen
+    val trackColor = ShieldOutline
+
+    Box(
+        modifier = Modifier.size(184.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val strokeWidth = 3.dp.toPx()
+            drawCircle(
+                color = trackColor,
+                radius = (size.minDimension - strokeWidth) / 2f,
+                style = Stroke(width = strokeWidth)
+            )
+            if (active) {
+                drawCircle(
+                    color = ringColor,
+                    radius = (size.minDimension - strokeWidth) / 2f,
+                    style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .size(152.dp)
+                .clip(CircleShape)
+                .background(if (active) ShieldAccentDim else ShieldSurface2)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = if (active) Icons.Filled.Shield else Icons.Filled.PowerSettingsNew,
+                contentDescription = if (active) "Matikan proteksi" else "Aktifkan proteksi",
+                tint = if (active) ShieldGreen else ShieldTextMuted,
+                modifier = Modifier.size(56.dp)
+            )
+        }
     }
 }
 
@@ -163,15 +257,28 @@ private fun WarpModeCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface)
+        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
+        border = BorderStroke(1.dp, if (active) ShieldGreen.copy(alpha = 0.4f) else ShieldOutline)
     ) {
-        Column(Modifier.padding(16.dp)) {
+        Column(Modifier.padding(18.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Lock, contentDescription = null, tint = if (active) ShieldGreen else ShieldTextMuted)
-                Spacer(Modifier.width(10.dp))
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (active) ShieldAccentDim else ShieldSurface2),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.Lock,
+                        contentDescription = null,
+                        tint = if (active) ShieldGreen else ShieldTextMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
-                    Text("VPN Tunnel (WARP)", fontWeight = FontWeight.SemiBold)
+                    Text("VPN Tunnel (WARP)", style = MaterialTheme.typography.titleMedium)
                     Text(
                         when {
                             connecting -> "Menyambungkan…"
@@ -185,37 +292,40 @@ private fun WarpModeCard(
                 Switch(
                     checked = active,
                     enabled = !connecting,
-                    onCheckedChange = onToggle
+                    onCheckedChange = onToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = ShieldGreen,
+                        checkedThumbColor = ShieldSurface
+                    )
                 )
             }
             if (active) {
-                Spacer(Modifier.height(10.dp))
+                Spacer(Modifier.height(12.dp))
+                HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
+                Spacer(Modifier.height(12.dp))
                 WarpQualityRow(quality)
             }
             if (error != null) {
                 Spacer(Modifier.height(8.dp))
-                Text(
-                    "Gagal: $error",
-                    color = ShieldDanger,
-                    fontSize = 11.sp
-                )
+                Text("Gagal: $error", color = ShieldDanger, fontSize = 11.sp)
             }
         }
     }
 }
 
 /**
- * Small status row shown only while the WARP tunnel is active: a colored dot for
- * at-a-glance health, plus latency/reconnect text. Reflects [WarpTunnelManager]'s
- * periodic trace-probe watchdog — not just "interface is up", but "traffic is
- * confirmed reaching Cloudflare via WARP".
+ * Small status row shown only while the WARP tunnel is active: a colored dot
+ * for at-a-glance health, plus a monospace latency/reconnect readout —
+ * numbers as instrument data. Reflects [WarpTunnelManager]'s periodic
+ * trace-probe watchdog — not just "interface is up," but "traffic is
+ * confirmed reaching Cloudflare via WARP."
  */
 @Composable
 private fun WarpQualityRow(quality: WarpConnectionQuality) {
     val (dotColor, label) = when (quality.level) {
         WarpConnectionQuality.Level.UNKNOWN -> ShieldTextMuted to "Memeriksa kualitas jalur…"
-        WarpConnectionQuality.Level.GOOD -> ShieldGreen to "Latensi ${quality.latencyMs} ms • jalur baik"
-        WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "Latensi ${quality.latencyMs} ms • agak lambat"
+        WarpConnectionQuality.Level.GOOD -> ShieldGreen to "${quality.latencyMs} ms · jalur baik"
+        WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "${quality.latencyMs} ms · agak lambat"
         WarpConnectionQuality.Level.BAD ->
             if (quality.reconnectAttempts > 0) {
                 ShieldDanger to "Menyambung ulang… (percobaan ke-${quality.reconnectAttempts})"
@@ -226,67 +336,81 @@ private fun WarpQualityRow(quality: WarpConnectionQuality) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
             modifier = Modifier
-                .size(8.dp)
+                .size(7.dp)
                 .clip(CircleShape)
                 .background(dotColor)
         )
         Spacer(Modifier.width(8.dp))
-        Text(label, fontSize = 11.sp, color = ShieldTextMuted)
+        Text(label, style = ShieldMonoStat.copy(fontSize = 11.sp), color = ShieldTextMuted)
     }
 }
 
 @Composable
-private fun ShieldToggleButton(active: Boolean, onClick: () -> Unit) {
-    val bg = if (active) ShieldGreen else ShieldSurfaceAlt
-    Box(
-        modifier = Modifier
-            .size(160.dp)
-            .clip(CircleShape)
-            .background(bg),
-        contentAlignment = Alignment.Center
-    ) {
-        IconButton(onClick = onClick, modifier = Modifier.size(160.dp)) {
-            Icon(
-                imageVector = Icons.Filled.Shield,
-                contentDescription = if (active) "Matikan proteksi" else "Aktifkan proteksi",
-                tint = if (active) Color.Black else ShieldTextMuted,
-                modifier = Modifier.size(72.dp)
-            )
-        }
-    }
-}
-
-@Composable
-private fun StatCard(modifier: Modifier = Modifier, label: String, value: String, color: Color) {
+private fun StatCard(
+    modifier: Modifier = Modifier,
+    label: String,
+    value: String,
+    color: androidx.compose.ui.graphics.Color
+) {
     Card(
         modifier = modifier,
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface)
+        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
+        border = BorderStroke(1.dp, ShieldOutline)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(value, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = color)
-            Text(label, fontSize = 12.sp, color = ShieldTextMuted)
+            Text(value, style = ShieldMonoStat.copy(fontSize = 26.sp), color = color)
+            Spacer(Modifier.height(2.dp))
+            Text(label, style = MaterialTheme.typography.labelMedium, color = ShieldTextMuted)
         }
     }
 }
 
+/** Groups nav rows into a single hairline-bordered card, "premium settings list" style. */
 @Composable
-private fun NavRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, onClick: () -> Unit) {
+private fun NavGroup(content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = ShieldSurface),
-        onClick = onClick
+        border = BorderStroke(1.dp, ShieldOutline)
     ) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(content = content)
+    }
+}
+
+@Composable
+private fun NavDivider() {
+    HorizontalDivider(
+        color = ShieldOutline,
+        thickness = 1.dp,
+        modifier = Modifier.padding(start = 60.dp)
+    )
+}
+
+@Composable
+private fun NavRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(ShieldSurface2),
+            contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = ShieldGreen)
-            Spacer(Modifier.width(12.dp))
-            Text(label)
+            Icon(icon, contentDescription = null, tint = ShieldGreen, modifier = Modifier.size(16.dp))
         }
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        Icon(
+            Icons.Filled.ChevronRight,
+            contentDescription = null,
+            tint = ShieldTextFaint,
+            modifier = Modifier.size(18.dp)
+        )
     }
 }

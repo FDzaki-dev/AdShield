@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.0.0 — Redesign UI/UX: identitas visual "Matte Graphite / Jade Signal" (2026-08-04)
+
+> Perubahan presentasi layer saja — nol perubahan logic/state/ViewModel.
+> Semua wiring `MainViewModel` & callback tetap sama persis.
+
+- **Design system baru** (`ui/theme/`): `Color.kt` diberi palet matte
+  graphite + jade signal (bukan neon acid-green), file baru `Type.kt`
+  (skala tipografi + `ShieldMonoStat` untuk readout teknis monospace) dan
+  `Shape.kt` (skala radius besar 10–34dp, ganti default Material 4/8/12dp).
+  `Theme.kt` sekarang merangkai `colorScheme` penuh (bukan cuma 6 role) +
+  typography + shapes, supaya komponen Material3 default di layar lain
+  otomatis ikut ganti kulit tanpa disentuh satu per satu.
+- **`HomeScreen.kt` didesain ulang total**: toggle proteksi jadi
+  "Protection Ring" (disc matte + ring instrumen tipis, definisi lewat
+  hairline border `ShieldOutline`, bukan drop shadow), stat blocked/allowed
+  pakai angka monospace, 4 item navigasi digabung jadi satu "NavGroup" card
+  bergaya grouped-list premium (khas Mullvad/ProtonVPN) lengkap divider
+  hairline, WarpModeCard dan quality-row ikut diberi treatment sama.
+- `DiagnosticsScreen.kt`: radius kartu disamakan skala baru (14dp → 20dp) +
+  ditambah hairline border `ShieldOutline` supaya konsisten dengan layar
+  lain.
+- RulesScreen/WhitelistScreen/LogsScreen/OnboardingScreen **tidak diubah**
+  — sudah otomatis ikut palet & shape baru lewat `MaterialTheme`
+  (tidak ada override warna/shape hardcoded di file-file itu selain nama
+  konstanta `Shield*` yang sudah diretint di `Color.kt`).
+
 ## v2.6.1 — Unit test dasar: DnsPacket + BlocklistManager (2026-08-03)
 
 > Lanjutan langsung dari fokus "100% reliability" (v2.5.1, v2.6.0).

@@ -1,30 +1,7 @@
-# FILE_MANIFEST.txt — isi ZIP v2.6.1 (2026-08-03), 57 file (tidak termasuk
-# file ini sendiri) — +2 file baru dari v2.6.0: src/test/.../DnsPacketTest.kt
-# dan src/test/.../BlocklistManagerTest.kt. Unit test dasar, BELUM PERNAH
-# DIJALANKAN (sesi dihentikan atas permintaan user) — lihat CHANGELOG.md
-# v2.6.1 & PROJECT_STATE.md "Status terakhir".
-# File yang isinya berubah: app/build.gradle.kts (versionCode 13→14,
-# versionName 2.6.0→2.6.1, edit parsial — protected, +1 baris
-# testImplementation junit), PROJECT_STATE.md, CHANGELOG.md.
-#
-# (v2.6.0 sebelumnya: +util/CrashLogger.kt, AdShieldApp.kt edit parsial,
-# app/build.gradle.kts versionCode/versionName, README.md)
-# (v2.5.1 sebelumnya: vpn/AdBlockVpnService.kt edit parsial — fix deadlock
-# executor, app/build.gradle.kts versionCode/versionName)
-# (v2.5.0 sebelumnya: data/BlocklistManager.kt full rewrite +
-# BlocklistUpdateWorker, ui/screens/RulesScreen.kt full rewrite,
-# data/SettingsRepository.kt + ui/MainViewModel.kt edit parsial)
-#
-# PENTING — BUKAN daftar `git ls-files` dari repo GitHub yang sebenarnya:
-# `.gitignore` dan `.github/workflows/build.yml` SENGAJA TIDAK masuk daftar
-# ini maupun ZIP ini. Keduanya ada di repo asli tapi dibuat lewat command
-# Termux langsung saat setup awal (bukan lewat ZIP) — lihat catatan di
-# PROJECT_STATE.md § Riwayat insiden 2026-08-02 (v2.2.0). JANGAN hapus
-# keduanya saat update — command Termux di respons pengiriman ZIP ini sudah
-# disesuaikan untuk mengecualikan keduanya dari langkah pembersihan.
-#
-# Regenerate isi ZIP (bukan git ls-files) tiap rilis dengan: find . -type f
+.github/workflows/build.yml
+.gitignore
 CHANGELOG.md
+FILE_MANIFEST.txt
 PROJECT_STATE.md
 README.md
 app/build.gradle.kts
@@ -49,7 +26,9 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/OnboardingScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/RulesScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/Shape.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/Type.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
 app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt

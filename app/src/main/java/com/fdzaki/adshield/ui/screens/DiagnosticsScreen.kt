@@ -220,8 +220,9 @@ private fun readAppVersion(packageManager: PackageManager, packageName: String):
 private fun DiagnosticSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface)
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
+        border = androidx.compose.foundation.BorderStroke(1.dp, com.fdzaki.adshield.ui.theme.ShieldOutline)
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)

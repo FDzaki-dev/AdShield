@@ -3,6 +3,27 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.0.0 (2026-08-04) — Redesign UI/UX SELESAI ("Matte Graphite / Jade
+  Signal").** User minta explisit: matte, "native Android ultra premium &
+  expensive", tetap khas app VPN. Scope MURNI presentation layer:
+  `ui/theme/Color.kt` (palet baru, nama konstanta lama dipertahankan
+  supaya layar lain otomatis ikut ganti kulit), `ui/theme/Type.kt` (BARU —
+  skala tipografi + `ShieldMonoStat` monospace untuk readout teknis),
+  `ui/theme/Shape.kt` (BARU — skala radius 10–34dp), `ui/theme/Theme.kt`
+  (colorScheme penuh + typography + shapes dirangkai ke `MaterialTheme`),
+  `ui/screens/HomeScreen.kt` (didesain ulang total: "Protection Ring"
+  sebagai signature element, NavGroup grouped-list card, hairline border
+  `ShieldOutline` di semua card pengganti shadow elevation),
+  `DiagnosticsScreen.kt` (radius+border disamakan skala baru). **TIDAK ADA
+  perubahan logic/ViewModel/state sama sekali** — semua callback
+  `HomeScreen(...)` di `MainActivity.kt` tetap persis sama signature-nya.
+  RulesScreen/WhitelistScreen/LogsScreen/OnboardingScreen sengaja TIDAK
+  disentuh — sudah otomatis ikut tema baru karena tidak override warna/shape
+  hardcoded. **BELUM dikonfirmasi build CI** (v3.0.0 belum pernah dicompile
+  — dikerjakan tanpa akses Gradle/Android SDK di sandbox sesi ini, sama
+  seperti v2.6.1) — WAJIB jadi prioritas #1 di sesi berikutnya, SEBELUM
+  #1 lama (unit test v2.6.1) karena kalau v3.0.0 gagal compile, itu blocker
+  yang lebih baru. Jalankan build CI dulu, baru `testDebugUnitTest`.
 - **v2.6.1 (2026-08-03) — Unit test dasar SELESAI ditulis** untuk
   `DnsPacket` (`DnsPacketTest.kt`) dan `BlocklistManager`
   (`BlocklistManagerTest.kt`), + `testImplementation("junit:junit:4.13.2")`
