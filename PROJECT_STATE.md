@@ -3,21 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.1.0 (2026-08-04) — Warm graphite pass SELESAI**, respons langsung ke
-  arahan user (chat, bukan screenshot kali ini): "tingkatkan legibility dan
-  ubah arah warna desain visual dari kegelapan menuju matte 'native android
-  ultra premium & expensive'". HANYA `Color.kt` diubah (lihat CHANGELOG
-  untuk diff nilai hex lengkap) — base background dipindah dari near-black
-  bertint hijau (`#0C0F0D`) ke graphite netral hangat (`#17181A`), seluruh
-  tangga elevasi di-derive ulang, accent jade didesaturasi tipis, warning
-  digeser ke brass/gold. `Type.kt`/`Shape.kt`/`Theme.kt`/screens TIDAK
-  disentuh. **BELUM dikonfirmasi user via screenshot baru** — WAJIB jadi
-  hal pertama yang dicek di sesi berikutnya (menggantikan item konfirmasi
-  v3.0.1 di bawah — v3.0.1 sudah ditimpa oleh perubahan warna v3.1.0 ini,
-  jadi yang relevan dikonfirmasi sekarang adalah hasil v3.1.0, bukan
-  v3.0.1 lagi). Kalau user masih bilang kurang, jangan naikkan/turunkan
-  hex sedikit-sedikit — tanya elemen spesifik mana yang masih kurang
-  (terlalu terang/gelap, aksen kurang "premium", dll).
+- **v3.2.0 (2026-08-04) — WARP MTU fix SELESAI**, respons langsung ke
+  arahan user "fokus dongkrak performance WARP 100 persen" (setelah
+  v3.1.0 dikonfirmasi lewat screenshot device, "lumayan lah" — dianggap
+  cukup, TIDAK perlu iterasi warna lagi kecuali user angkat lagi).
+  `WarpTunnelManager.buildConfig()` sebelumnya tidak pernah set MTU
+  eksplisit (pakai default library) — root cause performa realistis di
+  banyak jaringan seluler (fragmentasi paket WireGuard terenkapsulasi >
+  MTU jalur nyata operator). Fix: `setMtu(1280)`, nilai yang **diverifikasi
+  lewat riset** (bukan tebakan) — persis default app resmi Cloudflare WARP
+  Android & profil `wgcf` untuk kompatibilitas maksimal. HANYA
+  `WarpTunnelManager.kt` diubah (+ version bump) — endpoint
+  fallback/keepalive/watchdog semua TETAP, tidak disentuh. **BELUM
+  diverifikasi lewat pengukuran throughput nyata di device** — WAJIB jadi
+  hal pertama yang dicek di sesi berikutnya: user perlu bandingkan
+  kecepatan unduh/unggah + stabilitas sebelum/sesudah, idealnya di
+  jaringan SELULER (paling terdampak masalah MTU, bukan cuma Wi-Fi). Kalau
+  masih terasa lambat setelah ini, jangan langsung utak-atik MTU lagi
+  sedikit-sedikit — tanya dulu detail: jaringan apa (WiFi/seluler,
+  provider), lambat di download/upload/latency/keduanya, dibanding
+  baseline tanpa VPN berapa.
+- **v3.1.0 (2026-08-04) — Warm graphite pass DIKONFIRMASI** oleh user via
+  screenshot device ("Lumayan lah") — arah matte premium/warm graphite
+  dianggap sudah cukup untuk saat ini. Item pending konfirmasi visual dari
+  sesi sebelumnya SUDAH DITUTUP, tidak perlu dicek lagi kecuali user
+  mengangkat masalah visual baru.
 - v3.0.1 (2026-08-04) — Fix kontras/legibility SELESAI, respons langsung
   ke laporan user disertai screenshot device (background/kartu/teks kegelapan,
   "gak membaik sama sekali" dari sebelum redesign v3.0.0). Root cause: nilai
@@ -234,6 +244,17 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      asumsikan ada API handshake-time di versi library ini; itulah kenapa
      latensi diukur lewat trace-probe HTTP, bukan dari statistik
      WireGuard itu sendiri.
+
+6d. **`WarpTunnelManager.WARP_MTU = 1280` (v3.2.0) — JANGAN diubah tanpa
+   verifikasi ulang.** Ini bukan angka sembarang — cocok persis dengan
+   default app resmi Cloudflare WARP Android & profil `wgcf`, dipilih
+   karena paling aman lintas jaringan (mencegah fragmentasi paket
+   WireGuard terenkapsulasi di jaringan seluler/NAT operator). Kalau nanti
+   mau menaikkan (mis. 1400-1460 untuk throughput lebih tinggi di jaringan
+   yang tidak mengalami degradasi MTU), itu WAJIB jadi opsi yang bisa
+   dipilih user (bukan hardcode diam-diam diganti), karena nilai yang
+   terlalu tinggi untuk jaringan tertentu bisa membuat tunnel yang
+   sebelumnya jalan normal jadi tidak stabil.
 
 7. **App Shortcuts (v2.2.0) — kontrak yang JANGAN dilanggar.**
    - Shortcut statis (Whitelist, Log) dideklarasikan di

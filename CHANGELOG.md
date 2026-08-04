@@ -1,5 +1,38 @@
 # Changelog
 
+## v3.2.0 — WARP: fix MTU untuk performa/stabilitas mobile (2026-08-04)
+
+> User arahan eksplisit: "fokus dongkrak performance WARP 100 persen".
+> User juga sudah konfirmasi v3.1.0 (screenshot device, "lumayan lah") —
+> arah warna matte premium dianggap cukup untuk sekarang, prioritas
+> pindah total ke performa WARP.
+
+- **Root cause performa yang ditemukan:** `WarpTunnelManager.buildConfig()`
+  tidak pernah set MTU eksplisit di `Interface.Builder` — library
+  `com.wireguard.android:tunnel` pakai nilai auto/default-nya sendiri.
+  Di banyak jaringan mobile (terutama seluler dengan overhead NAT/tunneling
+  operator), paket WireGuard yang sudah dibungkus terenkapsulasi bisa
+  melebihi MTU jalur nyata → fragmentasi → paket drop/retransmit, yang jauh
+  lebih mahal terhadap throughput nyata dibanding sekadar pakai MTU lebih
+  kecil.
+- **Fix:** `Interface.Builder.setMtu(1280)` eksplisit (`WARP_MTU` constant
+  baru di `WarpTunnelManager`). Nilai 1280 **diverifikasi lewat riset**
+  (bukan tebakan) — ini persis default yang dipakai app resmi Cloudflare
+  WARP Android sendiri ("just like the official Android app", dikonfirmasi
+  dokumentasi `wgcf`) dan juga default profil `wgcf` generate untuk
+  kompatibilitas maksimal lintas jaringan. Untuk jaringan yang tidak
+  mengalami degradasi MTU, nilai ini bisa dinaikkan manual (1400-1460) demi
+  throughput sedikit lebih tinggi, tapi 1280 adalah pilihan teraman lintas
+  device/jaringan tanpa perlu deteksi kondisi jaringan per-user.
+- Tidak ada perubahan lain — endpoint fallback (`engage.cloudflareclient.
+  com:2408`), persistent keepalive 25s, dan seluruh watchdog/auto-reconnect
+  TETAP seperti v2.1.0 (sudah sesuai rekomendasi resmi, tidak disentuh).
+- **Belum bisa diverifikasi lewat pengukuran throughput nyata** di device —
+  sandbox sesi ini tidak punya akses jaringan/Gradle. WAJIB dites di
+  device fisik: bandingkan kecepatan unduh/unggah + stabilitas streaming
+  sebelum/sesudah update ini, idealnya di jaringan seluler (bukan cuma
+  Wi-Fi, karena itu yang paling terdampak masalah MTU).
+
 ## v3.1.0 — Warm graphite pass: legibility + arah "matte premium" (2026-08-04)
 
 > User arahan eksplisit: tingkatkan legibility lagi + ubah arah warna dari

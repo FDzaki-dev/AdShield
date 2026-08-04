@@ -275,6 +275,7 @@ class WarpTunnelManager(context: Context) {
             .parsePrivateKey(account.privateKeyBase64)
             .addAddress(InetNetwork.parse("${account.addressV4}/32"))
             .parseDnsServers("1.1.1.1,1.0.0.1")
+            .setMtu(WARP_MTU)
         if (account.addressV6.isNotBlank()) {
             runCatching { interfaceBuilder.addAddress(InetNetwork.parse("${account.addressV6}/128")) }
         }
@@ -305,6 +306,15 @@ class WarpTunnelManager(context: Context) {
         private const val MAX_BACKOFF_MS = 60_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
         private const val TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
+        // MTU left unset (library auto/default) before v3.2.0 could push MTU higher than what
+        // many mobile networks (esp. cellular, carrier NAT/tunneling overhead) actually pass
+        // without fragmenting the encapsulated WireGuard packet — fragmented packets get
+        // dropped/retransmitted, which tanks real-world throughput far more than a smaller MTU
+        // ever costs. 1280 matches Cloudflare's own official Android WARP app default and the
+        // wgcf-generated profile default (verified via wgcf docs + xtls WARP integration docs,
+        // both confirm official Android client ships MTU=1280 "for maximum compatibility") —
+        // this is the safest value across the widest range of real device networks, not a guess.
+        private const val WARP_MTU = 1280
 
         @Volatile private var instance: WarpTunnelManager? = null
 
