@@ -192,12 +192,27 @@ class BlocklistManager private constructor() {
      *  UID lookup entirely when no app is whitelisted. */
     fun hasWhitelistedApps(): Boolean = whitelistedApps.isNotEmpty()
 
-    /** True if `domain` equals `base` or is a subdomain of `base` (for wildcard matching only). */
-    private fun matchesWildcardBase(domain: String, base: String): Boolean =
-        domain == base || domain.endsWith(".$base")
-
+    /**
+     * O(depth of `domain`) instead of O(size of `bases`) — was a linear scan over every
+     * wildcard entry for every single DNS query (see PROJECT_STATE.md, perf audit
+     * 2026-08-04). Safe while the bundled list is small (~55 wildcard entries), but the
+     * remote custom-blocklist-URL feature (v2.5.0) lets `bases` grow to thousands of
+     * entries from a public list — at that size the old linear scan would cost every
+     * query (blocked or not) real CPU time in the VPN packet loop, the hottest path in
+     * the app. Walking `domain`'s own parent suffixes and doing a hash-set lookup at
+     * each level is equivalent in result (a wildcard entry only ever matches at one of
+     * `domain`'s own suffix boundaries) but costs a handful of O(1) lookups (real-world
+     * domain depth is almost always 2-5 labels) no matter how large `bases` gets.
+     */
     private fun matchesAnyWildcard(domain: String, bases: Set<String>): Boolean {
-        for (base in bases) if (matchesWildcardBase(domain, base)) return true
+        if (bases.isEmpty()) return false
+        if (bases.contains(domain)) return true // domain itself listed as a wildcard base
+        var dotIndex = domain.indexOf('.')
+        while (dotIndex != -1) {
+            val suffix = domain.substring(dotIndex + 1)
+            if (bases.contains(suffix)) return true
+            dotIndex = domain.indexOf('.', dotIndex + 1)
+        }
         return false
     }
 

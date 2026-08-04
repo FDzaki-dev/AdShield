@@ -3,7 +3,35 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.4.0 (2026-08-04) — Legibility-max pass, `Color.kt` dirombak total.**
+- **v3.5.0 (2026-08-04) — Audit performa proaktif, 1 fix diterapkan.** User
+  minta "debugging sampai tuntas di segmen performance & optimalisasi"
+  setelah CI v3.3.3+v3.4.0 dikonfirmasi hijau (lihat entri di bawah).
+  Diaudit statis: `AdBlockVpnService` (packet loop), `DnsPacket`
+  (parse/build), `BlocklistManager` (matching), `WarpTunnelManager`.
+  **Fix diterapkan**: `BlocklistManager.matchesAnyWildcard()` — linear
+  scan O(ukuran wildcard set) per query diganti jalan parent-suffix
+  domain + hash lookup, O(kedalaman domain). Ini laten (blocklist bawaan
+  cuma 55 entri wildcard, belum kerasa), tapi fitur custom blocklist URL
+  (v2.5.0) bisa bikin set itu jadi ribuan entri — di titik itu linear
+  scan lama akan kena biaya nyata di packet loop, jalur paling sensitif
+  latensi di app. Semantik matching diverifikasi ulang manual identik
+  terhadap semua 15 test case `BlocklistManagerTest.kt` yang sudah ada
+  (statis, belum dijalankan — tidak ada Gradle/JDK di sandbox). Detail
+  lengkap + 2 temuan sekunder yang SENGAJA tidak diubah (socket-per-query
+  di `forwardToUpstream()`, dkk) ada di CHANGELOG.md v3.5.0. **BELUM
+  dikonfirmasi build CI + belum ada pengukuran throughput nyata dengan
+  blocklist besar sungguhan** — WAJIB dicek di sesi berikutnya sebelum
+  klaim optimisasi ini kerasa dampaknya di dunia nyata (perlu user pasang
+  custom blocklist URL besar dan bandingkan latensi DNS).
+- **v3.3.3 + v3.4.0 (dikonfirmasi 2026-08-04) — CI HIJAU, sudah dicek
+  langsung via GitHub Actions.** Run #27 (v3.3.3 hotfix `padding` import)
+  dan run #28 (v3.4.0 legibility-max pass) keduanya **Status: Success**,
+  artifact `AdShield_v3.4.0` (5.82 MB) ter-generate. Ini menutup 2 item
+  "BELUM dikonfirmasi build CI" yang sebelumnya tercatat di bawah — TIDAK
+  perlu dicek ulang. Yang masih outstanding dari v3.4.0: verifikasi visual
+  legibility-max di device fisik (belum diminta user, masih pending kalau
+  diangkat lagi).
+- v3.4.0 (2026-08-04) — Legibility-max pass, `Color.kt` dirombak total.**
   User audit ulang setelah v3.1.0 pakai pilihan multi-select: SEMUA 4
   kategori (caption kecil, bg/card kurang beda gelap, border/ikon card nav
   pudar, ring/tombol proteksi) masih ditandai susah dibaca —
@@ -263,6 +291,16 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    `blocklist_default.txt`, defaultnya exact-match; kasih prefix `*.` HANYA
    kalau domain itu 100% didedikasikan untuk ad-serving dan tidak mungkin
    dipakai app lain untuk fungsi legit.
+
+4c. **`BlocklistManager.matchesAnyWildcard()` (v3.5.0) — walk parent-suffix
+   domain, JANGAN dikembalikan ke iterasi linear atas set wildcard.**
+   Implementasi sekarang cek `bases.contains(domain)` lalu jalan
+   `domain.substring(dotIndex+1)` tiap level, bukan `for (base in bases)`.
+   Ini SENGAJA — biar biayanya O(kedalaman domain) bukan O(ukuran set
+   wildcard), supaya custom blocklist URL (v2.5.0) yang besar tidak
+   memperlambat SETIAP query DNS di packet loop. Semantik hasil identik
+   dengan versi lama (`domain == base || domain.endsWith(".$base")`),
+   sudah diverifikasi manual terhadap seluruh `BlocklistManagerTest.kt`.
 
 5. **Whitelist per-app kini terhubung ke UID nyata (SELESAI di v1.2.0).**
    `AdBlockVpnService.isFromWhitelistedApp()` pakai

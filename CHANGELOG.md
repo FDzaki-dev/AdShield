@@ -1,5 +1,54 @@
 # Changelog
 
+## v3.5.0 — Perf audit: wildcard matching O(n)→O(depth) (2026-08-04)
+
+> User minta "debugging sampai tuntas di segmen performance & optimalisasi"
+> setelah CI v3.3.3+v3.4.0 dikonfirmasi hijau. Audit statis proaktif
+> (bukan laporan bug user) atas jalur tercepat aplikasi: VPN packet loop
+> (`AdBlockVpnService`), parsing (`DnsPacket`), matching (`BlocklistManager`),
+> dan WARP (`WarpTunnelManager`).
+
+**Temuan**: `BlocklistManager.matchesAnyWildcard()` linear-scan seluruh set
+wildcard base untuk **setiap query DNS** (blocked maupun tidak — dipanggil
+di jalur `isBlocked()` yang jalan di packet loop `AdBlockVpnService`). Aman
+saat ini (~55 entri wildcard bawaan, biaya diabaikan), TAPI fitur custom
+blocklist URL (v2.5.0) membuat `bases` bisa membesar jadi ribuan-puluhan
+ribu entri dari list publik — begitu itu terjadi, linear scan ini jadi
+biaya nyata per query, di komponen yang paling sensitif latensi di app.
+
+**Fix**: ganti jadi jalan parent-suffix dari domain (bukan iterasi
+`bases`) + `HashSet.contains()` di tiap level — O(kedalaman domain, ~2-5
+label tipikal) menggantikan O(ukuran `bases`), independen dari seberapa
+besar blocklist remote yang dipasang user. Semantik matching **identik**
+persis dengan sebelumnya (diverifikasi ulang manual terhadap semua 15
+test case `BlocklistManagerTest.kt` yang sudah ada, termasuk kasus
+"suffix-only overlap tidak boleh ke-fool" — tidak ada regresi keputusan
+arsitektur #4b).
+
+**Diaudit tapi SENGAJA TIDAK diubah** (temuan sekunder, bukan langsung
+diperbaiki):
+- `AdBlockVpnService.forwardToUpstream()` bikin `DatagramSocket` baru per
+  query (create+`protect()`+destroy). Reuse socket/pool bisa hemat
+  overhead, TAPI itu perubahan arsitektur konkurensi (perlu demux balasan
+  per transaction-ID kalau socket dipakai bareng oleh 4 thread
+  `forwardExecutor`) — bukan optimisasi aman-langsung seperti fix
+  wildcard di atas. Disisihkan, tanya user dulu kalau mau dikerjakan.
+- `WarpTunnelManager`, `DnsPacket.parse()`/`buildBlockedResponse()`: sudah
+  diperiksa, tidak ada temuan baru — MTU (v3.2.0), IPv6 toggle (v3.3.0),
+  dan parsing single-pass sudah optimal untuk desainnya masing-masing.
+
+Scope MURNI 1 file kode (`BlocklistManager.kt`) + version bump — 0 file
+baru/dihapus, 0 perubahan behavior yang terlihat user (hasil `isBlocked()`
+identik untuk semua input).
+
+**Confidence Rating: 90%** — logika ekivalensi diverifikasi manual
+terhadap seluruh test suite yang ada (statis, bukan dijalankan — belum
+ada Gradle/JDK di sandbox sesi ini). -10% karena belum ada pengukuran
+throughput nyata dengan blocklist besar sungguhan di device (butuh data
+dari user: pasang custom blocklist URL berukuran besar, bandingkan
+latensi DNS sebelum/sesudah — belum bisa dibuktikan tanpa itu). **BELUM
+dikonfirmasi build CI** — cek ini duluan di sesi berikutnya.
+
 ## v3.4.0 — Legibility-max pass, palet ulang total (2026-08-04)
 
 > User audit ulang setelah v3.1.0: SEMUA 4 kategori masih ditandai susah
