@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -41,6 +42,8 @@ import com.fdzaki.adshield.ui.screens.RulesScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
+import com.fdzaki.adshield.qs.DnsTileService
+import com.fdzaki.adshield.qs.WarpTileService
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.ShortcutsManager
 import com.fdzaki.adshield.vpn.AdBlockVpnService
@@ -55,6 +58,16 @@ class MainActivity : ComponentActivity() {
      *  launched — the system callback tells us permission was granted, but
      *  not what for, so we track it ourselves. */
     private var pendingStartMode: String? = null
+
+    /** Set true only when this Activity instance was launched by a QS tile
+     *  purely to show the one-time VpnService consent dialog (permission
+     *  never granted / revoked) — see DnsTileService/WarpTileService
+     *  ACTION_REQUEST_PERMISSION and handleTilePermissionIntent() below.
+     *  When true, vpnPermissionLauncher's callback finishes this Activity
+     *  right after handling the result instead of composing the normal UI,
+     *  so the tile never actually "opens the app" beyond the unavoidable
+     *  system permission dialog itself. */
+    private var finishAfterPendingStart: Boolean = false
 
     /** Set from a static shortcut's EXTRA_SHORTCUT_DEST (see
      *  res/xml/shortcuts.xml) so the NavHost can jump straight to that
@@ -76,6 +89,11 @@ class MainActivity : ComponentActivity() {
                 AppMode.DNS_ADBLOCK -> startDnsService()
                 AppMode.WARP_TUNNEL -> startWarpService()
             }
+        } else if (finishAfterPendingStart) {
+            // Tile-launched consent-only flow has no composed UI/Snackbar host
+            // to surface viewModel.notifyVpnPermissionDenied() into — Toast is
+            // the only feedback channel available here.
+            Toast.makeText(this, TILE_PERMISSION_DENIED_MESSAGE, Toast.LENGTH_SHORT).show()
         } else {
             // Feedback audit finding: this branch was previously empty — user
             // taps the ring, denies the system VPN dialog, and nothing at all
@@ -83,6 +101,10 @@ class MainActivity : ComponentActivity() {
             viewModel.notifyVpnPermissionDenied()
         }
         pendingStartMode = null
+        if (finishAfterPendingStart) {
+            finishAfterPendingStart = false
+            finish()
+        }
     }
 
     private val notifPermissionLauncher = registerForActivityResult(
@@ -102,7 +124,15 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        // Must run before super.onCreate() to take effect for this launch.
+        // Transparent theme so the tile's consent-only detour never visibly
+        // "opens the app" — just the unavoidable system VPN dialog on top.
+        if (isTilePermissionAction(intent?.action)) {
+            setTheme(R.style.Theme_AdShield_Transparent)
+        }
         super.onCreate(savedInstanceState)
+
+        if (handleTilePermissionIntent(intent)) return
 
         pendingNavDestination = intent?.getStringExtra(ShortcutsManager.EXTRA_SHORTCUT_DEST)
         handleShortcutToggleIntent(intent)
@@ -220,8 +250,44 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (handleTilePermissionIntent(intent)) return
         pendingNavDestination = intent.getStringExtra(ShortcutsManager.EXTRA_SHORTCUT_DEST)
         handleShortcutToggleIntent(intent)
+    }
+
+    private fun isTilePermissionAction(action: String?): Boolean =
+        action == DnsTileService.ACTION_REQUEST_PERMISSION || action == WarpTileService.ACTION_REQUEST_PERMISSION
+
+    /** Handles the QS tiles' consent-only launch (see DnsTileService /
+     *  WarpTileService — this Activity is opened ONLY because Android
+     *  requires a foreground Activity for the VpnService permission
+     *  dialog, never for manual activation). Returns true if the intent
+     *  was one of these and was fully handled — caller must skip
+     *  composing the normal UI in that case. */
+    private fun handleTilePermissionIntent(intent: Intent?): Boolean {
+        val mode = when (intent?.action) {
+            DnsTileService.ACTION_REQUEST_PERMISSION -> AppMode.DNS_ADBLOCK
+            WarpTileService.ACTION_REQUEST_PERMISSION -> AppMode.WARP_TUNNEL
+            else -> return false
+        }
+        finishAfterPendingStart = true
+        pendingStartMode = mode
+        val prepareIntent = VpnService.prepare(this)
+        if (prepareIntent != null) {
+            vpnPermissionLauncher.launch(prepareIntent)
+        } else {
+            // Defensive fallback only — the tiles already check this
+            // themselves and wouldn't normally launch this Activity at all
+            // when permission is already granted.
+            when (mode) {
+                AppMode.DNS_ADBLOCK -> startDnsService()
+                AppMode.WARP_TUNNEL -> startWarpService()
+            }
+            finishAfterPendingStart = false
+            pendingStartMode = null
+            finish()
+        }
+        return true
     }
 
     /** Handles the two dynamic toggle shortcuts (see ShortcutsManager /
@@ -318,5 +384,13 @@ class MainActivity : ComponentActivity() {
         } else {
             viewModel.notifyBatteryExemptionResult(granted = true)
         }
+    }
+
+    private companion object {
+        // Mirrors MainViewModel.notifyVpnPermissionDenied()'s Snackbar text —
+        // duplicated here because the tile consent-only flow never composes
+        // a UI, so the Snackbar host isn't available to send that event into.
+        const val TILE_PERMISSION_DENIED_MESSAGE =
+            "Izin VPN ditolak — AdShield butuh izin ini untuk memfilter DNS/trafik"
     }
 }

@@ -3,8 +3,69 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.7.1 (2026-08-05) — UI display MTU/endpoint/packet-loss WARP —
-  SELESAI, menutup item "kerja sesi berikutnya" dari v3.7.0.** Murni UI:
+- **v3.8.0 (2026-08-05) — Quick Settings Tile, 2 tile terpisah (DNS/WARP)
+  SELESAI implementasi statis, BELUM dikonfirmasi build CI + BELUM pernah
+  dicoba tarik dari QS panel nyata di device.** User eksplisit minta: (1)
+  tile terpisah per mode (bukan 1 tile gabungan), (2) toggle LANGSUNG dari
+  luar app, BUKAN cuma masuk ke app untuk aktivasi manual. Ditemukan lewat
+  audit: fitur ini 0% dikerjakan sejak v1.0.0 — yang ada cuma App
+  Shortcuts (v2.2.0), beda fitur total (itu tekan-lama ikon launcher, dan
+  tetap route lewat MainActivity untuk toggle-nya).
+  - **File baru:** `qs/DnsTileService.kt`, `qs/WarpTileService.kt` — masing-
+    masing `TileService`, pola instansiasi `SettingsRepository`/start-service
+    meniru `BootReceiver` (applicationContext langsung, BUKAN lewat
+    MainViewModel — TileService bukan LifecycleOwner). `res/drawable/
+    ic_tile_dns.xml`, `res/drawable/ic_tile_warp.xml` — icon monokrom baru
+    (tile QS di-auto-tint sistem berdasarkan Tile.STATE_ACTIVE/INACTIVE,
+    icon 2 warna seperti shortcut lama akan bentrok dengan itu).
+  - **Jalur toggle 100% background** (TIDAK ada Activity sama sekali) kalau
+    izin VPN sudah pernah diberikan: `TileService.onClick()` langsung cek
+    `VpnService.prepare() == null` lalu `ContextCompat.startForegroundService()`
+    dari dalam TileService itu sendiri. Ini SENGAJA pakai exemption resmi
+    Android untuk start-foreground-service-dari-background (`TileService#
+    onClick()` ada di daftar exemption dokumentasi resmi
+    `ForegroundServiceStartNotAllowedException`) — JANGAN diubah jadi selalu
+    lewat Activity, itu persis yang user minta dihindari.
+  - **Satu-satunya kasus tile membuka MainActivity: izin VPN belum pernah
+    diberikan / dicabut** (`VpnService.prepare()` return non-null). Ini
+    BATASAN OS, bukan pilihan desain — dialog konsen VpnService WAJIB
+    Activity foreground, tidak ada API untuk menghindarinya. Ditangani lewat
+    `ACTION_REQUEST_PERMISSION` (per-tile, di companion object masing-
+    masing) → `MainActivity.handleTilePermissionIntent()`: SKIP `setContent()`
+    total (early-return sebelum compose UI apa pun), langsung
+    `vpnPermissionLauncher.launch(prepareIntent)`, lalu `finish()` diri
+    sendiri persis setelah callback izin selesai (`finishAfterPendingStart`
+    flag). Ditambah `Theme.AdShield.Transparent` (baru, `themes.xml`) khusus
+    launch ini via `setTheme()` SEBELUM `super.onCreate()` — supaya tidak ada
+    kedipan background gelap app di belakang dialog sistem. **JANGAN hapus
+    guard early-return ini** — kalau dihapus, tile akan kelihatan "membuka
+    app penuh" walau cuma sesaat, persis yang user minta dihindari.
+  - **Mutual exclusion (2 mode tidak boleh bareng) diduplikasi manual** di
+    kedua TileService (stop mode lain dengan `EXTRA_MODE_SWITCH=true`
+    sebelum start) karena `MainActivity.startDnsService()`/
+    `startWarpService()` tidak reachable dari TileService — TIDAK ada
+    refactor ke fungsi bersama di batch ini (dua tempat kecil, duplikasi
+    diterima demi tidak menyentuh lebih banyak file di batch yang sudah di
+    atas batas normal).
+  - **BELUM DIKERJAKAN / BELUM DIVERIFIKASI (WAJIB dicek sesi berikutnya):**
+    (a) `startActivityAndCollapse(PendingIntent)` (API 34+) vs overload
+    `Intent` lama (API <34) — cabang `Build.VERSION.SDK_INT` sudah ditulis
+    berdasar dokumentasi resmi (method lama non-fungsional di Android 14+),
+    TAPI belum pernah diverifikasi jalan nyata di kedua kelas device; (b)
+    apakah tile beneran muncul di panel QS & bisa ditambahkan user (perlu
+    device fisik, tidak bisa dicek dari sandbox); (c) apakah toggle tanpa
+    buka app BENERAN tidak menampilkan Activity sekilas di kasus izin sudah
+    granted — perlu observasi visual langsung; (d) Toast fallback saat user
+    menolak dialog izin dari tile (`TILE_PERMISSION_DENIED_MESSAGE`) belum
+    pernah terlihat muncul nyata.
+  - **Atomic Change note:** batch ini menyentuh 12 file (di atas batas
+    normal 10) — dicatat di Impact Report sebagai exception karena
+    seluruh potongan (manifest, kedua TileService, plumbing MainActivity,
+    tema, string, 2 icon, version bump) saling bergantung untuk bisa
+    compile; memecahnya ke beberapa batch akan meninggalkan state yang
+    tidak bisa dikompilasi di tengah jalan.
+- v3.7.1 (2026-08-05) — UI display MTU/endpoint/packet-loss WARP —
+  SELESAI, menutup item "kerja sesi berikutnya" dari v3.7.0. Murni UI:
   `DiagnosticsScreen.kt` (3 baris baru + masuk teks copy) dan
   `HomeScreen.kt` (`WarpQualityRow` suffix `· loss N%` kalau >0%). Tidak
   ada perubahan data layer/logic — field `mtuUsed`/`endpointUsed`/
@@ -691,6 +752,30 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
       `WRITE_EXTERNAL_STORAGE` ke manifest demi menyatukan lokasi log di
       semua versi Android.
 
+13. **Quick Settings Tile (v3.8.0) — `qs/DnsTileService.kt`,
+   `qs/WarpTileService.kt`. Toggle WAJIB 100% background lewat
+   `TileService.onClick()` sendiri kalau izin VPN sudah pernah diberikan —
+   JANGAN "disederhanakan" jadi selalu buka MainActivity buat toggle,
+   itu bertentangan langsung dengan permintaan eksplisit user.** Satu-
+   satunya alasan sah untuk tile ini membuka Activity adalah dialog konsen
+   `VpnService.prepare()` yang belum pernah di-grant/dicabut — itu batasan
+   OS (VpnService WAJIB Activity foreground untuk dialog izin), bukan
+   pilihan desain, dan hanya terjadi SEKALI per install (atau kalau user
+   mencabut izin manual di Settings sistem).
+
+14. **MainActivity.ACTION_REQUEST_PERMISSION per-tile (v3.8.0) — jalur
+   consent-only, JANGAN dihapus guard `handleTilePermissionIntent()`
+   early-return-nya.** Kalau guard ini dihapus/`setContent()` dipanggil
+   lebih dulu, tile akan terlihat "membuka app penuh" sesaat sebelum
+   dialog izin muncul — persis yang user minta dihindari. `finish()`
+   HARUS terjadi di callback `vpnPermissionLauncher` (`finishAfterPendingStart`
+   flag), TIDAK boleh langsung setelah `.launch()` dipanggil (Activity yang
+   sudah `finish()` tidak akan menerima callback ActivityResult-nya).
+   `Theme.AdShield.Transparent` (`themes.xml`) HANYA dipakai untuk launch
+   ini via `setTheme()` sebelum `super.onCreate()` — kalau nambah kasus
+   penggunaan tema ini di tempat lain, pastikan tidak mengganggu tampilan
+   UI normal (tema ini sengaja tidak render apa pun).
+
 ## Riwayat insiden kronologis
 
 - **2026-08-03 (v2.6.1)**: Lanjutan #3 dari roadmap "stop fitur, fokus
@@ -908,6 +993,8 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 ## Struktur package singkat
 
 ```
+qs/            DnsTileService, WarpTileService (QS tile per mode, v3.8.0 — toggle
+               background langsung, hanya buka Activity untuk dialog izin VPN pertama kali)
 vpn/           AdBlockVpnService (VpnService, packet loop), DnsPacket (parser/builder)
 warp/          WarpTunnelManager (GoBackend wrapper), WarpRegistrationClient (HTTP
                registrasi Cloudflare), WarpAccountRepository (DataStore identitas
@@ -922,6 +1009,16 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
+
+**BARU (2026-08-05, v3.8.0): sebelum apa pun yang lain, cek QS Tile di
+device fisik.** Urutan: (a) build CI sukses dulu, (b) tambahkan kedua tile
+dari panel "Edit tiles" QS Android, (c) coba toggle DNS saat izin VPN
+BELUM pernah diberikan — konfirmasi dialog izin muncul lalu tile langsung
+aktif tanpa app kelihatan "terbuka" di Recents setelahnya, (d) coba toggle
+lagi (izin sudah ada) — konfirmasi BENAR-BENAR tidak ada flash Activity
+sama sekali, (e) ulangi (c)-(d) untuk tile WARP, (f) coba toggle satu tile
+saat mode lain aktif — konfirmasi mutual exclusion tetap berlaku sama
+seperti dari Home screen.
 
 **Arahan user (2026-08-03, TERBARU — MENGGANTIKAN arahan #0 di bawah
 untuk sementara): STOP semua kerja fitur baru. Fokus 100% ke

@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.8.0 — Quick Settings Tile, 2 tile terpisah DNS/WARP (2026-08-05)
+
+> User minta: tile QS terpisah per mode, TIDAK sekadar buka app — tile
+> harus bisa langsung mengaktifkan fitur dari luar aplikasi. Audit
+> menemukan fitur ini 0% dikerjakan sejak awal (App Shortcuts v2.2.0 beda
+> fitur, dan tetap route lewat MainActivity).
+
+**Baru:**
+1. **`qs/DnsTileService.kt`, `qs/WarpTileService.kt`** — TileService per
+   mode. Toggle 100% background (tanpa Activity) kalau izin VPN sudah ada,
+   pakai exemption resmi Android untuk start-foreground-service-dari-
+   background di `TileService#onClick()`.
+2. **Dialog izin VPN pertama kali** (satu-satunya kasus tile buka
+   Activity — batasan OS VpnService, bukan pilihan desain): MainActivity
+   menangani lewat `ACTION_REQUEST_PERMISSION` per-tile, skip total
+   `setContent()`, `finish()` diri sendiri persis setelah dialog selesai.
+   Tema baru `Theme.AdShield.Transparent` (`themes.xml`) mencegah kedipan
+   background gelap app selama proses ini.
+3. **Icon monokrom baru** `ic_tile_dns.xml`, `ic_tile_warp.xml` — QS tile
+   di-auto-tint sistem berdasar state aktif/nonaktif, icon 2 warna lama
+   (shortcut) tidak cocok dipakai ulang.
+4. Mutual exclusion (2 mode tidak boleh bareng) diduplikasi manual di
+   kedua TileService — lihat PROJECT_STATE.md keputusan #13/#14 untuk
+   alasan lengkap kenapa tidak direfactor ke fungsi bersama di batch ini.
+
+**Diubah:** `AndroidManifest.xml` (2 `<service>` baru + izin sistem
+`BIND_QUICK_SETTINGS_TILE`), `app/build.gradle.kts` (versionCode 29→30,
+versionName 3.7.1→3.8.0), `strings.xml` (label default 2 tile).
+
+**Belum dikonfirmasi build CI + belum pernah dicoba tarik tile dari QS
+panel nyata di device** (WARP sendiri juga masih belum divalidasi
+end-to-end — lihat PROJECT_STATE.md) — WAJIB dicek sesi berikutnya
+sebelum klaim fitur ini beres, termasuk kasus dialog izin ditolak user
+(Toast fallback, belum pernah terlihat muncul nyata).
+
+**Atomic Change:** batch ini menyentuh 12 file, di atas batas normal 10 —
+lihat catatan di PROJECT_STATE.md untuk alasan (seluruh potongan saling
+bergantung untuk bisa compile).
+
 ## v3.7.1 — Tampilkan MTU/endpoint/packet-loss WARP di UI (2026-08-05)
 
 > Tindak lanjut v3.7.0: field `mtuUsed`, `endpointUsed`, `packetLossPercent`

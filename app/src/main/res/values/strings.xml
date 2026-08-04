@@ -17,4 +17,11 @@
     <string name="shortcut_warp_on_long">Nyalakan VPN Tunnel WARP</string>
     <string name="shortcut_warp_off_short">Matikan WARP</string>
     <string name="shortcut_warp_off_long">Matikan VPN Tunnel WARP</string>
+
+    <!-- v3.8.0 — Quick Settings tile default labels (fallback shown before
+         the first onStartListening/onClick update; the label itself does not
+         change with state, only the tile's active/inactive coloring does —
+         unlike the toggle shortcuts, which swap their whole label text). -->
+    <string name="tile_dns_label">Ad-Block DNS</string>
+    <string name="tile_warp_label">VPN WARP</string>
 </resources>

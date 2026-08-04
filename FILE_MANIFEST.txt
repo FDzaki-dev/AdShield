@@ -16,6 +16,8 @@ app/src/main/java/com/fdzaki/adshield/data/SettingsRepository.kt
 app/src/main/java/com/fdzaki/adshield/data/db/AppDatabase.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogDao.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogEntity.kt
+app/src/main/java/com/fdzaki/adshield/qs/DnsTileService.kt
+app/src/main/java/com/fdzaki/adshield/qs/WarpTileService.kt
 app/src/main/java/com/fdzaki/adshield/receiver/BootReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/RestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/WarpRestartReceiver.kt
@@ -50,6 +52,8 @@ app/src/main/res/drawable/ic_shortcut_logs.xml
 app/src/main/res/drawable/ic_shortcut_warp_off.xml
 app/src/main/res/drawable/ic_shortcut_warp_on.xml
 app/src/main/res/drawable/ic_shortcut_whitelist.xml
+app/src/main/res/drawable/ic_tile_dns.xml
+app/src/main/res/drawable/ic_tile_warp.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
 app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 app/src/main/res/mipmap-hdpi/ic_launcher.png

@@ -4,4 +4,17 @@
         <item name="android:navigationBarColor">@color/shield_bg_dark</item>
         <item name="android:windowBackground">@color/shield_bg_dark</item>
     </style>
+
+    <!-- v3.8.0 — used ONLY for MainActivity's QS-tile consent-only launch
+         (see DnsTileService/WarpTileService + MainActivity.isTilePermissionAction).
+         No composed UI happens during that launch, so this exists purely to
+         stop the themed dark background from flashing behind the system VPN
+         permission dialog for that one specific case. -->
+    <style name="Theme.AdShield.Transparent" parent="Theme.AdShield">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowAnimationStyle">@null</item>
+        <item name="android:windowIsFloating">false</item>
+    </style>
 </resources>
