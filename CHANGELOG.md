@@ -1,5 +1,36 @@
 # Changelog
 
+## v3.3.0 — WARP: toggle "Rutekan IPv6" jadi setting user, bukan hardcode (2026-08-04)
+
+> Lanjutan v3.2.1. User konfirmasi hasil eksperimen: WARP+IPv6-off
+> mengalahkan baseline tanpa VPN di kedua arah (42.3↓/4.67↑ Mbps vs
+> baseline 31.3↓/3.43↑). User pilih dari 3 opsi tindak lanjut: **kasih
+> toggle di Setting**, bukan langsung dikunci permanen atau dites ulang
+> berkali-kali.
+
+- **`SettingsRepository`**: setting baru `warp_route_ipv6` (Boolean,
+  default `false` — mengikuti hasil pengukuran v3.2.1) + `warpRouteIpv6`
+  Flow + `setWarpRouteIpv6()`.
+- **`WarpTunnelManager`**: konstanta eksperimen `ROUTE_IPV6` (v3.2.1)
+  DIHAPUS, diganti baca `settingsRepository.warpRouteIpv6` tiap `connect()`
+  dan `attemptReconnect()` (auto-reconnect otomatis ikut preferensi
+  terbaru, bukan snapshot beku). `buildConfig()` sekarang terima parameter
+  `routeIpv6: Boolean` alih-alih baca konstanta langsung.
+- **`MainViewModel`**: expose `warpRouteIpv6` StateFlow (pola sama seperti
+  setting lain, `stateIn` + `WhileSubscribed(5000)`) + `setWarpRouteIpv6()`.
+- **`HomeScreen`**: `WarpModeCard` dapat toggle baru "Rutekan IPv6 lewat
+  WARP" di bagian bawah kartu (selalu terlihat, bukan cuma saat aktif) +
+  caption menjelaskan default nonaktif dan kapan berlaku (saat WARP
+  dinyalakan ulang — WireGuard config terkunci selama tunnel jalan, ganti
+  setting saat tunnel aktif TIDAK langsung reconnect otomatis).
+- **Tidak ada migrasi data** — user baru maupun existing sama-sama dapat
+  default `false` (sama seperti behavior v3.2.1 sebelumnya), jadi tidak
+  ada regresi untuk siapa pun yang belum pernah menyentuh setting ini.
+- Batch ini menyentuh 4 file kode (`SettingsRepository.kt`,
+  `WarpTunnelManager.kt`, `MainViewModel.kt`, `HomeScreen.kt`) — jauh di
+  bawah batas maksimal batch (10 file), tidak perlu Atomic Change
+  Exception.
+
 ## v3.2.1 — EKSPERIMEN: matikan rute IPv6 untuk isolasi bottleneck upload WARP (2026-08-04)
 
 > **Ini build eksperimen/diagnostik, BUKAN keputusan arsitektur permanen.**

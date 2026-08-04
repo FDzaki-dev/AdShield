@@ -43,6 +43,7 @@ class WarpTunnelManager(context: Context) {
     private val appContext = context.applicationContext
     private val backend = GoBackend(appContext)
     private val accountRepository = WarpAccountRepository(appContext)
+    private val settingsRepository = com.fdzaki.adshield.data.SettingsRepository(appContext)
 
     private val tunnel = object : Tunnel {
         override fun getName(): String = TUNNEL_NAME
@@ -116,7 +117,8 @@ class WarpTunnelManager(context: Context) {
             }
 
             return@withContext try {
-                val config = buildConfig(account)
+                val routeIpv6 = settingsRepository.warpRouteIpv6.first()
+                val config = buildConfig(account, routeIpv6)
                 backend.setState(tunnel, Tunnel.State.UP, config)
                 accountRepository.setWasTunnelRunning(true)
                 _lastError.value = null
@@ -225,7 +227,8 @@ class WarpTunnelManager(context: Context) {
                 return
             }
             try {
-                val config = buildConfig(account)
+                val routeIpv6 = settingsRepository.warpRouteIpv6.first()
+                val config = buildConfig(account, routeIpv6)
                 backend.setState(tunnel, Tunnel.State.UP, config)
                 _lastError.value = null
             } catch (e: Exception) {
@@ -270,7 +273,7 @@ class WarpTunnelManager(context: Context) {
         accountRepository.clearAccount()
     }
 
-    private fun buildConfig(account: WarpAccount): Config {
+    private fun buildConfig(account: WarpAccount, routeIpv6: Boolean): Config {
         val interfaceBuilder = Interface.Builder()
             .parsePrivateKey(account.privateKeyBase64)
             .addAddress(InetNetwork.parse("${account.addressV4}/32"))
@@ -283,7 +286,7 @@ class WarpTunnelManager(context: Context) {
         val peerBuilder = Peer.Builder()
             .setPublicKey(Key.fromBase64(account.peerPublicKeyBase64))
             .addAllowedIp(InetNetwork.parse("0.0.0.0/0"))
-        if (ROUTE_IPV6) {
+        if (routeIpv6) {
             peerBuilder.addAllowedIp(InetNetwork.parse("::/0"))
         }
         peerBuilder
@@ -318,17 +321,6 @@ class WarpTunnelManager(context: Context) {
         // both confirm official Android client ships MTU=1280 "for maximum compatibility") —
         // this is the safest value across the widest range of real device networks, not a guess.
         private const val WARP_MTU = 1280
-
-        // EXPERIMENTAL (v3.2.1, 2026-08-04) — TEMPORARY, NOT a settled architecture
-        // decision like #6 in PROJECT_STATE.md. User measured upload collapsing 86%
-        // (3.43->0.48 Mbps) with WARP on vs. off on 4.5G, download only -15% — testing
-        // whether IPv6 (::/0) AllowedIP is the cause (flaky/lossy IPv6 path on some
-        // cellular operators can disproportionately hurt upload specifically). Set back
-        // to `true` to fully revert this experiment — it's the ONLY change needed to
-        // restore v3.2.0 dual-stack behavior. If this does NOT fix the upload collapse,
-        // revert immediately (IPv6 traffic currently bypasses WARP entirely while this
-        // is `false` — see PROJECT_STATE.md decision #6e for the full trade-off).
-        private const val ROUTE_IPV6 = false
 
         @Volatile private var instance: WarpTunnelManager? = null
 

@@ -73,6 +73,7 @@ fun HomeScreen(
     val warpConnecting by viewModel.warpConnecting.collectAsState()
     val warpError by viewModel.warpLastError.collectAsState()
     val warpQuality by viewModel.warpQuality.collectAsState()
+    val warpRouteIpv6 by viewModel.warpRouteIpv6.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
 
     Column(
@@ -132,6 +133,8 @@ fun HomeScreen(
             connecting = warpConnecting,
             error = warpError,
             quality = warpQuality,
+            routeIpv6 = warpRouteIpv6,
+            onToggleRouteIpv6 = { viewModel.setWarpRouteIpv6(it) },
             onToggle = { turnOn ->
                 if (turnOn) onRequestWarpStart() else onStopWarp()
             }
@@ -253,6 +256,8 @@ private fun WarpModeCard(
     connecting: Boolean,
     error: String?,
     quality: WarpConnectionQuality,
+    routeIpv6: Boolean,
+    onToggleRouteIpv6: (Boolean) -> Unit,
     onToggle: (Boolean) -> Unit
 ) {
     Card(
@@ -308,6 +313,35 @@ private fun WarpModeCard(
             if (error != null) {
                 Spacer(Modifier.height(8.dp))
                 Text("Gagal: $error", color = ShieldDanger, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Rutekan IPv6 lewat WARP",
+                        fontSize = 12.sp,
+                        color = ShieldTextMuted
+                    )
+                    Text(
+                        "Default nonaktif — di banyak jaringan seluler, jalur IPv6 WARP " +
+                            "justru bikin upload jauh lebih lambat. Berlaku saat WARP " +
+                            "dinyalakan ulang.",
+                        fontSize = 10.sp,
+                        color = ShieldTextFaint
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                Switch(
+                    checked = routeIpv6,
+                    onCheckedChange = onToggleRouteIpv6,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = ShieldGreen,
+                        checkedThumbColor = ShieldSurface
+                    )
+                )
             }
         }
     }

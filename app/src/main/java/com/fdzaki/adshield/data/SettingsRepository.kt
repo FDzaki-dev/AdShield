@@ -36,6 +36,7 @@ class SettingsRepository(private val context: Context) {
         val HAS_SEEN_ONBOARDING = booleanPreferencesKey("has_seen_onboarding")
         val BLOCKLIST_LAST_UPDATED = longPreferencesKey("blocklist_last_updated")
         val BLOCKLIST_UPDATE_STATUS = stringPreferencesKey("blocklist_update_status")
+        val WARP_ROUTE_IPV6 = booleanPreferencesKey("warp_route_ipv6")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -177,5 +178,22 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setLoggingEnabled(enabled: Boolean) {
         context.dataStore.edit { it[Keys.LOGGING_ENABLED] = enabled }
+    }
+
+    /** Whether the WARP tunnel routes IPv6 traffic (::/0) in addition to IPv4.
+     *  Default `false` — v3.2.1 measurement on a real device found IPv6 over
+     *  WARP on the user's cellular operator collapsed upload throughput by
+     *  86% (download only -15%); disabling it not only fixed that but beat
+     *  the no-VPN baseline in both directions. Kept as a user toggle (not a
+     *  hardcoded default) rather than removed entirely because this is
+     *  operator/network-dependent — someone on a different network may not
+     *  hit the same issue and may want IPv6 traffic protected too. Only
+     *  takes effect the next time WARP is turned on (WireGuard config is
+     *  fixed for the lifetime of a running tunnel).*/
+    val warpRouteIpv6: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.WARP_ROUTE_IPV6] ?: false }
+
+    suspend fun setWarpRouteIpv6(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.WARP_ROUTE_IPV6] = enabled }
     }
 }

@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 19
-        versionName = "3.2.1"
+        versionCode = 20
+        versionName = "3.3.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }

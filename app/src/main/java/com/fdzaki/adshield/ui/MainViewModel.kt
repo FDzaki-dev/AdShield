@@ -52,6 +52,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val warpConnecting: StateFlow<Boolean> = warpTunnelManager.connecting
     val warpQuality: StateFlow<WarpConnectionQuality> = warpTunnelManager.quality
 
+    /** User's choice for whether WARP routes IPv6 traffic — default false, see
+     *  SettingsRepository.warpRouteIpv6 doc for the v3.2.1 measurement behind
+     *  that default. Only takes effect next time WARP is turned on. */
+    val warpRouteIpv6: StateFlow<Boolean> = settingsRepository.warpRouteIpv6
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
     /** Last DNS-mode (Ad-Block) failure, if any — e.g. VPN interface failed
      *  to establish. Used by the Diagnostics screen; see AdBlockVpnService
      *  for why this exists (previously DNS failures were silent). */
@@ -191,6 +197,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setLoggingEnabled(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setLoggingEnabled(enabled) }
+    }
+
+    fun setWarpRouteIpv6(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setWarpRouteIpv6(enabled) }
     }
 
     fun setAutoStartOnBoot(enabled: Boolean) {
