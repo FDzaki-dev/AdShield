@@ -3,7 +3,25 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.6.0 (2026-08-04) — Socket pooling upstream DNS, lanjutan v3.5.0.**
+- **v3.6.1 (2026-08-04) — Redesign app badge/icon SELESAI.** Dikerjakan
+  DI ATAS upload ulang v3.6.0 (sesi chat ini sebelumnya masih nyangkut di
+  v3.3.3 lokal — user upload zip v3.6.0 dari sesi paralel lain, instruksi
+  "lanjutkan dari sini"). **PENTING kalau lanjut kerja icon lagi**: sebelum
+  ubah warna icon, SELALU cross-check dulu `ui/theme/Color.kt` — palette
+  bisa sudah bergeser dari sesi paralel lain (baru saja kejadian:
+  `ShieldBgDark` geser `#17181A`→`#181816` antara v3.3.x dan v3.6.0 tanpa
+  tercatat eksplisit sebagai "icon perlu diupdate juga"). Detail teknis
+  lengkap fix (checkmark rusak fill+stroke, warna basi, shield keluar
+  safe-zone 3dp, tidak ada fallback API 24-25, tidak ada themed-icon
+  monochrome) ada di CHANGELOG.md v3.6.1 — tidak diulang di sini. File baru:
+  10 PNG raster (`mipmap-{m,h,x,xx,xxx}hdpi/ic_launcher{,_round}.png`) +
+  `drawable/ic_launcher_monochrome.xml`. **BELUM diverifikasi di
+  device/emulator asli** — icon cuma divalidasi lewat XML parse + preview
+  render Pillow, BUKAN build APK sungguhan. Kalau device masih nunjukin
+  icon lama setelah update, itu kemungkinan launcher cache, bukan bug —
+  suruh user uninstall-reinstall APK buat verifikasi, jangan update in-place
+  dulu waktu ngecek.
+- v3.6.0 (2026-08-04) — Socket pooling upstream DNS, lanjutan v3.5.0.
   User pilih "berikan hasil yang maksimal" untuk pertanyaan behavior
   fallback-antar-resolver (dikonfirmasi: boleh tetap socket yang sama
   dalam satu query, tinggal soal apakah socket itu di-reuse LINTAS query

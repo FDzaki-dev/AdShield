@@ -1,5 +1,65 @@
 # Changelog
 
+## v3.6.1 — Redesign app badge/icon jadi lebih profesional (2026-08-04)
+
+> User minta redesign badge aplikasi. Dikerjakan di atas base v3.6.0 yang
+> di-upload ulang (sesi ini sebelumnya masih di v3.3.3) — palette dicek
+> ulang dulu terhadap `ui/theme/Color.kt` karena sesi lain sempat geser
+> `ShieldBgDark` dari `#17181A` → `#181816`.
+
+**Masalah pada icon lama (ditemukan sebelum redesign):**
+1. **Checkmark rusak secara teknis** — path checkmark set `fillColor` DAN
+   `strokeColor` sekaligus di satu path terbuka (belum di-`Z`/close). Path
+   terbuka dengan fillColor akan auto-close & terisi, jadi hasilnya
+   tumpukan wedge terisi di BAWAH garis stroke — bukan checkmark bersih.
+2. **Warna basi** — `ic_launcher_background` (`#0F1512`) & foreground
+   (`#00C896`) dari sebelum tema di-refactor ke "Matte Graphite / Jade
+   Signal" (v3.1.0+). Icon dan tema in-app app secara visual tidak nyambung.
+3. **Bentuk shield sedikit keluar safe-zone** — titik bawah `(54,90)`
+   berjarak 36dp dari center adaptive-icon (radius safe-zone cuma 33dp) →
+   berisiko terpotong di launcher dengan mask lingkaran/squircle.
+4. **Tidak ada fallback API 24–25** — cuma ada
+   `mipmap-anydpi-v26` (API 26+). `minSdk = 24`, jadi Android 7.0/7.1 tidak
+   punya resource icon yang cocok sama sekali (bisa tampil icon default
+   kosong Android, bukan crash, tapi tidak profesional).
+5. **Tidak ada themed-icon Android 13+** — belum ada layer `<monochrome>`,
+   jadi launcher Material You tidak bisa re-tint icon sesuai wallpaper.
+
+**Fix:**
+- Shield di-desain ulang dengan kurva bezier presisi (bukan garis lurus
+  angular seperti sebelumnya), dipastikan seluruh titik path berada dalam
+  radius 33dp dari center 108dp canvas (safe-zone adaptive icon).
+- Two-tone: base `#23694C` (jade gelap) + facet kanan `#3FC993` (jade
+  terang, = `ShieldGreen` di tema) — split flat vertikal, bukan gradient,
+  untuk kesan faceted/dimensional tanpa risiko gradient rendering di
+  VectorDrawable.
+- Checkmark: path terpisah, HANYA stroke (`fillColor="#00000000"` eksplisit),
+  `strokeWidth=7`, round cap/join, warna `#181816` (= `ShieldBgDark`
+  terkini) — sync otomatis kalau tema berubah lagi.
+- `ic_launcher_background` disamakan ke `#181816`.
+- `drawable/ic_launcher_monochrome.xml` baru (silhouette shield polos,
+  putih) + `<monochrome>` ditambahkan ke `mipmap-anydpi-v26/ic_launcher.xml`
+  DAN `ic_launcher_round.xml`.
+- **Legacy PNG raster baru** untuk `mipmap-mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi`
+  (48/72/96/144/192px), masing-masing `ic_launcher.png` (persegi) +
+  `ic_launcher_round.png` (masked lingkaran) — di-render manual via
+  supersampling 8x + sampling kurva bezier (Pillow, tanpa dependency SVG
+  eksternal) supaya kurva tetap halus di resolusi rendah.
+
+**File disentuh (9): `drawable/ic_launcher_foreground.xml`,
+`drawable/ic_launcher_monochrome.xml` (baru),
+`values/ic_launcher_background.xml`,
+`mipmap-anydpi-v26/ic_launcher.xml`, `ic_launcher_round.xml`,
+`mipmap-{m,h,x,xx,xxx}hdpi/` × 2 file (baru, 10 PNG total),
+`app/build.gradle.kts` (version bump).**
+
+**Verifikasi**: semua XML baru divalidasi parse (`xml.etree.ElementTree`),
+semua 10 PNG dikonfirmasi ter-generate, preview visual dirender & dicek
+manual sebelum packaging. **BELUM diverifikasi tampilan asli di
+homescreen/launcher device** — cek pertama kali install ulang APK, bukan
+cuma update in-place (launcher sering cache icon lama pada in-place
+update).
+
 ## v3.6.0 — Perf: pool upstream DatagramSocket per-thread (2026-08-04)
 
 > Lanjutan langsung dari v3.5.0 — user minta "berikan hasil yang maksimal"

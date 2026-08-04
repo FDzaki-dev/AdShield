@@ -3,14 +3,35 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <!--
+        v3.6.1 professional redesign (see PROJECT_STATE.md / CHANGELOG.md).
+        Shield silhouette re-cut to sit fully inside the 66dp adaptive-icon
+        safe zone (circle, radius 33, centered 54,54) — the old shape's
+        bottom tip at (54,90) sat ~3dp outside that circle and could get
+        clipped on circular/squircle launcher masks.
+    -->
+    <!-- Shield base — darker jade facet -->
     <path
-        android:fillColor="#00C896"
-        android:pathData="M54,20 L78,30 V54 C78,72 66,84 54,90 C42,84 30,72 30,54 V30 Z" />
+        android:fillColor="#23694C"
+        android:pathData="M54,25 C61,25 68,28 74,32 L74,50 C74,66 67,77 54,84 C41,77 34,66 34,50 L34,32 C40,28 47,25 54,25 Z" />
+    <!-- Right facet, brighter jade — flat two-tone split (no gradient) for a
+         faceted/dimensional read, matching the in-app "brushed metal jade"
+         palette direction (see ui/theme/Color.kt). -->
     <path
-        android:fillColor="#0F1512"
-        android:pathData="M47,50 L52,57 L64,42" 
-        android:strokeColor="#0F1512"
-        android:strokeWidth="6"
+        android:fillColor="#3FC993"
+        android:pathData="M54,25 C61,25 68,28 74,32 L74,50 C74,66 67,77 54,84 L54,25 Z" />
+    <!--
+        Checkmark — stroke-only. The previous version set BOTH fillColor and
+        strokeColor on the same open (unclosed) path, which renders as an
+        implicitly-closed filled wedge UNDER the stroke line — a muddled
+        shape, not a clean checkmark. fillColor is explicitly transparent
+        here so only the stroke renders.
+    -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#181816"
+        android:strokeWidth="7"
         android:strokeLineCap="round"
-        android:strokeLineJoin="round" />
+        android:strokeLineJoin="round"
+        android:pathData="M45,53 L51,59 L65,41" />
 </vector>

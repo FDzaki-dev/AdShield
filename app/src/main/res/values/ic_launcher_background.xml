@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0F1512</color>
+    <!-- v3.6.1: synced to ui/theme/Color.kt ShieldBgDark (#181816). Previous
+         value (#0F1512) predated the theme's move to a warm neutral
+         graphite base — the icon and the app's own dark theme visibly
+         disagreed. -->
+    <color name="ic_launcher_background">#181816</color>
 </resources>
