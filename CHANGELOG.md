@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.3.3 — HOTFIX: CI build gagal, missing import di MainActivity.kt (2026-08-04)
+
+> User upload log GitHub Actions dari push v3.3.2 — `Build signed release
+> APK` gagal di kompilasi Kotlin: `MainActivity.kt:160:41 Unresolved
+> reference: padding`.
+
+**Akar masalah**: batch v3.3.1 menambahkan `Modifier.padding(scaffoldPadding)`
+saat membungkus `NavHost` dalam `Scaffold`, tapi `MainActivity.kt` sebelumnya
+cuma pakai `Modifier.fillMaxSize()`/`.background()` — jadi
+`androidx.compose.foundation.layout.padding` (fungsi ekstensi Modifier)
+belum pernah diimpor di file ini. Lolos dari static check sesi sebelumnya
+karena cross-check waktu itu cuma verifikasi *brace/paren balance* dan
+*"apakah simbol tercakup wildcard import"* — tidak benar-benar menjalankan
+kompilator Kotlin (tidak ada runner tersedia di sesi itu, sudah diberi tahu
+di Confidence Rating waktu itu: "belum ada runtime/CI verification").
+
+**Fix**: tambah `import androidx.compose.foundation.layout.padding` di
+`MainActivity.kt`. Satu baris, satu file, tidak ada perubahan logic.
+
+**Verifikasi log CI**: hanya **1** error dilaporkan compiler (bukan
+beruntun/cascading) — dicek eksplisit dengan grep semua baris `e: file:`
+di log build, bukan cuma baris error pertama.
+
+**File disentuh (2): `MainActivity.kt` (fix), `app/build.gradle.kts`
+(version bump). Bukan Atomic Change — hotfix single-line.**
+
 ## v3.3.2 — Audit sektor Feedback ROUND 2: tutup celah battery-exemption (2026-08-04)
 
 > User tanya ulang "sudah tuntas gak bersisa?" setelah v3.3.1 — sweep ulang

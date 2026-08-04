@@ -3,7 +3,24 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.3.2 (2026-08-04) — Audit sektor Feedback ROUND 2 SELESAI, celah
+- **v3.3.3 (2026-08-04) — HOTFIX build CI gagal dari push v3.3.2.** User
+  upload log GitHub Actions: `Build signed release APK` gagal —
+  `MainActivity.kt:160:41 Unresolved reference: padding`. Penyebab:
+  `Modifier.padding(scaffoldPadding)` ditambahkan di v3.3.1 (bungkus
+  NavHost dalam Scaffold) tapi lupa import
+  `androidx.compose.foundation.layout.padding` (file ini sebelumnya cuma
+  pakai fillMaxSize/background, jadi belum pernah butuh import itu).
+  **PELAJARAN PROSES**: static check sesi v3.3.1 (brace/paren balance +
+  cek simbol tercakup wildcard import) TIDAK menangkap missing
+  single-symbol-import karena `padding` bukan bagian dari wildcard
+  manapun yang sudah ada — untuk sesi depan, WAJIB tambahkan langkah
+  "grep semua pemanggilan fungsi baru vs daftar import eksplisit" kalau
+  menambah modifier/fungsi yang tidak datang dari import wildcard yang
+  sudah ada di file itu, bukan cuma andalkan brace-balance. Fix 1 baris,
+  sudah diverifikasi grep ulang: log CI cuma laporkan 1 error (bukan
+  cascading). **BELUM di-push ulang / belum dikonfirmasi CI hijau** —
+  WAJIB jadi hal pertama dicek di sesi berikutnya.
+- v3.3.2 (2026-08-04) — Audit sektor Feedback ROUND 2 SELESAI, celah
   terakhir ditutup.** User tanya ulang "tuntas gak bersisa?" setelah
   v3.3.1 → sweep ulang nemuin `requestBatteryOptimizationExemption()`
   (MainActivity) masih 100% silent bahkan lebih parah dari kasus VPN
