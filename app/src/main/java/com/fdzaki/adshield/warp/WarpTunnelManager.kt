@@ -283,7 +283,10 @@ class WarpTunnelManager(context: Context) {
         val peerBuilder = Peer.Builder()
             .setPublicKey(Key.fromBase64(account.peerPublicKeyBase64))
             .addAllowedIp(InetNetwork.parse("0.0.0.0/0"))
-            .addAllowedIp(InetNetwork.parse("::/0"))
+        if (ROUTE_IPV6) {
+            peerBuilder.addAllowedIp(InetNetwork.parse("::/0"))
+        }
+        peerBuilder
             .setEndpoint(InetEndpoint.parse(account.peerEndpoint))
             .setPersistentKeepalive(25)
 
@@ -315,6 +318,17 @@ class WarpTunnelManager(context: Context) {
         // both confirm official Android client ships MTU=1280 "for maximum compatibility") —
         // this is the safest value across the widest range of real device networks, not a guess.
         private const val WARP_MTU = 1280
+
+        // EXPERIMENTAL (v3.2.1, 2026-08-04) — TEMPORARY, NOT a settled architecture
+        // decision like #6 in PROJECT_STATE.md. User measured upload collapsing 86%
+        // (3.43->0.48 Mbps) with WARP on vs. off on 4.5G, download only -15% — testing
+        // whether IPv6 (::/0) AllowedIP is the cause (flaky/lossy IPv6 path on some
+        // cellular operators can disproportionately hurt upload specifically). Set back
+        // to `true` to fully revert this experiment — it's the ONLY change needed to
+        // restore v3.2.0 dual-stack behavior. If this does NOT fix the upload collapse,
+        // revert immediately (IPv6 traffic currently bypasses WARP entirely while this
+        // is `false` — see PROJECT_STATE.md decision #6e for the full trade-off).
+        private const val ROUTE_IPV6 = false
 
         @Volatile private var instance: WarpTunnelManager? = null
 

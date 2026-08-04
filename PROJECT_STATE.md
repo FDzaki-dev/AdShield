@@ -3,7 +3,21 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.2.0 (2026-08-04) — WARP MTU fix SELESAI**, respons langsung ke
+- **v3.2.1 (2026-08-04) — EKSPERIMEN diagnostik upload SELESAI DIBUAT,
+  BELUM DIUKUR.** User kirim data speedtest nyata: WARP mati 31.3↓/3.43↑
+  Mbps/45ms, WARP aktif 26.6↓/0.48↑ Mbps/35ms (4.5G). Download -15% wajar,
+  upload -86% TIDAK wajar — dipilih user untuk diisolasi lewat build tanpa
+  rute IPv6 (`ROUTE_IPV6=false` di `WarpTunnelManager`, lihat CHANGELOG).
+  **INI BUKAN FIX FINAL** — WAJIB jadi hal pertama dicek di sesi
+  berikutnya: minta user ulangi speedtest WARP-aktif di jaringan seluler
+  yang sama persis. Kalau upload membaik → IPv6 terbukti biang keladi,
+  baru diskusikan apakah `ROUTE_IPV6=false` jadi default permanen (trade-
+  off: IPv6 device bocor keluar tunnel). Kalau upload TETAP jelek →
+  revert `ROUTE_IPV6=true` (satu baris) dan simpulkan ini keterbatasan
+  uplink operator seluler yang teramplifikasi overhead WireGuard secara
+  umum, bukan bug spesifik app — jangan lanjut coba-coba parameter lain
+  tanpa data baru dari user.
+- v3.2.0 (2026-08-04) — WARP MTU fix SELESAI**, respons langsung ke
   arahan user "fokus dongkrak performance WARP 100 persen" (setelah
   v3.1.0 dikonfirmasi lewat screenshot device, "lumayan lah" — dianggap
   cukup, TIDAK perlu iterasi warna lagi kecuali user angkat lagi).
@@ -255,6 +269,17 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    dipilih user (bukan hardcode diam-diam diganti), karena nilai yang
    terlalu tinggi untuk jaringan tertentu bisa membuat tunnel yang
    sebelumnya jalan normal jadi tidak stabil.
+
+6e. **`WarpTunnelManager.ROUTE_IPV6` (v3.2.1) — STATUS: EKSPERIMEN
+   SEMENTARA, bukan keputusan final seperti #6/#6d.** Saat ini `false`
+   (IPv6 device TIDAK dirutekan lewat WARP, cuma IPv4 yang full-tunnel) —
+   ini penyimpangan sadar dari keputusan awal #6 ("full-tunnel 0.0.0.0/0
+   DAN ::/0"), dibuat khusus untuk mendiagnosis laporan upload jatuh 86%
+   di v3.2.0 (lihat "Status terakhir" & CHANGELOG v3.2.1 untuk data
+   lengkap). JANGAN anggap `false` sebagai default baru yang permanen
+   sampai user konfirmasi hasil speedtest ulang membuktikan IPv6 memang
+   penyebabnya — kalau belum ada konfirmasi itu di sesi berikutnya, ini
+   masih status "menunggu data", bukan "selesai".
 
 7. **App Shortcuts (v2.2.0) — kontrak yang JANGAN dilanggar.**
    - Shortcut statis (Whitelist, Log) dideklarasikan di

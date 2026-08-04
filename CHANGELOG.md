@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.2.1 — EKSPERIMEN: matikan rute IPv6 untuk isolasi bottleneck upload WARP (2026-08-04)
+
+> **Ini build eksperimen/diagnostik, BUKAN keputusan arsitektur permanen.**
+> User laporan hasil ukur nyata: WARP mati → 31.3 Mbps down / 3.43 Mbps up /
+> 45 md. WARP aktif → 26.6 Mbps down / 0.48 Mbps up / 35 md. Download cuma
+> turun 15% (wajar, overhead enkripsi normal) tapi upload jatuh **86%** —
+> tidak proporsional, latensi malah membaik (tunnel-nya sendiri sehat).
+> User pilih coba eksperimen tanpa rute IPv6 duluan (dari 3 opsi yang
+> ditawarkan) untuk isolasi apakah jalur IPv6 WARP yang bermasalah di
+> operator selulernya.
+
+- **Perubahan:** `Peer.Builder` di `WarpTunnelManager.buildConfig()`
+  sekarang TIDAK menambahkan `AllowedIPs = ::/0` selama
+  `ROUTE_IPV6 = false` (konstanta baru, satu titik switch untuk revert
+  total). `AllowedIPs = 0.0.0.0/0` (IPv4) TIDAK berubah — full-tunnel IPv4
+  tetap sama seperti sebelumnya.
+- **Dampak diketahui & disengaja:** selama flag ini `false`, trafik IPv6
+  dari app manapun (kalau device/jaringan memang pakai IPv6) akan **lewat
+  jalur normal device, TIDAK terenkripsi lewat WARP** — hanya IPv4 yang
+  full-protected. Ini trade-off sadar untuk keperluan diagnostik, bukan
+  bug.
+- **WAJIB ditindaklanjuti:** ulangi speedtest yang sama (WARP aktif) di
+  jaringan seluler yang sama. Kalau upload membaik signifikan → IPv6
+  terbukti jadi penyebab, `ROUTE_IPV6=false` bisa dipertimbangkan jadi
+  default permanen (dengan diskusi ulang soal trade-off keamanan IPv6 di
+  atas). Kalau upload TETAP jatuh parah → bukan IPv6, revert
+  `ROUTE_IPV6=true` segera dan cari penyebab lain (kemungkinan besar:
+  keterbatasan uplink operator seluler itu sendiri yang teramplifikasi
+  overhead WireGuard, bukan sesuatu yang bisa diperbaiki dari sisi app).
+- Tidak ada perubahan lain — MTU 1280 (v3.2.0), endpoint fallback,
+  keepalive, watchdog semua tetap.
+
 ## v3.2.0 — WARP: fix MTU untuk performa/stabilitas mobile (2026-08-04)
 
 > User arahan eksplisit: "fokus dongkrak performance WARP 100 persen".
