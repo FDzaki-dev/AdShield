@@ -3,7 +3,25 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.3.1 (2026-08-04) — Audit sektor Feedback SELESAI, 6 celah ditutup
+- **v3.3.2 (2026-08-04) — Audit sektor Feedback ROUND 2 SELESAI, celah
+  terakhir ditutup.** User tanya ulang "tuntas gak bersisa?" setelah
+  v3.3.1 → sweep ulang nemuin `requestBatteryOptimizationExemption()`
+  (MainActivity) masih 100% silent bahkan lebih parah dari kasus VPN
+  permission: (a) no-op diam kalau sudah exempt, (b) tidak pernah
+  konfirmasi hasil dialog sistem, (c) `runCatching` tanpa fallback kalau
+  Intent gagal dibuka (relevan langsung ke Infinix XOS, device target app
+  ini). Fix: `registerForActivityResult` + baca ulang
+  `PowerManager.isIgnoringBatteryOptimizations()` sebagai ground truth
+  (resultCode Intent ini sendiri TIDAK reliable di banyak OEM, jangan
+  pernah dipercaya langsung). **Sweep grep menyeluruh** atas semua
+  `runCatching`/`startActivity`/`startService` di project dilakukan
+  setelah ini — sisanya (WarpTunnelManager, CrashLogger, BlocklistManager,
+  BootReceiver/RestartReceiver/WarpRestartReceiver) SEMUA di layer
+  background/internal, bukan user-tap, JADI di luar cakupan sektor
+  feedback dan TIDAK disentuh — kalau sesi depan diminta audit ulang
+  sektor sama, langsung rujuk daftar ini, tidak perlu grep ulang dari nol.
+  **BELUM dikonfirmasi build CI.**
+- v3.3.1 (2026-08-04) — Audit sektor Feedback SELESAI, 6 celah ditutup
   dalam 1 batch.** User minta audit "apa yang benar-benar diharapkan user
   saat interaksi" difokuskan ke feedback (bukan fitur/bug lain). Temuan +
   fix: (1) VPN permission ditolak dulu silent no-op → sekarang Snackbar

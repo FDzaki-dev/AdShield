@@ -286,6 +286,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sendEvent(UiEvent.Message("Izin VPN ditolak — AdShield butuh izin ini untuk memfilter DNS/trafik"))
     }
 
+    /** Follow-up audit finding (round 2): the battery-optimization-exemption
+     *  flow was even more silent than the VPN one — wrapped in a bare
+     *  runCatching with zero fallback, so a blocked intent (common on
+     *  aggressive OEM skins like Infinix XOS — this app's own target
+     *  device) failed with no trace at all. [granted] is determined by
+     *  MainActivity re-checking PowerManager.isIgnoringBatteryOptimizations
+     *  after the system dialog returns, since that Intent's resultCode
+     *  itself isn't reliable for this on many OEMs. */
+    fun notifyBatteryExemptionResult(granted: Boolean) {
+        sendEvent(
+            if (granted) UiEvent.Message("Dikecualikan dari optimasi baterai — proteksi background lebih aman")
+            else UiEvent.Message("Belum dikecualikan dari optimasi baterai — sistem mungkin akan menghentikan proteksi saat idle lama")
+        )
+    }
+
+    /** Called when the settings Intent itself couldn't be launched at all
+     *  (some OEM ROMs block ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+     *  outright) — previously swallowed by a bare runCatching with no
+     *  fallback whatsoever. */
+    fun notifyBatteryExemptionUnavailable() {
+        sendEvent(UiEvent.Message("Perangkat ini memblokir pengaturan ini — coba cari manual di Pengaturan > Baterai > Aplikasi tak terbatas"))
+    }
+
     /** One-shot read of the true persisted mode, straight from DataStore —
      *  unlike [activeMode] (a stateIn'd StateFlow), this doesn't depend on
      *  something already having subscribed to it. Needed when handling a

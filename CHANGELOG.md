@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.3.2 — Audit sektor Feedback ROUND 2: tutup celah battery-exemption (2026-08-04)
+
+> User tanya ulang "sudah tuntas gak bersisa?" setelah v3.3.1 — sweep ulang
+> menemukan 1 celah lagi yang terlewat: alur "Kecualikan dari Optimasi
+> Baterai" (dipanggil dari Onboarding & Home) LEBIH parah dari kasus VPN
+> permission di v3.3.1, karena dibungkus `runCatching { startActivity(intent) }`
+> tanpa fallback sama sekali.
+
+**3 sub-celah di 1 fungsi (`requestBatteryOptimizationExemption`):**
+1. Kalau app **sudah** dikecualikan, tombol tetap tampil dan tap-nya
+   sepenuhnya no-op — user bisa tap berkali-kali tanpa tahu itu percuma.
+2. Kalau dialog sistem tampil dan user pilih Izinkan/Tolak, **tidak pernah
+   ada konfirmasi** balik ke app — beda dari VPN permission (v3.3.1) yang
+   sudah dibenerin.
+3. Kalau Intent `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` sendiri gagal
+   dibuka (sejumlah ROM OEM memblokirnya — termasuk **Infinix XOS, device
+   target app ini**), kegagalan ditelan `runCatching` tanpa jejak apa pun.
+
+**Fix:**
+- `requestBatteryOptimizationExemption()` sekarang pakai
+  `registerForActivityResult` (`batteryExemptionLauncher`) alih-alih
+  `startActivity` polos.
+- Resultcode Intent ini TIDAK diandalkan (dikenal tidak reliable di banyak
+  OEM) — begitu dialog sistem kembali, app baca ulang ground truth lewat
+  `PowerManager.isIgnoringBatteryOptimizations()` dan kirim
+  `UiEvent.Message` sesuai hasil sebenarnya.
+- Kalau sudah exempt sebelumnya → langsung kirim Snackbar konfirmasi
+  ("proteksi background lebih aman") alih-alih diam.
+- Kalau Intent gagal dibuka → Snackbar arahkan user ke jalur manual
+  ("Pengaturan > Baterai > Aplikasi tak terbatas").
+- `MainViewModel`: `notifyBatteryExemptionResult(granted: Boolean)` +
+  `notifyBatteryExemptionUnavailable()`.
+
+**File disentuh (2): `MainActivity.kt`, `MainViewModel.kt`.**
+**Hasil sweep ulang seluruh project**: sisa `runCatching` lain (WarpTunnelManager,
+CrashLogger, BlocklistManager, BootReceiver, dll) semuanya di layer
+background/internal, bukan aksi user-tap — di luar cakupan sektor feedback,
+tidak diubah.
+
 ## v3.3.1 — Audit sektor Feedback: tutup 6 celah aksi tanpa konfirmasi (2026-08-04)
 
 > User minta audit fokus "apa yang benar-benar diharapkan user saat

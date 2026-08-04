@@ -88,6 +88,18 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { /* no-op: notification just won't show if denied, protection still runs */ }
 
+    /** ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS's own resultCode is not a
+     *  reliable signal of grant/deny on many OEM ROMs, so the callback here
+     *  ignores `result` entirely and instead re-reads the ground truth
+     *  (PowerManager.isIgnoringBatteryOptimizations) once the system dialog
+     *  returns control to the app — see notifyBatteryExemptionResult(). */
+    private val batteryExemptionLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        val pm = getSystemService(POWER_SERVICE) as PowerManager
+        viewModel.notifyBatteryExemptionResult(pm.isIgnoringBatteryOptimizations(packageName))
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -296,7 +308,14 @@ class MainActivity : ComponentActivity() {
             val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                 data = android.net.Uri.parse("package:$packageName")
             }
-            runCatching { startActivity(intent) }
+            // Feedback audit finding (round 2): previously a bare runCatching
+            // with no fallback — if the Intent itself failed to launch (some
+            // OEM ROMs block it outright, e.g. Infinix XOS), the user tapped
+            // the button and nothing happened, with zero explanation.
+            runCatching { batteryExemptionLauncher.launch(intent) }
+                .onFailure { viewModel.notifyBatteryExemptionUnavailable() }
+        } else {
+            viewModel.notifyBatteryExemptionResult(granted = true)
         }
     }
 }
