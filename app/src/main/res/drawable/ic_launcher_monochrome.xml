@@ -1,0 +1,17 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!--
+        Android 13+ themed-icon layer (system re-tints this to match the
+        user's wallpaper palette on Material You launchers). Simplified to
+        the plain shield silhouette without the checkmark cutout — at the
+        small, monochrome, system-tinted size this renders at, a shield
+        outline alone stays legible; a thin cutout checkmark risks
+        disappearing entirely once re-tinted.
+    -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,25 C61,25 68,28 74,32 L74,50 C74,66 67,77 54,84 C41,77 34,66 34,50 L34,32 C40,28 47,25 54,25 Z" />
+</vector>

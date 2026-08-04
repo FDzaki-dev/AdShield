@@ -1,0 +1,111 @@
+# AdShield default blocklist — curated, precision-first (mirip pendekatan
+# Cloudflare 1.1.1.1 for Families / Pi-hole yang baik).
+#
+# ATURAN MATCHING:
+#   - "0.0.0.0 domain.com" atau baris polos "domain.com"  -> EXACT MATCH saja,
+#     TIDAK ikut memblokir subdomain-nya.
+#   - "*.domain.com"  -> wildcard, memblokir domain.com DAN semua subdomainnya.
+# Wildcard HANYA dipakai untuk domain yang 100% didedikasikan untuk ad-serving
+# (bukan infrastruktur yang juga dipakai untuk hal lain), supaya tidak ada
+# konten/app legit yang ikut ke-block karena kebetulan berbagi domain induk.
+#
+# Sengaja TIDAK memasukkan: crash-reporting/APM (Crashlytics, Sentry,
+# Bugsnag, New Relic), product analytics umum (Mixpanel, Amplitude, Segment,
+# Hotjar, FullStory) — ini bisa mematahkan fungsi app (laporan crash, fitur
+# yang bergantung ke A/B testing, dsb.) tanpa manfaat blokir iklan sama
+# sekali. Kalau user tetap mau blokir salah satunya, tambahkan manual di
+# layar Aturan Kustom.
+
+# --- Google ad network (dedicated ad-serving, aman wildcard) ---
+*.doubleclick.net
+*.googlesyndication.com
+*.googleadservices.com
+*.googletagservices.com
+*.admob.com
+*.adsense.com
+
+# Google Analytics/Tag Manager: exact-match saja, bukan wildcard — beberapa
+# subdomain gtag/analytics dipakai juga untuk fungsi non-iklan di sejumlah
+# situs (consent management, dsb.), jadi tidak diblokir buta.
+google-analytics.com
+www.google-analytics.com
+googletagmanager.com
+www.googletagmanager.com
+
+# --- Facebook / Meta ads ---
+*.an.facebook.com
+graph.facebook.com
+
+# --- Mobile ad SDK (dedicated ad networks) ---
+*.unityads.unity3d.com
+*.applovin.com
+*.adcolony.com
+*.vungle.com
+*.chartboost.com
+*.ironsrc.com
+*.mopub.com
+*.startapp.com
+*.inmobi.com
+*.tapjoy.com
+*.smaato.net
+*.mobfox.com
+*.adcash.com
+*.taboola.com
+*.outbrain.com
+*.criteo.com
+*.pubmatic.com
+*.rubiconproject.com
+*.openx.net
+*.smartadserver.com
+*.adroll.com
+*.casalemedia.com
+*.adnxs.com
+*.rlcdn.com
+*.bidswitch.net
+*.contextweb.com
+*.media.net
+*.yieldmo.com
+*.sharethrough.com
+*.moatads.com
+*.adform.net
+*.adsrvr.org
+*.mgid.com
+*.popads.net
+*.propellerads.com
+*.exoclick.com
+*.juicyads.com
+*.trafficjunky.com
+*.revcontent.com
+
+# --- Marketing-attribution SDKs (dedicated to ad-campaign tracking) ---
+*.adjust.com
+*.appsflyer.com
+*.kochava.com
+*.branch.io
+
+# --- Web tracking/measurement dedicated to ads ---
+scorecardresearch.com
+quantserve.com
+
+# --- Amazon / Microsoft ad networks ---
+*.amazon-adsystem.com
+bat.bing.com
+
+# --- Video pre-roll / in-app banner ad networks ---
+*.adtechus.com
+*.spotxchange.com
+*.tremorhub.com
+*.innovid.com
+teads.tv
+freewheel.tv
+
+# --- Ad domains commonly seen hardcoded in APK manifests ---
+ads.mopub.com
+ads.yahoo.com
+ads.pinterest.com
+ads.linkedin.com
+ads.tiktok.com
+analytics.tiktok.com
+
+# Pengguna bisa menambah/menghapus domain lain (exact atau wildcard dengan
+# "*.") lewat layar Aturan Kustom tanpa perlu update aplikasi.

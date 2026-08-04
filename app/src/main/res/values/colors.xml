@@ -1,0 +1,7 @@
+<resources>
+    <color name="shield_primary">#2E7D5B</color>
+    <color name="shield_primary_dark">#1B5E3E</color>
+    <color name="shield_accent">#00C896</color>
+    <color name="shield_bg_dark">#0F1512</color>
+    <color name="shield_danger">#E05C5C</color>
+</resources>

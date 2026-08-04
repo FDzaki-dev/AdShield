@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">AdShield</string>
+    <string name="notif_channel_name">AdShield Protection</string>
+    <string name="notif_title_active">AdShield aktif</string>
+    <string name="notif_text_active">Melindungi perangkat dari iklan &amp; pelacak</string>
+
+    <!-- Launcher shortcuts (tekan lama ikon app) -->
+    <string name="shortcut_whitelist_short">Whitelist</string>
+    <string name="shortcut_whitelist_long">Buka Whitelist Aplikasi</string>
+    <string name="shortcut_logs_short">Log</string>
+    <string name="shortcut_logs_long">Buka Log Aktivitas</string>
+    <string name="shortcut_dns_on_short">Nyalakan DNS</string>
+    <string name="shortcut_dns_on_long">Nyalakan Ad-Block DNS</string>
+    <string name="shortcut_dns_off_short">Matikan DNS</string>
+    <string name="shortcut_dns_off_long">Matikan Ad-Block DNS</string>
+    <string name="shortcut_warp_on_short">Nyalakan WARP</string>
+    <string name="shortcut_warp_on_long">Nyalakan VPN Tunnel WARP</string>
+    <string name="shortcut_warp_off_short">Matikan WARP</string>
+    <string name="shortcut_warp_off_long">Matikan VPN Tunnel WARP</string>
+</resources>
