@@ -36,6 +36,27 @@ fun LogsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     var searchQuery by rememberSaveable { mutableStateOf("") }
     var filter by rememberSaveable { mutableStateOf(LogFilter.ALL) }
 
+    // Feedback audit finding: the DeleteSweep icon used to clear the whole
+    // log in a single tap with no confirmation. Gated behind a confirm
+    // dialog now — clearAll() is a DB wipe, not cheap to undo.
+    var showClearConfirm by remember { mutableStateOf(false) }
+    if (showClearConfirm) {
+        AlertDialog(
+            onDismissRequest = { showClearConfirm = false },
+            title = { Text("Bersihkan semua log?") },
+            text = { Text("${logs.size} entri log domain akan dihapus permanen.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.clearLogs()
+                    showClearConfirm = false
+                }) { Text("Hapus", color = ShieldDanger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showClearConfirm = false }) { Text("Batal") }
+            }
+        )
+    }
+
     // Client-side filter/search: recentLogs is already capped at 500 entries
     // (see DomainLogDao), so this is cheap and doesn't need a DB-level query.
     val filteredLogs = remember(logs, searchQuery, filter) {
@@ -61,7 +82,10 @@ fun LogsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.clearLogs() }) {
+                    IconButton(
+                        onClick = { showClearConfirm = true },
+                        enabled = logs.isNotEmpty()
+                    ) {
                         Icon(Icons.Filled.DeleteSweep, contentDescription = "Bersihkan log")
                     }
                 }

@@ -3,7 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.3.0 (2026-08-04) — WARP IPv6 toggle SELESAI jadi setting user,
+- **v3.3.1 (2026-08-04) — Audit sektor Feedback SELESAI, 6 celah ditutup
+  dalam 1 batch.** User minta audit "apa yang benar-benar diharapkan user
+  saat interaksi" difokuskan ke feedback (bukan fitur/bug lain). Temuan +
+  fix: (1) VPN permission ditolak dulu silent no-op → sekarang Snackbar
+  via `viewModel.notifyVpnPermissionDenied()`; (2) Reset statistik & (3)
+  Bersihkan log dulu 1-tap langsung eksekusi → sekarang `AlertDialog`
+  konfirmasi; (4) Add/remove domain custom (Rules) dulu tanpa konfirmasi →
+  sekarang `UiEvent` Snackbar, khusus remove pakai Undo 5 detik; (5)
+  `forgetWarpAccount()` di ViewModel SUDAH ADA dari sesi sebelumnya tapi
+  **dead code** (tidak pernah dipanggil dari UI manapun) → sekarang ada
+  tombol "Lupakan Akun WARP" di DiagnosticsScreen + confirm dialog.
+  Infrastruktur baru: `UiEvent` sealed class + `Channel` di MainViewModel,
+  1 `Scaffold`+`SnackbarHostState` global di MainActivity yang membungkus
+  NavHost (screen manapun tinggal `sendEvent()`, tidak perlu Scaffold
+  sendiri-sendiri). **SENGAJA TIDAK diubah**: toggle Whitelist per-app dan
+  toggle "Simpan log query" (Logs) — `Switch` checked-state dinilai sudah
+  cukup sebagai feedback visual, Snackbar tambahan akan terasa berlebihan/
+  spammy kalau user toggle banyak item berturut-turut. **BELUM
+  dikonfirmasi build CI** — WAJIB dicek di sesi berikutnya, terutama: (a)
+  Snackbar collect di `LaunchedEffect(Unit)` tidak lifecycle-aware secara
+  eksplisit — kalau nanti ada bug "event ke-drop saat rotasi cepat",
+  pertimbangkan `repeatOnLifecycle`; (b) belum dicoba langsung di device
+  apakah Undo pada hapus domain benar-benar mengembalikan entry yang sama
+  persis (termasuk kalau domain itu wildcard `*.domain.com`).
+- v3.3.0 (2026-08-04) — WARP IPv6 toggle SELESAI jadi setting user,
   menutup eksperimen v3.2.1.** Hasil eksperimen v3.2.1 SUDAH DIKONFIRMASI
   user lewat data nyata: WARP+IPv6-off (42.3↓/4.67↑ Mbps) mengalahkan
   baseline tanpa VPN (31.3↓/3.43↑) di kedua arah — hipotesis "IPv6 WARP

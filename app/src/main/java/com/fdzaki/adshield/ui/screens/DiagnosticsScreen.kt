@@ -60,6 +60,28 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
     val appVersion = remember { readAppVersion(context.packageManager, context.packageName) }
 
+    // Feedback audit finding: MainViewModel.forgetWarpAccount() existed but
+    // was never wired to any screen — a dead entry point with no way for the
+    // user to reach it. Added here with a confirm dialog since it forces a
+    // fresh WARP registration next connect.
+    var showForgetWarpConfirm by remember { mutableStateOf(false) }
+    if (showForgetWarpConfirm) {
+        AlertDialog(
+            onDismissRequest = { showForgetWarpConfirm = false },
+            title = { Text("Lupakan akun WARP?") },
+            text = { Text("Akun WARP saat ini akan dilupakan. WARP akan mendaftarkan akun baru secara otomatis saat diaktifkan lagi.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.forgetWarpAccount()
+                    showForgetWarpConfirm = false
+                }) { Text("Lupakan", color = ShieldDanger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showForgetWarpConfirm = false }) { Text("Batal") }
+            }
+        )
+    }
+
     val batteryExempt = remember {
         val pm = context.getSystemService(PowerManager::class.java)
         pm?.isIgnoringBatteryOptimizations(context.packageName) ?: false
@@ -199,6 +221,12 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 if (warpLastError != null) {
                     DiagnosticRow("Error terakhir", warpLastError ?: "-", valueColor = ShieldDanger)
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { showForgetWarpConfirm = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldDanger)
+                ) { Text("Lupakan Akun WARP", fontSize = 12.sp) }
             }
 
             Spacer(Modifier.height(24.dp))

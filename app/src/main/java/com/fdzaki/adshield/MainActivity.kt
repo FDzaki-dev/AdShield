@@ -14,9 +14,15 @@ import androidx.activity.viewModels
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.content.ContextCompat
@@ -24,6 +30,7 @@ import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.fdzaki.adshield.ui.UiEvent
 import com.fdzaki.adshield.ui.MainViewModel
 import com.fdzaki.adshield.ui.screens.DiagnosticsScreen
 import com.fdzaki.adshield.ui.screens.HomeScreen
@@ -68,6 +75,11 @@ class MainActivity : ComponentActivity() {
                 AppMode.DNS_ADBLOCK -> startDnsService()
                 AppMode.WARP_TUNNEL -> startWarpService()
             }
+        } else {
+            // Feedback audit finding: this branch was previously empty — user
+            // taps the ring, denies the system VPN dialog, and nothing at all
+            // happens. Now surfaces via the global Snackbar (see setContent).
+            viewModel.notifyVpnPermissionDenied()
         }
         pendingStartMode = null
     }
@@ -85,6 +97,35 @@ class MainActivity : ComponentActivity() {
         setContent {
             AdShieldTheme {
                 val navController = rememberNavController()
+
+                // Single Snackbar host shared by every screen in the NavHost —
+                // added in the feedback audit pass so any screen can surface a
+                // confirmation via viewModel.uiEvents without each screen having
+                // to declare its own Scaffold/SnackbarHostState (see PROJECT_STATE.md).
+                val snackbarHostState = remember { SnackbarHostState() }
+
+                LaunchedEffect(Unit) {
+                    viewModel.uiEvents.collect { event ->
+                        when (event) {
+                            is UiEvent.Message -> {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                snackbarHostState.showSnackbar(
+                                    message = event.text,
+                                    duration = SnackbarDuration.Short
+                                )
+                            }
+                            is UiEvent.UndoableMessage -> {
+                                snackbarHostState.currentSnackbarData?.dismiss()
+                                val result = snackbarHostState.showSnackbar(
+                                    message = event.text,
+                                    actionLabel = "Urungkan",
+                                    duration = SnackbarDuration.Long
+                                )
+                                if (result == SnackbarResult.ActionPerformed) event.onUndo()
+                            }
+                        }
+                    }
+                }
 
                 LaunchedEffect(Unit) {
                     maybeRequestNotificationPermission()
@@ -111,7 +152,12 @@ class MainActivity : ComponentActivity() {
                     return@AdShieldTheme
                 }
 
+                Scaffold(
+                    snackbarHost = { SnackbarHost(snackbarHostState) },
+                    containerColor = ShieldBgDark
+                ) { scaffoldPadding ->
                 NavHost(
+                    modifier = Modifier.padding(scaffoldPadding),
                     navController = navController,
                     startDestination = if (onboardingDecided) "onboarding" else "home"
                 ) {
@@ -152,6 +198,7 @@ class MainActivity : ComponentActivity() {
                     composable("diagnostics") {
                         DiagnosticsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                     }
+                }
                 }
             }
         }

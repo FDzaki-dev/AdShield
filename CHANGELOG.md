@@ -1,5 +1,50 @@
 # Changelog
 
+## v3.3.1 — Audit sektor Feedback: tutup 6 celah aksi tanpa konfirmasi (2026-08-04)
+
+> User minta audit fokus "apa yang benar-benar diharapkan user saat
+> interaksi" pada aspek feedback. Temuan: 6 aksi berjalan sepenuhnya senyap
+> (tidak ada toast/snackbar/dialog), 1 fitur (`forgetWarpAccount()`) sudah
+> ada logic-nya tapi tidak pernah dipasang ke UI manapun (dead entry point).
+
+**Infrastruktur baru — `UiEvent` (MainViewModel.kt)**
+- `sealed class UiEvent { Message, UndoableMessage }` dikirim lewat
+  `Channel<UiEvent>` (bukan StateFlow — sengaja, karena ini one-shot event,
+  StateFlow berisiko re-show Snackbar yang sama saat recomposition/config
+  change).
+- `MainActivity` sekarang punya satu `Scaffold` + `SnackbarHostState` global
+  yang membungkus `NavHost`, collect `viewModel.uiEvents` di satu tempat —
+  jadi screen manapun bisa kirim Snackbar tanpa deklarasi Scaffold sendiri.
+
+**Celah yang ditutup:**
+1. **VPN permission ditolak** — `vpnPermissionLauncher` else-branch dulu
+   kosong total. Sekarang panggil `viewModel.notifyVpnPermissionDenied()` →
+   Snackbar "Izin VPN ditolak — AdShield butuh izin ini...".
+2. **Reset statistik (Home)** — dulu langsung eksekusi 1 tap. Sekarang
+   `AlertDialog` konfirmasi dulu.
+3. **Bersihkan log (Logs)** — sama, `AlertDialog` konfirmasi + tombol
+   dinonaktifkan kalau log sudah kosong (mencegah dialog muncul percuma).
+4. **Tambah/hapus domain custom (Rules)** — `addBlockedDomain`,
+   `removeBlockedDomain`, `addAllowedDomain`, `removeAllowedDomain` sekarang
+   kirim `UiEvent`. Hapus domain pakai `UndoableMessage` (Snackbar+"Urungkan"
+   5 detik) alih-alih dialog konfirmasi — lebih ringan untuk aksi yang
+   sering diulang (hapus banyak domain satu-satu).
+5. **Lupakan Akun WARP** — `forgetWarpAccount()` di ViewModel sudah ada
+   sejak sebelumnya tapi **tidak pernah dipanggil dari UI manapun** (dead
+   code). Ditambahkan tombol "Lupakan Akun WARP" di DiagnosticsScreen +
+   `AlertDialog` konfirmasi + Snackbar setelah selesai.
+6. **Whitelist toggle (Whitelist) & logging toggle (Logs)** — DIPERIKSA,
+   TIDAK diubah: `Switch` checked-state sendiri sudah memberi feedback
+   visual instan yang cukup: menambah Snackbar di sini dinilai berlebihan
+   dan berisiko spam kalau user toggle banyak app berturut-turut.
+
+**File disentuh (6, di bawah batas 10 — tidak perlu Atomic Change Exception
+meski lintas 5 screen + MainActivity, karena tiap file <15 baris net-diff):**
+`MainViewModel.kt`, `MainActivity.kt`, `HomeScreen.kt`, `LogsScreen.kt`,
+`DiagnosticsScreen.kt`, `app/build.gradle.kts` (version bump only).
+
+**Tidak ada migrasi data, tidak ada perubahan schema DB/DataStore.**
+
 ## v3.3.0 — WARP: toggle "Rutekan IPv6" jadi setting user, bukan hardcode (2026-08-04)
 
 > Lanjutan v3.2.1. User konfirmasi hasil eksperimen: WARP+IPv6-off

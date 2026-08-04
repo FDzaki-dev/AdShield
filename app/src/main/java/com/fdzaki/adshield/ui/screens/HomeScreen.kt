@@ -76,6 +76,28 @@ fun HomeScreen(
     val warpRouteIpv6 by viewModel.warpRouteIpv6.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
 
+    // Feedback audit finding: "Reset statistik" used to fire on a single tap
+    // with no confirmation and no undo. Now gated behind a confirm dialog —
+    // an AlertDialog was chosen over Snackbar+Undo because the counters
+    // aren't cheap to restore (would need to re-derive from log history).
+    var showResetConfirm by remember { mutableStateOf(false) }
+    if (showResetConfirm) {
+        AlertDialog(
+            onDismissRequest = { showResetConfirm = false },
+            title = { Text("Reset statistik?") },
+            text = { Text("Jumlah domain diblokir dan diizinkan akan dikembalikan ke nol. Log domain tidak terpengaruh.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.resetCounters()
+                    showResetConfirm = false
+                }) { Text("Reset", color = ShieldDanger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showResetConfirm = false }) { Text("Batal") }
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -120,7 +142,7 @@ fun HomeScreen(
         Spacer(Modifier.height(12.dp))
 
         OutlinedButton(
-            onClick = { viewModel.resetCounters() },
+            onClick = { showResetConfirm = true },
             modifier = Modifier.fillMaxWidth(),
             border = BorderStroke(1.dp, ShieldOutline),
             colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldTextMuted)

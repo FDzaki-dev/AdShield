@@ -22,16 +22,43 @@ import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.wireguard.android.backend.Tunnel
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.util.concurrent.TimeUnit
 
+/**
+ * One-off UI feedback events (Snackbar) — added in the "feedback sector"
+ * audit pass (see PROJECT_STATE.md v3.3.0) after finding several silent
+ * actions: domain add/remove, log clear, counter reset, WARP account
+ * forget, and VPN-permission-denied all previously gave the user zero
+ * confirmation. A Channel (not StateFlow) is used deliberately: these are
+ * one-shot events, not state — a StateFlow would risk re-showing the same
+ * Snackbar on config change/recomposition.
+ */
+sealed class UiEvent {
+    /** Plain confirmation/info message, no action button. */
+    data class Message(val text: String) : UiEvent()
+
+    /** Message + "Urungkan" (Undo) action. [onUndo] is invoked by the host
+     *  (MainActivity) if the user taps the Snackbar action before it times out. */
+    data class UndoableMessage(val text: String, val onUndo: () -> Unit) : UiEvent()
+}
+
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val _uiEvents = Channel<UiEvent>(Channel.BUFFERED)
+    val uiEvents = _uiEvents.receiveAsFlow()
+
+    private fun sendEvent(event: UiEvent) {
+        viewModelScope.launch { _uiEvents.send(event) }
+    }
 
     private val settingsRepository = SettingsRepository(application)
     private val installedAppsRepository = InstalledAppsRepository(application)
@@ -179,20 +206,36 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun addBlockedDomain(domain: String) {
         if (domain.isBlank()) return
-        viewModelScope.launch { settingsRepository.addCustomBlockedDomain(domain) }
+        viewModelScope.launch {
+            settingsRepository.addCustomBlockedDomain(domain)
+            sendEvent(UiEvent.Message("\"$domain\" ditambahkan ke daftar blokir"))
+        }
     }
 
     fun removeBlockedDomain(domain: String) {
-        viewModelScope.launch { settingsRepository.removeCustomBlockedDomain(domain) }
+        viewModelScope.launch {
+            settingsRepository.removeCustomBlockedDomain(domain)
+            sendEvent(UiEvent.UndoableMessage("\"$domain\" dihapus dari daftar blokir") {
+                addBlockedDomain(domain)
+            })
+        }
     }
 
     fun addAllowedDomain(domain: String) {
         if (domain.isBlank()) return
-        viewModelScope.launch { settingsRepository.addCustomAllowedDomain(domain) }
+        viewModelScope.launch {
+            settingsRepository.addCustomAllowedDomain(domain)
+            sendEvent(UiEvent.Message("\"$domain\" ditambahkan ke daftar izinkan"))
+        }
     }
 
     fun removeAllowedDomain(domain: String) {
-        viewModelScope.launch { settingsRepository.removeCustomAllowedDomain(domain) }
+        viewModelScope.launch {
+            settingsRepository.removeCustomAllowedDomain(domain)
+            sendEvent(UiEvent.UndoableMessage("\"$domain\" dihapus dari daftar izinkan") {
+                addAllowedDomain(domain)
+            })
+        }
     }
 
     fun setLoggingEnabled(enabled: Boolean) {
@@ -207,16 +250,40 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { settingsRepository.setAutoStartOnBoot(enabled) }
     }
 
+    /** Caller (LogsScreen) is responsible for confirming with the user first
+     *  — this just executes + confirms via Snackbar, no undo (log entries
+     *  aren't held in memory after clearAll(), so true undo isn't cheap). */
     fun clearLogs() {
-        viewModelScope.launch { domainLogDao.clearAll() }
+        viewModelScope.launch {
+            domainLogDao.clearAll()
+            sendEvent(UiEvent.Message("Log domain dibersihkan"))
+        }
     }
 
     fun resetCounters() {
-        viewModelScope.launch { settingsRepository.resetCounters() }
+        viewModelScope.launch {
+            settingsRepository.resetCounters()
+            sendEvent(UiEvent.Message("Statistik diblokir/diizinkan direset"))
+        }
     }
 
+    /** Previously defined but never wired to any screen (found during the
+     *  feedback audit — see PROJECT_STATE.md). Now called from a "Lupakan
+     *  Akun WARP" action on the Diagnostics screen, confirmed before calling
+     *  and confirmed again here via Snackbar after it completes. */
     fun forgetWarpAccount() {
-        viewModelScope.launch { warpTunnelManager.forgetAccount() }
+        viewModelScope.launch {
+            warpTunnelManager.forgetAccount()
+            sendEvent(UiEvent.Message("Akun WARP dilupakan — akan didaftarkan ulang otomatis saat WARP diaktifkan lagi"))
+        }
+    }
+
+    /** Called by MainActivity when the system VPN-permission dialog result
+     *  is NOT RESULT_OK (user tapped "Tolak"/back-pressed it away). Found
+     *  during the feedback audit: this used to be a silent no-op — the
+     *  protection ring just stayed off with zero explanation. */
+    fun notifyVpnPermissionDenied() {
+        sendEvent(UiEvent.Message("Izin VPN ditolak — AdShield butuh izin ini untuk memfilter DNS/trafik"))
     }
 
     /** One-shot read of the true persisted mode, straight from DataStore —
