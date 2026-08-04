@@ -1,5 +1,39 @@
 # Changelog
 
+## v3.1.0 — Warm graphite pass: legibility + arah "matte premium" (2026-08-04)
+
+> User arahan eksplisit: tingkatkan legibility lagi + ubah arah warna dari
+> "kegelapan" (near-black v3.0.0/v3.0.1) menuju matte "native Android ultra
+> premium & expensive". HANYA `Color.kt` diubah (nilai hex) + version bump —
+> nol perubahan struktur file lain, otomatis merambat ke semua layar via
+> `Theme.kt`, sama seperti pola v3.0.1.
+
+- **Base background** (`ShieldBgDark`): `#0C0F0D` → `#17181A` — pindah dari
+  near-black bertint hijau jadi graphite netral hangat. Masih dark theme,
+  tapi tidak lagi terasa "lubang hitam" — pendekatan ini yang dipakai
+  hardware premium (matte plastic Pixel/Sony dll), bukan maksimal gelap.
+- Seluruh tangga elevasi di-derive ulang dari base baru, tetap menjaga
+  filosofi jarak lebar dari v3.0.1 (setiap step ≥ ~4-5% lightness dari
+  tetangganya): `ShieldSurface` `#1A1F1A`→`#212325`,
+  `ShieldSurface2`/`ShieldSurfaceAlt` `#262E25`→`#2C2F30`,
+  `ShieldSurface3` `#313A2F`→`#3A3D3D`.
+- `ShieldGreen` (signal/accent): `#3ED696` → `#3FC993` — sedikit
+  didesaturasi ("brushed jade" bukan "neon mint") supaya selaras arah warm/
+  premium, bukan tech-neon. `ShieldGreenDark`/`ShieldAccentDim` disesuaikan
+  proporsional.
+- `ShieldWarning`: `#DDB264` → `#D3AD6E` — digeser ke arah brass/gold
+  keruh, bukan amber lurus; gold muted terasa lebih "mahal".
+- `ShieldWhite` `#F3F5F1`→`#F6F5F2` (off-white hangat, bukan putih klinis),
+  `ShieldTextMuted` `#AEB9B0`→`#BFC4C0`, `ShieldTextFaint`
+  `#828D85`→`#93988F` — diverifikasi ulang kontras terhadap base baru yang
+  lebih terang: tetap ≥4.5:1 (muted) dan ≥3:1 (faint).
+- `ShieldOutline` `#4A5346`→`#52564F` — hairline border disesuaikan supaya
+  tetap kelihatan jelas di atas surface baru yang lebih terang.
+- `versionCode`/`versionName`: 16/3.0.1 → 17/3.1.0.
+- **Belum dikonfirmasi user via screenshot device** — sama seperti v3.0.1,
+  WAJIB jadi hal pertama yang dicek di sesi berikutnya sebelum menganggap
+  ini sudah cukup "premium"/legible.
+
 ## v3.0.1 — Fix kontras/legibility palet matte (2026-08-04)
 
 > User laporan langsung dari device (screenshot): warna kegelapan, legibility

@@ -3,7 +3,22 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.0.1 (2026-08-04) — Fix kontras/legibility SELESAI**, respons langsung
+- **v3.1.0 (2026-08-04) — Warm graphite pass SELESAI**, respons langsung ke
+  arahan user (chat, bukan screenshot kali ini): "tingkatkan legibility dan
+  ubah arah warna desain visual dari kegelapan menuju matte 'native android
+  ultra premium & expensive'". HANYA `Color.kt` diubah (lihat CHANGELOG
+  untuk diff nilai hex lengkap) — base background dipindah dari near-black
+  bertint hijau (`#0C0F0D`) ke graphite netral hangat (`#17181A`), seluruh
+  tangga elevasi di-derive ulang, accent jade didesaturasi tipis, warning
+  digeser ke brass/gold. `Type.kt`/`Shape.kt`/`Theme.kt`/screens TIDAK
+  disentuh. **BELUM dikonfirmasi user via screenshot baru** — WAJIB jadi
+  hal pertama yang dicek di sesi berikutnya (menggantikan item konfirmasi
+  v3.0.1 di bawah — v3.0.1 sudah ditimpa oleh perubahan warna v3.1.0 ini,
+  jadi yang relevan dikonfirmasi sekarang adalah hasil v3.1.0, bukan
+  v3.0.1 lagi). Kalau user masih bilang kurang, jangan naikkan/turunkan
+  hex sedikit-sedikit — tanya elemen spesifik mana yang masih kurang
+  (terlalu terang/gelap, aksen kurang "premium", dll).
+- v3.0.1 (2026-08-04) — Fix kontras/legibility SELESAI, respons langsung
   ke laporan user disertai screenshot device (background/kartu/teks kegelapan,
   "gak membaik sama sekali" dari sebelum redesign v3.0.0). Root cause: nilai
   hex v3.0.0 lolos di color-picker tapi jarak antar elevation step & warna
