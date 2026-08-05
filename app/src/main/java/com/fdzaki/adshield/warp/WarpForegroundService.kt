@@ -13,6 +13,9 @@ import androidx.core.app.NotificationManagerCompat
 import com.fdzaki.adshield.MainActivity
 import com.fdzaki.adshield.R
 import com.fdzaki.adshield.data.SettingsRepository
+import com.fdzaki.adshield.protocol.VpnEngineState
+import com.fdzaki.adshield.protocol.VpnProtocolConfig
+import com.fdzaki.adshield.protocol.WarpVpnEngineAdapter
 import com.fdzaki.adshield.receiver.WarpRestartReceiver
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.Constants
@@ -21,6 +24,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -30,16 +34,31 @@ import kotlinx.coroutines.launch
  * AdBlockVpnService does (watchdog alarm). The actual VPN interface is
  * owned by the WireGuard library's own `GoBackend.VpnService` — this class
  * never touches raw sockets/packets itself.
+ *
+ * v3.15.0 (see PROJECT_STATE.md) — Batch "wire WARP to VpnEngine": this is
+ * the ONLY real drive point for WARP lifecycle in the whole app (MainActivity/
+ * HomeScreen/BootReceiver/WarpTileService all just send Intents here, never
+ * touch [WarpTunnelManager] directly), so connect()/disconnect() below now go
+ * through [WarpVpnEngineAdapter] instead of [tunnelManager] directly — proves
+ * the VpnEngine abstraction actually drives production traffic, not just a
+ * standalone class that compiles. [tunnelManager] itself is KEPT (not
+ * removed) purely for [observeQualityForNotification]/[buildNotification],
+ * which need [WarpConnectionQuality]/[Tunnel.State] detail that
+ * [VpnEngineState] deliberately does not carry — both objects wrap the SAME
+ * underlying [WarpTunnelManager.getInstance] singleton, so this is not two
+ * competing sources of truth, just two views of one.
  */
 class WarpForegroundService : Service() {
 
     private val scope = CoroutineScope(Dispatchers.IO + Job())
     private lateinit var tunnelManager: WarpTunnelManager
+    private lateinit var warpEngine: WarpVpnEngineAdapter
     private lateinit var settingsRepository: SettingsRepository
 
     override fun onCreate() {
         super.onCreate()
         tunnelManager = WarpTunnelManager.getInstance(applicationContext)
+        warpEngine = WarpVpnEngineAdapter(applicationContext)
         settingsRepository = SettingsRepository(applicationContext)
     }
 
@@ -50,7 +69,7 @@ class WarpForegroundService : Service() {
             ACTION_STOP -> {
                 val isModeSwitch = intent.getBooleanExtra(EXTRA_MODE_SWITCH, false)
                 scope.launch {
-                    tunnelManager.disconnect()
+                    warpEngine.disconnect()
                     // See AdBlockVpnService.stopVpn() for why: during a
                     // WARP->DNS switch, AdBlockVpnService is about to write
                     // DNS_ADBLOCK from its own coroutine — writing NONE here
@@ -68,8 +87,19 @@ class WarpForegroundService : Service() {
                 startForeground(Constants.WARP_NOTIF_ID, buildNotification(Tunnel.State.DOWN, null))
                 observeQualityForNotification()
                 scope.launch {
-                    val connected = tunnelManager.connect()
-                    if (connected) settingsRepository.setActiveMode(AppMode.WARP_TUNNEL)
+                    // VpnEngine.connect() returns Unit (not a success Boolean like
+                    // WarpTunnelManager.connect() did) — by design (see VpnEngine.kt kdoc),
+                    // callers observe state instead. First terminal state after connect()
+                    // returns is either Connected or Error; Reconnecting/Disconnected are not
+                    // treated as "success" here on this very first attempt.
+                    val routeIpv6 = settingsRepository.warpRouteIpv6.first()
+                    warpEngine.connect(VpnProtocolConfig.Warp(routeIpv6 = routeIpv6))
+                    val result = warpEngine.state.first {
+                        it is VpnEngineState.Connected || it is VpnEngineState.Error
+                    }
+                    if (result is VpnEngineState.Connected) {
+                        settingsRepository.setActiveMode(AppMode.WARP_TUNNEL)
+                    }
                 }
             }
         }
@@ -141,7 +171,7 @@ class WarpForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        scope.launch { tunnelManager.disconnect() }
+        scope.launch { warpEngine.disconnect() }
         super.onDestroy()
     }
 

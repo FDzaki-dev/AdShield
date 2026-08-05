@@ -56,6 +56,39 @@ class VpnProfileRepository(context: Context) {
         prefs.getString(key(PREFIX_OPENVPN_PASS, name), null),
     )
 
+    /**
+     * v3.15.0 — IKEv2 profile persistence, added alongside wiring
+     * [com.fdzaki.adshield.protocol.IkeV2VpnEngine] into the Home screen.
+     * Only username+password auth is saved here (matches the form the UI
+     * currently exposes) — [certificateAlias] auth (see
+     * VpnProtocolConfig.IkeV2 kdoc) has no UI yet, so it isn't persisted by
+     * this method; add a separate save path if/when that's built.
+     */
+    fun saveIkeV2Profile(name: String, serverAddress: String, identity: String, username: String, password: String) {
+        prefs.edit()
+            .putString(key(PREFIX_IKEV2_SERVER, name), serverAddress)
+            .putString(key(PREFIX_IKEV2_IDENTITY, name), identity)
+            .putString(key(PREFIX_IKEV2_USER, name), username)
+            .putString(key(PREFIX_IKEV2_PASS, name), password)
+            .apply()
+    }
+
+    /** Returns (serverAddress, identity, username, password) — all null if no profile saved yet. */
+    fun getIkeV2Profile(name: String): IkeV2StoredProfile? {
+        val server = prefs.getString(key(PREFIX_IKEV2_SERVER, name), null) ?: return null
+        val identity = prefs.getString(key(PREFIX_IKEV2_IDENTITY, name), null) ?: return null
+        val username = prefs.getString(key(PREFIX_IKEV2_USER, name), null) ?: return null
+        val password = prefs.getString(key(PREFIX_IKEV2_PASS, name), null) ?: return null
+        return IkeV2StoredProfile(server, identity, username, password)
+    }
+
+    data class IkeV2StoredProfile(
+        val serverAddress: String,
+        val identity: String,
+        val username: String,
+        val password: String,
+    )
+
     fun saveShadowsocksProfile(name: String, serverAddress: String, serverPort: Int, method: String, password: String) {
         prefs.edit()
             .putString(key(PREFIX_SS_ADDRESS, name), serverAddress)
@@ -74,6 +107,10 @@ class VpnProfileRepository(context: Context) {
             .remove(key(PREFIX_SS_PORT, name))
             .remove(key(PREFIX_SS_METHOD, name))
             .remove(key(PREFIX_SS_PASS, name))
+            .remove(key(PREFIX_IKEV2_SERVER, name))
+            .remove(key(PREFIX_IKEV2_IDENTITY, name))
+            .remove(key(PREFIX_IKEV2_USER, name))
+            .remove(key(PREFIX_IKEV2_PASS, name))
             .apply()
     }
 
@@ -88,5 +125,9 @@ class VpnProfileRepository(context: Context) {
         const val PREFIX_SS_PORT = "ss_port"
         const val PREFIX_SS_METHOD = "ss_method"
         const val PREFIX_SS_PASS = "ss_pass"
+        const val PREFIX_IKEV2_SERVER = "ikev2_server"
+        const val PREFIX_IKEV2_IDENTITY = "ikev2_identity"
+        const val PREFIX_IKEV2_USER = "ikev2_user"
+        const val PREFIX_IKEV2_PASS = "ikev2_pass"
     }
 }

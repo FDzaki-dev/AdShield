@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VpnKey
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +29,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fdzaki.adshield.data.VpnProfileRepository
+import com.fdzaki.adshield.protocol.VpnEngineState
 import com.fdzaki.adshield.ui.MainViewModel
 import com.fdzaki.adshield.ui.theme.ShieldAccentDim
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
@@ -60,6 +63,8 @@ fun HomeScreen(
     onStopVpn: () -> Unit,
     onRequestWarpStart: () -> Unit,
     onStopWarp: () -> Unit,
+    onRequestIkeV2Start: () -> Unit,
+    onStopIkeV2: () -> Unit,
     onOpenWhitelist: () -> Unit,
     onOpenRules: () -> Unit,
     onOpenLogs: () -> Unit,
@@ -76,6 +81,23 @@ fun HomeScreen(
     val warpQuality by viewModel.warpQuality.collectAsState()
     val warpRouteIpv6 by viewModel.warpRouteIpv6.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
+    val ikeV2State by viewModel.ikeV2State.collectAsState()
+    val ikeV2Profile by viewModel.ikeV2Profile.collectAsState()
+    val ikeV2Up = ikeV2State is VpnEngineState.Connected
+    val ikeV2Connecting = ikeV2State is VpnEngineState.Connecting
+    val ikeV2Error = (ikeV2State as? VpnEngineState.Error)?.message
+
+    var showIkeV2Editor by remember { mutableStateOf(false) }
+    if (showIkeV2Editor) {
+        IkeV2ProfileDialog(
+            initial = ikeV2Profile,
+            onDismiss = { showIkeV2Editor = false },
+            onSave = { server, identity, username, password ->
+                viewModel.saveIkeV2Profile(server, identity, username, password)
+                showIkeV2Editor = false
+            }
+        )
+    }
 
     // Feedback audit finding: "Reset statistik" used to fire on a single tap
     // with no confirmation and no undo. Now gated behind a confirm dialog —
@@ -182,6 +204,27 @@ fun HomeScreen(
             "Registrasi otomatis ke API gratis Cloudflare WARP yang tidak resmi " +
                 "(dipakai proyek open-source seperti wgcf) — bisa berhenti berfungsi " +
                 "kalau Cloudflare mengubah API tanpa pemberitahuan.",
+            color = ShieldTextFaint,
+            fontSize = 10.sp,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
+        )
+
+        Spacer(Modifier.height(12.dp))
+
+        IkeV2ModeCard(
+            active = ikeV2Up,
+            connecting = ikeV2Connecting,
+            error = ikeV2Error,
+            hasProfile = ikeV2Profile != null,
+            onToggle = { turnOn ->
+                if (turnOn) onRequestIkeV2Start() else onStopIkeV2()
+            },
+            onEditProfile = { showIkeV2Editor = true }
+        )
+        Text(
+            "IKEv2 native (android.net.VpnManager) — protokol platform Android, " +
+                "0 dependency pihak ketiga. Belum mendukung split-tunnel per-aplikasi " +
+                "(batasan API, bukan belum dikerjakan).",
             color = ShieldTextFaint,
             fontSize = 10.sp,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 8.dp)
@@ -420,6 +463,144 @@ private fun WarpQualityRow(quality: WarpConnectionQuality) {
         Spacer(Modifier.width(8.dp))
         Text(label, style = ShieldMonoStat.copy(fontSize = 11.sp), color = ShieldTextMuted)
     }
+}
+
+/**
+ * v3.15.0 — first card driven by a [com.fdzaki.adshield.protocol.VpnEngine]
+ * ([com.fdzaki.adshield.protocol.IkeV2VpnEngine]) instead of a direct
+ * Service Intent, mirroring [WarpModeCard]'s layout for visual consistency.
+ * No quality/latency row like WARP's — IKEv2's public state API (API 33+
+ * only, see IkeV2VpnEngine kdoc) doesn't expose that kind of telemetry.
+ */
+@Composable
+private fun IkeV2ModeCard(
+    active: Boolean,
+    connecting: Boolean,
+    error: String?,
+    hasProfile: Boolean,
+    onToggle: (Boolean) -> Unit,
+    onEditProfile: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
+        border = BorderStroke(1.dp, if (active) ShieldGreen.copy(alpha = 0.4f) else ShieldOutline)
+    ) {
+        Column(Modifier.padding(18.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (active) ShieldAccentDim else ShieldSurface2),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Filled.VpnKey,
+                        contentDescription = null,
+                        tint = if (active) ShieldGreen else ShieldTextMuted,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("VPN Tunnel (IKEv2)", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        when {
+                            !hasProfile -> "Belum ada profil tersimpan"
+                            connecting -> "Menyambungkan…"
+                            active -> "Semua trafik terenkripsi lewat server IKEv2"
+                            else -> "Full-tunnel native Android, mode terpisah dari DNS/WARP"
+                        },
+                        fontSize = 12.sp,
+                        color = if (active) ShieldGreen else ShieldTextMuted
+                    )
+                }
+                Switch(
+                    checked = active,
+                    enabled = !connecting && hasProfile,
+                    onCheckedChange = onToggle,
+                    colors = SwitchDefaults.colors(
+                        checkedTrackColor = ShieldGreen,
+                        checkedThumbColor = ShieldSurface
+                    )
+                )
+            }
+            if (error != null) {
+                Spacer(Modifier.height(8.dp))
+                Text("Gagal: $error", color = ShieldDanger, fontSize = 11.sp)
+            }
+
+            Spacer(Modifier.height(12.dp))
+            HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
+            Spacer(Modifier.height(10.dp))
+            TextButton(onClick = onEditProfile, enabled = !active && !connecting) {
+                Text(
+                    if (hasProfile) "Ubah profil server" else "Isi profil server",
+                    fontSize = 12.sp,
+                    color = ShieldGreen
+                )
+            }
+        }
+    }
+}
+
+/** Server/identity/username/password form — username+password (EAP-MSCHAPv2)
+ *  only for now (matches [VpnProfileRepository.saveIkeV2Profile]); certificate
+ *  auth has no UI yet, see that method's kdoc. */
+@Composable
+private fun IkeV2ProfileDialog(
+    initial: VpnProfileRepository.IkeV2StoredProfile?,
+    onDismiss: () -> Unit,
+    onSave: (server: String, identity: String, username: String, password: String) -> Unit
+) {
+    var server by remember { mutableStateOf(initial?.serverAddress ?: "") }
+    var identity by remember { mutableStateOf(initial?.identity ?: "") }
+    var username by remember { mutableStateOf(initial?.username ?: "") }
+    var password by remember { mutableStateOf(initial?.password ?: "") }
+    val canSave = server.isNotBlank() && identity.isNotBlank() && username.isNotBlank() && password.isNotBlank()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Profil server IKEv2") },
+        text = {
+            Column {
+                OutlinedTextField(
+                    value = server, onValueChange = { server = it },
+                    label = { Text("Alamat server") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = identity, onValueChange = { identity = it },
+                    label = { Text("Identity") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = username, onValueChange = { username = it },
+                    label = { Text("Username") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = password, onValueChange = { password = it },
+                    label = { Text("Password") }, singleLine = true,
+                    visualTransformation = androidx.compose.ui.text.input.PasswordVisualTransformation(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(server.trim(), identity.trim(), username.trim(), password) },
+                enabled = canSave
+            ) { Text("Simpan") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Batal") }
+        }
+    )
 }
 
 @Composable

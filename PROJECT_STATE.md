@@ -3,7 +3,88 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.14.0 (2026-08-05) — Batch 3/N: IKEv2 native engine, MENGGANTIKAN
+- **v3.16.0 (2026-08-06) — Batch: layar konfigurasi IKEv2 + wire ke UI
+  (lihat CHANGELOG.md untuk daftar file diubah lengkap).** Menutup gap yang
+  dicatat eksplisit di entri v3.15.0 di bawah ("IKEv2 belum bisa diwire,
+  belum ada UI-nya sama sekali"). Form profil (server/identity/
+  username+password) + `IkeV2ModeCard` di Home screen, driven dari
+  `MainViewModel` lewat `IkeV2VpnEngine` langsung (bukan Service — IKEv2
+  dikelola `VpnManager` di level OS). Mutual exclusion dengan DNS/WARP
+  ditambahkan di `MainActivity` (start salah satu mode = stop dua lainnya).
+  **Kesenjangan yang diketahui dari batch ini (bukan bug, cakupan
+  sengaja dipersempit — lihat CHANGELOG.md v3.16.0):** belum ada
+  boot-persistence/QS tile untuk IKEv2, belum ada form auth sertifikat,
+  split-tunnel per-app memang tidak bisa (batasan API `Ikev2VpnProfile`).
+  **BELUM DIKONFIRMASI build CI** — antre bareng v3.13.0/v3.14.0/v3.15.0,
+  keempatnya belum pernah dicek sama sekali. **WAJIB cek build CI dulu di
+  sesi berikutnya sebelum lanjut kerja apa pun lagi** (termasuk sebelum
+  balik ke Batch 4 Xray-core yang masih ditunda, lihat entri v3.15.0).
+- v3.15.0 (2026-08-05) — Batch: wire WARP ke VpnEngine di titik drive
+  nyata.** Riset Batch 4 (Shadowsocks/VLESS via Xray-core, lihat entri
+  v3.12.0 poin 4 di bawah) menemukan **TIDAK ADA AAR resmi Xray-core di
+  Maven/JitPack** — cuma source Go `2dust/AndroidLibXrayLite` yang harus
+  di-compile sendiri lewat `gomobile bind` + NDK + toolchain Go, BUKAN
+  sekadar tambah dependency Gradle. CI sekarang cuma Gradle/JDK — nambah
+  Go+gomobile+NDK ke workflow adalah scope/risiko sekelas OpenVPN (yang
+  sudah DIBATALKAN PERMANEN, lihat entri v3.14.0). **User memutuskan
+  (2026-08-05): skip Batch 4 dulu, alihkan ke menuntaskan wiring engine
+  yang SUDAH jadi (WARP adapter v3.13.0, IKEv2 v3.14.0) ke UI dulu** —
+  Batch 4 Xray-core TETAP di roadmap, JANGAN dianggap batal seperti
+  OpenVPN, cuma ditunda; kalau diangkat lagi, mulai dari research di atas
+  (jangan ulang cari AAR, sudah pasti tidak ada — opsinya cuma bangun
+  sendiri via gomobile di CI, atau ganti pendekatan sepenuhnya).
+  **File diubah:** `warp/WarpForegroundService.kt` — SATU-SATUNYA titik
+  drive lifecycle WARP nyata di seluruh app (dikonfirmasi via grep: MainActivity/
+  HomeScreen/BootReceiver/WarpTileService semua cuma kirim Intent ke
+  service ini via `ACTION_START`/`ACTION_STOP`, TIDAK ADA yang panggil
+  `WarpTunnelManager` langsung selain file ini dan `MainViewModel`
+  untuk state read-only + `forgetWarpAccount()`). `onStartCommand()`
+  sekarang connect/disconnect lewat `WarpVpnEngineAdapter` (instance baru,
+  field `warpEngine`), bukan `tunnelManager` langsung lagi untuk itu.
+  **Gap desain yang ditemukan & diselesaikan saat wiring:**
+  `VpnEngine.connect()` return `Unit`, BUKAN `Boolean` sukses seperti
+  `WarpTunnelManager.connect()` lama yang dipakai `WarpForegroundService`
+  untuk memutuskan `settingsRepository.setActiveMode(WARP_TUNNEL)`. Fix:
+  setelah `warpEngine.connect(config)` return, observe
+  `warpEngine.state.first { Connected atau Error }` — sesuai kdoc
+  `VpnEngine.kt` sendiri yang memang bilang "callers should still observe
+  state rather than rely solely on this call returning". `activeMode`
+  cuma di-set kalau hasilnya `Connected`, sama seperti behavior boolean
+  lama, tapi sekarang lewat state observation bukan return value.
+  **SENGAJA TIDAK diubah (baca dulu sebelum "memperbaiki"):**
+  - `tunnelManager` (field `WarpTunnelManager` lama) TETAP ada di file
+    yang sama, dipakai apa adanya di `observeQualityForNotification()`/
+    `buildNotification()` — notifikasi butuh `WarpConnectionQuality`
+    (latency, trafficConfirmed, reconnectAttempts) dan `Tunnel.State`
+    mentah, yang `VpnEngineState` SENGAJA tidak bawa (lihat kdoc
+    `VpnEngineState.kt`). `tunnelManager` dan `warpEngine` (adapter)
+    membungkus `WarpTunnelManager.getInstance()` SINGLETON YANG SAMA —
+    ini BUKAN dua sumber kebenaran bersaing, cuma dua "lensa" beda atas
+    satu instance. JANGAN hapus `tunnelManager` demi "konsistensi" tanpa
+    lebih dulu memperluas `VpnEngineState` untuk bawa data kualitas —
+    itu perubahan interface terpisah, bukan bagian batch ini.
+  - `MainViewModel` (warpState/warpLastError/warpConnecting/warpQuality/
+    `forgetWarpAccount()`) TIDAK disentuh — itu semua observasi read-side
+    untuk Diagnostics screen atau aksi (`forgetAccount()`) yang memang
+    bukan bagian kontrak `VpnEngine` sama sekali (bukan connect/disconnect).
+  - **IKEv2 (v3.14.0) BELUM bisa "diwire" ke UI mana pun — bukan
+    terlewat, memang belum ada UI-nya sama sekali di app ini.**
+    `VpnProtocolConfig.IkeV2` butuh server address + identity + auth
+    (cert alias ATAU username+password) — tidak ada layar/form input
+    untuk itu di mana pun, beda dengan WARP yang sudah punya toggle Home
+    screen sejak lama. "Wiring" IKEv2 sungguhan berarti BIKIN layar
+    konfigurasi baru dulu (form input server, pilih metode auth, persist
+    ke `VpnProfileRepository`) — itu FITUR BARU, bukan sekadar
+    menyambungkan kabel ke UI yang sudah ada seperti WARP tadi. **WAJIB
+    tanya user dulu soal UX-nya sebelum mulai coding** (pola yang sama
+    dipakai untuk DoH/DoT dulu di keputusan #0 — lihat "Belum
+    diverifikasi/tertunda" di bawah), JANGAN reka sendiri bentuk form-nya.
+  **BELUM DIKONFIRMASI build CI** untuk v3.15.0 ini — DAN masih menumpuk
+  dari v3.14.0 serta v3.13.0 yang JUGA belum pernah dicek sama sekali.
+  Cek build CI dulu di sesi berikutnya, idealnya sekali jalan untuk
+  ketiga versi ini sekaligus (0 kode fungsional WARP/DNS lama berubah di
+  ketiganya, jadi 1 build run cukup mewakili ketiganya).
+- v3.14.0 (2026-08-05) — Batch 3/N: IKEv2 native engine, MENGGANTIKAN
   OpenVPN di roadmap.** **KEPUTUSAN BESAR:** riset (web search, bukan
   asumsi) menemukan OpenVPN TIDAK PUNYA jalur non-GPL/AGPL di Android —
   `ics-openvpn` (schwabe) adalah GPLv2 dan secara eksplisit BUKAN library

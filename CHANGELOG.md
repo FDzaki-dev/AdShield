@@ -1,5 +1,93 @@
 # Changelog
 
+## v3.16.0 — Batch: bikin layar konfigurasi IKEv2 + wire ke UI (2026-08-06)
+
+> Lanjutan v3.15.0. `IkeV2VpnEngine` (v3.14.0) belum punya UI sama sekali
+> (server/identity/auth belum ada form input di mana pun) — batch ini
+> menambah form profil + kartu toggle di Home screen, driven langsung dari
+> `MainViewModel` (bukan lewat Service khusus seperti DNS/WARP — IKEv2
+> tunnelnya dikelola `android.net.VpnManager` di level OS begitu
+> diprovision, jadi tidak butuh custom `VpnService` subclass sendiri).
+
+**File baru:** tidak ada (semua perubahan additive ke file existing).
+
+**File diubah:**
+- `data/VpnProfileRepository.kt` — `saveIkeV2Profile`/`getIkeV2Profile`
+  (username+password/EAP-MSCHAPv2 saja; auth sertifikat belum ada form-nya,
+  lihat kdoc).
+- `ui/MainViewModel.kt` — instance `IkeV2VpnEngine`, state `ikeV2State`,
+  `ikeV2Profile`, `saveIkeV2Profile()`, `prepareIkeV2Consent()`,
+  `connectIkeV2()`/`disconnectIkeV2()`. `activeMode` di-set `AppMode.IKEV2`
+  cuma di `connectIkeV2()` (tidak nunggu observasi `Connected` seperti fix
+  WARP di v3.15.0 — beda kasus, IKEv2 API 30-32 memang `Connected` optimis
+  segera, lihat `IkeV2VpnEngine.startMonitoring()`).
+- `ui/screens/HomeScreen.kt` — `IkeV2ModeCard` (mirror gaya `WarpModeCard`)
+  + `IkeV2ProfileDialog` (form server/identity/username/password).
+- `MainActivity.kt` — `ikeV2ConsentLauncher` (launcher terpisah dari
+  `vpnPermissionLauncher` — consent IKEv2 lewat
+  `VpnManager.provisionVpnProfile()`, bukan `VpnService.prepare()`),
+  `requestIkeV2Start()`. Mutual exclusion: `startDnsService()`/
+  `startWarpService()` sekarang juga panggil `viewModel.disconnectIkeV2()`;
+  `requestIkeV2Start()` stop DNS+WARP dulu.
+
+**SENGAJA TIDAK dikerjakan (di luar scope batch ini):**
+- Boot-persistence (`BootReceiver`) dan QS tile untuk IKEv2 — beda dari
+  DNS/WARP yang sudah punya keduanya. IKEv2 hanya start/stop manual dari
+  Home screen untuk saat ini.
+- Auth sertifikat (`certificateAlias`) — form cuma username+password.
+- Split-tunnel per-app — memang tidak bisa (batasan `Ikev2VpnProfile`, lihat
+  kdoc `VpnProtocolConfig.IkeV2`), bukan belum dikerjakan.
+
+**BELUM DIKONFIRMASI build CI** — menumpuk di antrean yang sama dengan
+v3.13.0/v3.14.0/v3.15.0 (lihat entri-entri itu), semuanya BELUM PERNAH
+dicek sama sekali. Cek build CI dulu di sesi berikutnya sebelum lanjut
+apa pun — idealnya satu run mewakili keempatnya sekaligus.
+
+## v3.15.0 — Batch: wire WARP ke VpnEngine di titik drive nyata (2026-08-05)
+
+> Riset Batch 4 (Shadowsocks/VLESS via Xray-core) menemukan TIDAK ADA AAR
+> resmi di Maven/JitPack — cuma source Go (2dust/AndroidLibXrayLite) yang
+> harus di-compile sendiri via gomobile+NDK, scope/risiko mirip OpenVPN.
+> User pilih skip dulu, alihkan ke menuntaskan wiring engine yang sudah ada
+> (WARP adapter v3.13.0 + IKEv2 v3.14.0) ke UI dulu.
+
+**File diubah:** `warp/WarpForegroundService.kt` — SATU-SATUNYA titik drive
+lifecycle WARP nyata di seluruh app (MainActivity/HomeScreen/BootReceiver/
+WarpTileService semua cuma kirim Intent ke service ini, tidak pernah panggil
+`WarpTunnelManager` langsung). `connect()`/`disconnect()` sekarang lewat
+`WarpVpnEngineAdapter`, bukan `WarpTunnelManager` langsung — membuktikan
+abstraksi `VpnEngine` benar-benar men-drive trafik produksi.
+
+**Gap desain yang ditemukan & diselesaikan:** `VpnEngine.connect()`
+mengembalikan `Unit`, bukan `Boolean` sukses seperti
+`WarpTunnelManager.connect()` lama. Diganti dengan observasi
+`warpEngine.state.first { Connected atau Error }` setelah `connect()`
+return, sesuai kdoc `VpnEngine.kt` sendiri ("callers should still observe
+state"). `activeMode` cuma di-set `WARP_TUNNEL` kalau hasilnya `Connected`.
+
+**SENGAJA TIDAK diubah:** `tunnelManager` (instance `WarpTunnelManager`)
+TETAP dipakai apa adanya di `observeQualityForNotification()`/
+`buildNotification()` — butuh detail `WarpConnectionQuality`/`Tunnel.State`
+yang memang tidak dibawa `VpnEngineState`. Kedua objek (`tunnelManager` &
+`warpEngine`) membungkus singleton `WarpTunnelManager.getInstance()` yang
+SAMA — bukan dua sumber kebenaran bersaing. `MainViewModel` (state
+`warpState`/`warpQuality`/`forgetWarpAccount()` untuk Diagnostics screen)
+JUGA TIDAK diubah — itu observasi/aksi read-side, bukan titik drive
+connect/disconnect, dan `forgetAccount()` bukan bagian kontrak `VpnEngine`.
+
+**IKEv2 (v3.14.0) BELUM bisa di-"wire" — bukan diabaikan, memang belum ada
+UI-nya sama sekali.** `VpnProtocolConfig.IkeV2` butuh server address,
+identity, dan auth (cert alias ATAU username+password) — tidak ada layar/
+form untuk itu di app manapun saat ini, beda dengan WARP yang sudah
+punya toggle Home screen. Wiring IKEv2 sungguhan = bikin layar konfigurasi
+baru (input server, pilih metode auth, persist `VpnProtocolConfig.IkeV2`)
+dulu — fitur baru, bukan sekadar wiring. **WAJIB tanya user dulu soal UX-nya
+sebelum mulai** (mirip keputusan DoH/DoT yang disisihkan v2.5.0).
+
+**BELUM DIKONFIRMASI build CI** untuk batch ini (juga masih menumpuk dari
+v3.14.0/v3.13.0 yang juga belum pernah dicek) — cek build CI dulu di sesi
+berikutnya, idealnya sekali jalan untuk ketiga versi ini sekaligus.
+
 ## v3.14.0 — Batch 3/N: IKEv2 native engine, ganti OpenVPN (2026-08-05)
 
 > **Keputusan besar:** OpenVPN DIBATALKAN dari roadmap — riset menemukan
