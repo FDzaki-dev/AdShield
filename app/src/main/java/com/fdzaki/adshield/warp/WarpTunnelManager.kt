@@ -100,6 +100,22 @@ class WarpTunnelManager(context: Context) {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var lastKnownNetwork: Network? = null
 
+    // v3.16.7 — Reliability audit: captive portal detection. Before this, a captive-portal
+    // network (airport/cafe WiFi login page) looked identical to "internet benar-benar mati"
+    // to the watchdog — probeTrace() just times out either way since the portal blocks all
+    // non-portal traffic, so it burned the full MAX_RECONNECT_ATTEMPTS budget retrying a
+    // WireGuard handshake that cannot possibly succeed until the user logs in through a
+    // browser. Uses Android's own per-network NET_CAPABILITY_CAPTIVE_PORTAL flag (the same
+    // signal that drives the system "Sign in to network" notification) instead of guessing
+    // from probe failures, which is unreliable — a captive portal can still let some UDP
+    // through in ways that don't cleanly time out.
+    private val _captivePortalDetected = MutableStateFlow(false)
+    /** True while the OS reports the active network is behind an unauthenticated captive
+     *  portal. Exposed for future UI wiring; currently only changes [lastError]'s wording
+     *  and pauses reconnect-attempt spending (see [attemptReconnect]). */
+    val captivePortalDetected: StateFlow<Boolean> = _captivePortalDetected
+    @Volatile private var captivePortalActive = false
+
     /** Registers a new WARP identity if none is stored yet. Safe to call every connect().
      *
      *  v3.16.5 — reliability audit: this used to be a single-shot call with no retry at
@@ -188,6 +204,8 @@ class WarpTunnelManager(context: Context) {
         }
         accountRepository.setWasTunnelRunning(false)
         _quality.value = WarpConnectionQuality()
+        captivePortalActive = false
+        _captivePortalDetected.value = false
     }
 
     /** Picks the fastest endpoint + highest working MTU before bringing the tunnel up.
@@ -253,6 +271,24 @@ class WarpTunnelManager(context: Context) {
                 val previous = lastKnownNetwork
                 lastKnownNetwork = network
                 if (previous != null && previous != network && desiredRunning) {
+                    managerScope.launch { attemptReconnect(immediate = true) }
+                }
+            }
+
+            override fun onCapabilitiesChanged(network: Network, capabilities: NetworkCapabilities) {
+                if (network != lastKnownNetwork) return
+                val portalNow = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL)
+                if (portalNow == captivePortalActive) return
+                captivePortalActive = portalNow
+                _captivePortalDetected.value = portalNow
+                if (!desiredRunning) return
+                if (portalNow) {
+                    _lastError.value = CAPTIVE_PORTAL_MESSAGE
+                } else {
+                    // Portal login just completed (or the OS otherwise cleared the flag) —
+                    // the network is genuinely usable again now, so recover right away
+                    // instead of waiting for the next periodic health-check tick.
+                    _lastError.value = null
                     managerScope.launch { attemptReconnect(immediate = true) }
                 }
             }
@@ -340,6 +376,14 @@ class WarpTunnelManager(context: Context) {
     }
 
     private suspend fun registerProbeFailure() {
+        if (captivePortalActive) {
+            // Don't spend consecutiveFailures/reconnectAttempts budget on a network we
+            // already know is blocked behind a portal login — probeTrace() failing here is
+            // expected and tells us nothing new. onCapabilitiesChanged() drives recovery
+            // once the portal capability actually clears.
+            _quality.value = _quality.value.copy(lastCheckedAt = System.currentTimeMillis())
+            return
+        }
         val failures = _quality.value.consecutiveFailures + 1
         _quality.value = _quality.value.copy(
             consecutiveFailures = failures,
@@ -364,6 +408,13 @@ class WarpTunnelManager(context: Context) {
      *  for "server seems to be having trouble". */
     private suspend fun attemptReconnect(immediate: Boolean = false) {
         if (reconnecting || !desiredRunning) return
+        if (captivePortalActive) {
+            // Guards both call sites: registerProbeFailure() (already skips before calling
+            // this) and onAvailable()'s immediate network-switch path, which can otherwise
+            // fire a doomed reconnect the instant a captive-portal network is (re)selected.
+            _lastError.value = CAPTIVE_PORTAL_MESSAGE
+            return
+        }
         reconnecting = true
         try {
             val attempts = _quality.value.reconnectAttempts + 1
@@ -503,6 +554,12 @@ class WarpTunnelManager(context: Context) {
         private const val REGISTER_BASE_BACKOFF_MS = 2_000L
         private const val REGISTER_MAX_BACKOFF_MS = 10_000L
         private const val TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
+        // v3.16.7 — shown instead of the generic "auto-reconnect dihentikan" message when
+        // the OS confirms the network itself is behind a captive portal, so the user knows
+        // to open a browser rather than assuming the app/tunnel is broken.
+        private const val CAPTIVE_PORTAL_MESSAGE =
+            "Jaringan WiFi ini butuh login (captive portal) — buka browser untuk login, " +
+                "WARP akan otomatis tersambung lagi setelahnya."
         private const val PERSISTENT_KEEPALIVE_SEC = 25 // NAT/carrier timeouts are commonly <60s
         // How long a probed endpoint+MTU stays trusted before selectEndpointAndMtu() re-probes
         // from scratch on a fresh connect() — long enough to avoid re-probing on every quick

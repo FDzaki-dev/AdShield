@@ -1,5 +1,52 @@
 # Changelog
 
+## v3.16.7 — Reliability audit batch 3/N: captive portal detection (2026-08-06)
+
+> Lanjutan checklist Reliability dari user (item ke-3): membedakan
+> "jaringan butuh login captive portal" dari "internet benar-benar mati",
+> yang sebelumnya terlihat identik ke watchdog WARP.
+
+**Masalah:** `probeTrace()` (HTTP request ke `cdn-cgi/trace` lewat tunnel)
+timeout/gagal dengan cara yang sama persis baik saat internet benar-benar
+mati maupun saat jaringan WiFi terkunci di halaman login captive portal
+(bandara/kafe) — WireGuard handshake sama-sama tidak bisa tembus sampai
+user login. Akibatnya watchdog menghabiskan seluruh budget
+`MAX_RECONNECT_ATTEMPTS` mencoba reconnect yang pasti gagal, lalu
+menampilkan pesan generik "auto-reconnect dihentikan" yang menyesatkan
+user (app/tunnel dikira rusak, padahal cuma butuh login WiFi).
+
+**`app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt`**
+- Tambah `onCapabilitiesChanged` di `NetworkCallback` yang sudah ada
+  (dipakai untuk fast-reconnect network-switch) — cek
+  `NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL`, flag resmi Android
+  yang sama dipakai notifikasi sistem "Sign in to network". Dipilih
+  dibanding menebak dari pola kegagalan probe karena lebih andal (captive
+  portal kadang meloloskan sebagian UDP tanpa timeout bersih).
+- State baru: `captivePortalDetected: StateFlow<Boolean>` (public, untuk
+  wiring UI masa depan — belum dipakai HomeScreen di batch ini) +
+  `captivePortalActive` internal flag.
+- Saat portal terdeteksi: `lastError` diisi pesan spesifik ("butuh login,
+  buka browser") menggantikan pesan generik; `registerProbeFailure()` dan
+  `attemptReconnect()` di-guard supaya TIDAK membuang budget
+  `consecutiveFailures`/`reconnectAttempts` selama portal masih aktif —
+  keduanya cuma diam-diam skip sampai capability berubah, tidak berpura-pura
+  ada progres.
+- Saat portal capability hilang (user sudah login): `lastError`
+  dibersihkan + langsung `attemptReconnect(immediate = true)`, tidak
+  menunggu tick health-check berikutnya (~25 detik) — budget reconnect yang
+  di-freeze tadi masih utuh.
+- `disconnect()` reset `captivePortalActive`/`captivePortalDetected` supaya
+  toggle manual off-on tidak membawa state portal basi dari sesi
+  sebelumnya.
+
+**Belum dikerjakan dari checklist Reliability (lihat PROJECT_STATE.md):**
+verifikasi runtime `networkCallback` setelah airplane-mode off/on, dan
+unit test untuk retry registrasi (v3.16.5) / fix give-up state (v3.16.6) —
+keduanya butuh `WarpRegistrationClient`/`GoBackend` di belakang
+interface/DI dulu supaya bisa di-mock di JVM test.
+
+**BELUM DIKONFIRMASI build CI v3.16.7 — cek dulu di sesi berikutnya.**
+
 ## v3.16.6 — Reliability audit batch 2/N: keputusan failover + fix give-up state (2026-08-06)
 
 > User serahkan keputusan failover WARP↔DNS ke Claude ("keputusan terbaik

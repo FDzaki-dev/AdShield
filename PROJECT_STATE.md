@@ -3,7 +3,26 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.6 (2026-08-06) — Reliability audit batch 2/N: keputusan failover
+- **v3.16.7 (2026-08-06) — Reliability audit batch 3/N: captive portal
+  detection.** Item ke-3 checklist Reliability user. Pakai
+  `NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL` (flag resmi Android,
+  sama dengan notifikasi sistem "Sign in to network") di `onCapabilitiesChanged`
+  pada `NetworkCallback` yang sudah ada — bukan menebak dari pola gagal
+  probe. Saat portal aktif: `lastError` diganti pesan spesifik + budget
+  `consecutiveFailures`/`reconnectAttempts` DI-FREEZE (bukan dihabiskan
+  percuma retry yang pasti gagal). Saat portal capability hilang: langsung
+  `attemptReconnect(immediate=true)`, tidak nunggu tick 25 detik
+  berikutnya, budget yang di-freeze tadi masih utuh. State
+  `captivePortalDetected` diekspos publik tapi BELUM diwire ke
+  HomeScreen/UI di batch ini (`lastError` sudah cukup untuk membedakan
+  pesannya di UI existing). **BELUM DIKONFIRMASI build CI v3.16.7** — cek
+  dulu di sesi berikutnya sebelum lanjut item checklist berikutnya.
+  Sisa checklist Reliability: (a) verifikasi runtime networkCallback
+  setelah airplane-mode off/on — ini murni testing device, bukan kerja
+  kode; (b) unit test retry registrasi v3.16.5 / give-up fix v3.16.6 —
+  butuh interface/DI dulu untuk `WarpRegistrationClient`/`GoBackend`
+  supaya bisa di-mock di JVM test (bukan device test).
+- v3.16.6 (2026-08-06) — Reliability audit batch 2/N: keputusan failover
   + fix bug give-up state.** User serahkan keputusan failover WARP↔DNS ke
   Claude. **Keputusan (final, jangan diubah tanpa user minta eksplisit):
   TIDAK ADA auto-switch mode.** WARP dipilih user untuk enkripsi penuh;
@@ -1599,18 +1618,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU (2026-08-06, reliability audit batch 2/N):**
-1. Cek run CI v3.16.6 (build ijo?).
-2. Reliability checklist yang MASIH belum dikerjakan (urutan dari user):
-   - Captive portal detection eksplisit — saat ini cuma network-callback
-     generik + trace probe `warp=on`; halaman login captive portal belum
-     dibedakan dari "internet benar-benar mati".
+**PALING BARU (2026-08-06, reliability audit batch 3/N — captive portal):**
+1. Cek run CI v3.16.7 (build ijo?) — belum pernah dicek sama sekali.
+2. Verifikasi device (idealnya sekalian sesi ini): sambung ke WiFi captive
+   portal sungguhan (hotel/kafe), nyalakan WARP SEBELUM login — cek
+   `lastError` menampilkan pesan captive-portal yang baru (bukan pesan
+   generik "auto-reconnect dihentikan"), lalu login lewat browser — cek
+   WARP otomatis reconnect tanpa toggle manual.
+3. Reliability checklist yang MASIH belum dikerjakan (urutan dari user):
    - Verifikasi runtime (bukan cuma desain) apakah `networkCallback` benar
      memicu reconnect setelah airplane mode dimatikan lagi.
-   - Belum ada unit test untuk retry registrasi (v3.16.5) atau fix give-up
-     state (v3.16.6) — `WarpRegistrationClient`/`GoBackend` butuh
-     interface/DI dulu supaya bisa di-mock di JVM test (bukan device test).
-3. Setelah Reliability dianggap cukup, lanjut ke Concurrency & Lifecycle
+   - Belum ada unit test untuk retry registrasi (v3.16.5), fix give-up
+     state (v3.16.6), atau captive portal (v3.16.7) —
+     `WarpRegistrationClient`/`GoBackend` butuh interface/DI dulu supaya
+     bisa di-mock di JVM test (bukan device test).
+4. Setelah Reliability dianggap cukup, lanjut ke Concurrency & Lifecycle
    (urutan checklist user berikutnya).
 
 **PALING BARU & PALING PENTING (2026-08-05, v3.10.1): konfirmasi fix total
