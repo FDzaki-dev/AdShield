@@ -47,8 +47,16 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
   sudah DIBATALKAN PERMANEN, lihat entri v3.14.0). **User memutuskan
   (2026-08-05): skip Batch 4 dulu, alihkan ke menuntaskan wiring engine
   yang SUDAH jadi (WARP adapter v3.13.0, IKEv2 v3.14.0) ke UI dulu** —
-  Batch 4 Xray-core TETAP di roadmap, JANGAN dianggap batal seperti
-  OpenVPN, cuma ditunda; kalau diangkat lagi, mulai dari research di atas
+  **UPDATE (2026-08-06): status ditingkatkan dari "ditunda" jadi
+  DIBATALKAN PERMANEN — sejajar OpenVPN.** User memutuskan skip protokol
+  yang "banyak mudharatnya", fokus ke yang instant/native kayak
+  WARP+WireGuard (dan IKEv2, sama-sama platform API tanpa dependency
+  pihak ketiga). Alasan sama seperti OpenVPN: Xray-core butuh
+  Go+gomobile+NDK toolchain sendiri (bukan sekadar dependency Gradle) +
+  risiko lisensi. **JANGAN diangkat lagi kecuali user eksplisit minta
+  DAN eksplisit menerima kompleksitas build Go/gomobile serta risiko
+  lisensinya** — sama seperti syarat OpenVPN di atas. Kalau suatu saat
+  diangkat lagi, mulai dari research di atas
   (jangan ulang cari AAR, sudah pasti tidak ada — opsinya cuma bangun
   sendiri via gomobile di CI, atau ganti pendekatan sepenuhnya).
   **File diubah:** `warp/WarpForegroundService.kt` — SATU-SATUNYA titik
@@ -1553,11 +1561,15 @@ ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 build CI sukses dulu untuk batch IKEv2 engine ini (2 file baru/diubah di
 `protocol/`, 0 file DNS/WARP existing disentuh) — perhatikan khusus
 `@RequiresApi`/import `android.net.Ikev2VpnProfile` dkk yang butuh
-compileSdk 34 (sudah terpasang di project ini). BARU putuskan langkah
-berikut: migrasi UI ke `VpnEngine` (WARP+IKEv2 sekaligus, belum diminta
-user) atau lanjut Batch 4 (Shadowsocks/VLESS via Xray-core — WAJIB cek
-dulu Maven/JitPack coordinates AAR resmi yang benar-benar ada, sama
-seperti riset OpenVPN/IKEv2 di atas, JANGAN asumsikan nama artifact).
+compileSdk 34 (sudah terpasang di project ini).
+**UPDATE (2026-08-06): Batch 4 Xray-core (Shadowsocks/VLESS) DIBATALKAN
+PERMANEN**, sejajar OpenVPN — user memutuskan skip protokol yang
+berisiko/kompleks (butuh toolchain Go+gomobile+NDK sendiri + risiko
+lisensi), cukup protokol native/API resmi yang sudah ada: DNS Ad-Block +
+WARP(WireGuard) + IKEv2. **Roadmap protokol VPN dianggap SELESAI**
+kecuali user eksplisit angkat topik protokol baru lagi — kalau iya,
+langkah yang tersisa cuma migrasi UI ke `VpnEngine` terpadu (WARP+IKEv2
+sekaligus, belum diminta user).
 **OpenVPN DIBATALKAN PERMANEN** — jangan diangkat lagi kecuali user
 eksplisit minta & terima konsekuensi GPL/AGPL (lihat entri v3.14.0).
 Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa resolusi pasti —
