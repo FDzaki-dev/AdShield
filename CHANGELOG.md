@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.16.4 — Fix compile error di DnsPacketTest.kt (root cause ketemu) (2026-08-06)
+
+> User upload `log_fail_20260805_221223_run31051760094.zip` — sekarang ada
+> `test-output.log` (hasil fix v3.16.3), dan langsung ketahuan akar
+> masalahnya: `:app:compileDebugUnitTestKotlin FAILED` dengan 6 error
+> `The integer literal does not conform to the expected type Byte` di
+> `DnsPacketTest.kt` baris 27, 28, 144, 145, 160, 161.
+
+**Root cause:** `byteArrayOf(10, 111, 222, 5)` — literal `222` melebihi
+rentang `Byte` Kotlin (-128..127, karena `Byte` signed). Kotlin tidak
+mengizinkan narrowing implisit untuk literal di luar rentang itu, beda
+dengan `10`/`111`/`5`/`1` yang masih di dalam rentang jadi lolos tanpa
+keluhan compiler.
+
+**`app/src/test/java/com/fdzaki/adshield/vpn/DnsPacketTest.kt`**
+- Semua 6 kemunculan `222` di `byteArrayOf(...)` diubah jadi `222.toByte()`
+  (pola yang sama sudah dipakai di file yang sama untuk `0xAB.toByte()`
+  dkk., cuma kelewatan di 4 alamat IP `10.111.222.x` ini). Tidak ada
+  perubahan pada nilai/skenario test, murni fix sintaks Kotlin.
+- Dicek juga: tidak ada literal >127 lain di file test ini (`BlocklistManagerTest.kt`
+  tidak pakai `byteArrayOf` sama sekali, jadi tidak terdampak bug yang sama).
+
+**`app/build.gradle.kts`**
+- `versionCode` 45 → 46, `versionName` 3.16.3 → 3.16.4.
+
+**BELUM DIKONFIRMASI:** run CI v3.16.4. Fix ini sudah pasti membereskan
+error kompilasi yang tercatat di log (itu murni analisis statis kode Kotlin,
+bukan tebakan), tapi belum ada bukti runtime bahwa `compileDebugUnitTestKotlin`
+dan `testDebugUnitTest` benar-benar PASS sampai selesai (mis. assertion di
+dalam test itu sendiri belum pernah tereksekusi sama sekali). Cek run
+berikutnya sebelum lanjut ke audit checklist reliability/dst.
+
 ## v3.16.3 — Fix diagnostic blind spot: run 31051130336 gagal tanpa detail (2026-08-06)
 
 > User upload `log_fail_20260805_220324_run31051130336.zip` — isinya cuma

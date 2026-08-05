@@ -3,8 +3,18 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.3 (2026-08-06) — Fix blind spot diagnostik CI (bukan fix bug
-  aslinya).** Run CI 31051130336 gagal tapi artifact `log_fail_*`-nya cuma
+- **v3.16.4 (2026-08-06) — Root cause CI FAILED ketemu & diperbaiki.**
+  `test-output.log` dari run 31051760094 menunjukkan `compileDebugUnitTestKotlin
+  FAILED`: 6x error "integer literal does not conform to Byte" di
+  `DnsPacketTest.kt` (literal `222` di `byteArrayOf(10, 111, 222, 5)` dkk. —
+  di luar rentang signed Byte -128..127). Fix: tambah `.toByte()` eksplisit
+  di 6 titik itu. **BELUM DIKONFIRMASI**: run CI v3.16.4 — kalau
+  compileDebugUnitTestKotlin lolos, masih perlu cek apakah SEMUA assertion
+  di dalam test benar-benar PASS (bukan cuma compile sukses). Cek run ini
+  dulu sebelum mulai audit checklist reliability/concurrency/security/dst.
+  yang diminta user.
+- v3.16.3 (2026-08-06) — Fix blind spot diagnostik CI (bukan fix bug
+  aslinya). Run CI 31051130336 gagal tapi artifact `log_fail_*`-nya cuma
   berisi `FAILURE_SUMMARY.txt` 3 baris — TIDAK ADA info penyebab sama
   sekali (kemungkinan besar: compile error Kotlin di test sourceset yang
   ditambah v3.16.2, yang tidak menulis file report). Fix: console output

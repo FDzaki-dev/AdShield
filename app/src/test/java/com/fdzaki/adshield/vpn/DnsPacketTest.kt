@@ -24,8 +24,8 @@ class DnsPacketTest {
     /** Builds a minimal, valid IPv4/UDP/DNS-query packet asking for [domain]. */
     private fun buildDnsQueryPacket(
         domain: String,
-        srcAddr: ByteArray = byteArrayOf(10, 111, 222, 5),
-        dstAddr: ByteArray = byteArrayOf(10, 111, 222, 1),
+        srcAddr: ByteArray = byteArrayOf(10, 111, 222.toByte(), 5),
+        dstAddr: ByteArray = byteArrayOf(10, 111, 222.toByte(), 1),
         srcPort: Int = 54321,
         dstPort: Int = 53,
         transactionId: ByteArray = byteArrayOf(0x12, 0x34)
@@ -141,8 +141,8 @@ class DnsPacketTest {
     fun `buildBlockedResponse produces a well-formed 0-point-0-point-0-point-0 A-record reply`() {
         val packetBytes = buildDnsQueryPacket(
             "blocked.example.com",
-            srcAddr = byteArrayOf(10, 111, 222, 5),
-            dstAddr = byteArrayOf(10, 111, 222, 1),
+            srcAddr = byteArrayOf(10, 111, 222.toByte(), 5),
+            dstAddr = byteArrayOf(10, 111, 222.toByte(), 1),
             srcPort = 40000,
             dstPort = 53,
             transactionId = byteArrayOf(0x99.toByte(), 0x88.toByte())
@@ -157,8 +157,8 @@ class DnsPacketTest {
         assertEquals(17, buf.get(9).toInt() and 0xFF)        // protocol UDP
         val respSrcAddr = ByteArray(4).also { buf.position(12); buf.get(it) }
         val respDstAddr = ByteArray(4).also { buf.get(it) }
-        assertArrayEquals(byteArrayOf(10, 111, 222, 1), respSrcAddr) // spoofed as fake DNS server
-        assertArrayEquals(byteArrayOf(10, 111, 222, 5), respDstAddr) // back to the requesting app
+        assertArrayEquals(byteArrayOf(10, 111, 222.toByte(), 1), respSrcAddr) // spoofed as fake DNS server
+        assertArrayEquals(byteArrayOf(10, 111, 222.toByte(), 5), respDstAddr) // back to the requesting app
 
         // UDP header (starts at byte 20)
         val respSrcPort = ((response[20].toInt() and 0xFF) shl 8) or (response[21].toInt() and 0xFF)
