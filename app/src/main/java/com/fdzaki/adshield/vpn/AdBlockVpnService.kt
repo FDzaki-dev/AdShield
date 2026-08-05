@@ -100,14 +100,24 @@ class AdBlockVpnService : VpnService() {
         // network is a correctness bug, not just a perf one.
         DnsCache.clear()
 
+        // Feedback audit finding (v3.8.1): setWasRunning(true)/setActiveMode(DNS_ADBLOCK)
+        // used to fire unconditionally right here, BEFORE builder.establish() below even
+        // ran — and were never reverted if establish() failed. SettingsRepository.activeMode
+        // is the single source of truth read by both QS tiles (DnsTileService/WarpTileService)
+        // and MainViewModel.vpnActive (see MainViewModel/HomeScreen), so a failed VPN
+        // interface used to leave the tile AND the Home ring both stuck showing "ACTIVE"
+        // forever — a silent false positive with no correction until the user happened to
+        // open Diagnostics. WARP's path (WarpForegroundService) already gated this
+        // correctly on `if (connected)`; DNS mode did not. Now symmetric: the write only
+        // happens after establish() is confirmed to have actually produced an interface —
+        // see the success tail below and the explicit setActiveMode(NONE) in the failure
+        // branch a few lines down.
         serviceScope.launch {
             blocklist.loadDefaultList(applicationContext)
             blocklist.loadCachedRemoteListIfPresent(applicationContext)
             blocklist.setCustomBlocked(settingsRepository.customBlockedDomains.firstValue())
             blocklist.setCustomAllowed(settingsRepository.customAllowedDomains.firstValue())
             blocklist.setWhitelistedApps(settingsRepository.whitelistedApps.firstValue())
-            settingsRepository.setWasRunning(true)
-            settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.DNS_ADBLOCK)
         }
 
         val builder = Builder()
@@ -139,10 +149,23 @@ class AdBlockVpnService : VpnService() {
                 _lastError.value = "Antarmuka VPN gagal dibuat (establish() null). " +
                     "Kemungkinan ada VPN/app lain yang sedang memegang koneksi VPN."
             }
+            // Explicitly force NONE rather than leaving activeMode untouched: this stop
+            // path also runs after a mode-switch (WARP->DNS), where the old WARP entry has
+            // already been told to stop but activeMode may still read WARP_TUNNEL — leaving
+            // it as-is would make the tile/ring show the OLD mode as active even though
+            // nothing is actually running.
+            serviceScope.launch {
+                settingsRepository.setWasRunning(false)
+                settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.NONE)
+            }
             return
         }
         _lastError.value = null
         running.set(true)
+        serviceScope.launch {
+            settingsRepository.setWasRunning(true)
+            settingsRepository.setActiveMode(com.fdzaki.adshield.util.AppMode.DNS_ADBLOCK)
+        }
         startForeground(Constants.NOTIF_ID, buildNotification())
         loopExecutor.execute { runPacketLoop(iface) }
     }

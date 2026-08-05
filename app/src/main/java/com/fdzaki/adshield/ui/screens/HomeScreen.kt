@@ -67,6 +67,7 @@ fun HomeScreen(
     onRequestBatteryExemption: () -> Unit
 ) {
     val vpnActive by viewModel.vpnActive.collectAsState()
+    val dnsError by viewModel.dnsLastError.collectAsState()
     val blockedCount by viewModel.blockedCount.collectAsState()
     val allowedCount by viewModel.allowedCount.collectAsState()
     val warpState by viewModel.warpState.collectAsState()
@@ -121,6 +122,22 @@ fun HomeScreen(
             style = MaterialTheme.typography.labelLarge,
             color = if (vpnActive) ShieldGreen else ShieldTextMuted
         )
+
+        // Feedback audit finding (v3.8.1): dnsLastError was only ever surfaced on the
+        // Diagnostics screen — a DNS establish() failure left the ring silently showing
+        // "NONAKTIF" with no explanation on the screen the user actually lands on, unlike
+        // WARP's card below which already shows `error = warpError` inline. Only shown
+        // while not active, so it clears itself the moment a start actually succeeds.
+        if (!vpnActive && dnsError != null) {
+            Spacer(Modifier.height(8.dp))
+            Text(
+                dnsError ?: "",
+                style = MaterialTheme.typography.bodySmall,
+                color = ShieldDanger,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 24.dp)
+            )
+        }
 
         Spacer(Modifier.height(28.dp))
 

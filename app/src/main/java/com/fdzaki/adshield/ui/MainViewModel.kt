@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -66,13 +67,22 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val blocklist = BlocklistManager.getInstance()
     private val warpTunnelManager = WarpTunnelManager.getInstance(application)
 
-    private val _vpnActive = MutableStateFlow(false)
-    val vpnActive: StateFlow<Boolean> = _vpnActive
-
     /** Which of the two mutually-exclusive modes is active — persisted, so
      *  it also reflects state correctly right after process restart. */
     val activeMode: StateFlow<String> = settingsRepository.activeMode
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppMode.NONE)
+
+    // Feedback audit finding (v3.8.1): vpnActive used to be a MutableStateFlow flipped
+    // optimistically by MainActivity.startDnsService()/stopDnsService() the instant a tap
+    // happened — true the moment the start Intent was sent, with no link to whether
+    // AdBlockVpnService actually managed to establish the VPN interface. A failed
+    // establish() left this stuck true forever (see AdBlockVpnService.startVpn()). Derived
+    // directly from the same persisted activeMode source WARP already uses (`warpUp`
+    // below) so the ring can no longer disagree with reality; setVpnActive()/_vpnActive are
+    // removed — see MainActivity, which no longer calls them.
+    val vpnActive: StateFlow<Boolean> = activeMode
+        .map { it == AppMode.DNS_ADBLOCK }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     val warpState: StateFlow<Tunnel.State> = warpTunnelManager.state
     val warpLastError: StateFlow<String?> = warpTunnelManager.lastError
@@ -194,10 +204,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ExistingWorkPolicy.REPLACE,
             request
         )
-    }
-
-    fun setVpnActive(active: Boolean) {
-        _vpnActive.value = active
     }
 
     fun toggleAppWhitelist(packageName: String, whitelisted: Boolean) {

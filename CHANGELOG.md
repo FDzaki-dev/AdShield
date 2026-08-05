@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.8.1 — Feedback audit: false-positive "ACTIVE" on DNS failure (2026-08-05)
+
+> User-requested audit of Quick Settings toggle feedback logic (1-batch,
+> direct execution). Root cause found and fixed across 4 files.
+
+**Diperbaiki (bug, bukan fitur baru):**
+1. **`vpn/AdBlockVpnService.kt`** — `activeMode`/`wasRunning` used to be
+   written to DataStore unconditionally BEFORE `builder.establish()` ran,
+   and were never reverted on failure. Since `activeMode` is the single
+   source of truth for both QS tiles (`DnsTileService`/`WarpTileService`)
+   AND the Home ring (`MainViewModel.vpnActive`), a failed VPN interface
+   left both stuck showing "ON" forever with zero correction — a silent
+   false positive. WARP's equivalent path already gated this correctly on
+   `if (connected)`; DNS mode did not. Now symmetric: write only happens
+   after `establish()` confirmed success; explicit `setActiveMode(NONE)` on
+   failure (also covers the WARP→DNS mode-switch-then-fail case, where the
+   old mode would otherwise linger as "active").
+2. **`ui/MainViewModel.kt`** — `vpnActive` was a `MutableStateFlow` flipped
+   optimistically by `MainActivity` the instant a tap happened, regardless
+   of actual establish() outcome. Removed; now derived directly from the
+   persisted `activeMode` (same pattern WARP's `warpUp` already used), so
+   it structurally cannot disagree with reality anymore.
+3. **`MainActivity.kt`** — removed the now-obsolete
+   `viewModel.setVpnActive(true/false)` calls from `startDnsService()`/
+   `stopDnsService()`.
+4. **`ui/screens/HomeScreen.kt`** — `dnsLastError` was only ever shown on
+   the Diagnostics screen. Now surfaced inline under the ring (mirrors
+   WARP's existing `error = warpError` card) whenever DNS mode isn't active
+   and a last-error is present, so a failure is visible on the screen the
+   user actually lands on.
+
+**Confirmed NOT touched (audited, found correct):** `WarpForegroundService.kt`
+state-write gating, `qs/DnsTileService.kt`/`qs/WarpTileService.kt` tile
+subscription logic itself (bug was upstream in the state source, not the
+tile code), VPN-permission-denied Snackbar/Toast paths (already fixed in a
+prior audit pass, see code comments in `MainActivity.kt`).
+
+**Belum dikerjakan (dicatat, bukan diabaikan):** no transient
+"Menyambungkan…" tile-subtitle feedback during the multi-second WARP
+connect window — would need a `Build.VERSION_CODES.Q` guard (tile subtitle
+API, minSdk is 24) and was judged out of scope for this batch's specific
+ask (the false-positive ACTIVE state). Flagged for a follow-up batch.
+
 ## v3.8.0 — Quick Settings Tile, 2 tile terpisah DNS/WARP (2026-08-05)
 
 > User minta: tile QS terpisah per mode, TIDAK sekadar buka app — tile

@@ -332,11 +332,17 @@ class MainActivity : ComponentActivity() {
      *  starting service's own AppMode write, since they run on independent
      *  coroutine scopes with no ordering guarantee (see AdBlockVpnService /
      *  WarpForegroundService for details). */
+    // Feedback audit finding (v3.8.1): these used to call viewModel.setVpnActive(true/false)
+    // right here — the instant the tap happened, regardless of whether
+    // AdBlockVpnService.startVpn() actually managed to establish the VPN interface.
+    // viewModel.vpnActive is now derived straight from the persisted activeMode
+    // (see MainViewModel), which AdBlockVpnService only writes DNS_ADBLOCK into AFTER a
+    // successful establish() — so no separate manual flip is needed or correct here
+    // anymore; the ring updates itself once the real state lands.
     private fun startDnsService() {
         stopWarpService(isModeSwitch = true)
         val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
-        viewModel.setVpnActive(true)
     }
 
     private fun stopDnsService(isModeSwitch: Boolean = false) {
@@ -344,7 +350,6 @@ class MainActivity : ComponentActivity() {
             .setAction(AdBlockVpnService.ACTION_STOP)
             .putExtra(AdBlockVpnService.EXTRA_MODE_SWITCH, isModeSwitch)
         startService(intent)
-        viewModel.setVpnActive(false)
     }
 
     private fun startWarpService() {
