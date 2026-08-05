@@ -159,7 +159,12 @@ gejala.
 
 ## Status proyek
 
-- **v3.13.0 (terbaru)** — Batch 2/N: adaptasi WireGuard/WARP existing ke
+- **v3.14.0 (terbaru)** — Batch 3/N: IKEv2 native (`protocol/IkeV2VpnEngine.kt`)
+  pakai `android.net.VpnManager`/`Ikev2VpnProfile` platform API (0
+  dependency pihak ketiga). OpenVPN dibatalkan permanen dari roadmap —
+  tidak ada jalur non-GPL/AGPL yang legit di Android. Belum di-wire ke
+  UI, belum dikonfirmasi build CI (lihat PROJECT_STATE.md).
+- v3.13.0 — Batch 2/N: adaptasi WireGuard/WARP existing ke
   interface `VpnEngine` (`protocol/WarpVpnEngineAdapter.kt`). 0 baris di
   package `warp/` diubah — adapter murni membungkus `WarpTunnelManager`
   yang sudah ada, belum di-wire ke UI mana pun. Belum dikonfirmasi build
@@ -227,11 +232,12 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
-- **Multi-protokol VPN (v3.12.0+, batch 2/N sudah selesai statis)** —
+- **Multi-protokol VPN (v3.12.0+, batch 3/N sudah selesai statis)** —
   perluasan dari 2 mode jadi VPN client multi-protokol: WireGuard/WARP
-  sudah diadaptasi ke `VpnEngine` (v3.13.0, belum di-wire ke UI); OpenVPN,
-  IKEv2/IPsec, Shadowsocks/VLESS masih placeholder. Rilis bertahap 1
-  protokol per batch. Lihat PROJECT_STATE.md untuk urutan & status detail.
+  (v3.13.0) dan IKEv2 native (v3.14.0) sudah punya `VpnEngine`; OpenVPN
+  **dibatalkan permanen** (GPL/AGPL, lihat PROJECT_STATE.md);
+  Shadowsocks/VLESS masih placeholder. Rilis bertahap 1 protokol per
+  batch. Lihat PROJECT_STATE.md untuk urutan & status detail.
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
 - ~~DNS AdBlocker: custom DNS terenkripsi (DoH/DoT)~~ — **DoH selesai

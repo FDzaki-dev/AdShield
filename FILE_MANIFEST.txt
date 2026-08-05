@@ -17,6 +17,7 @@ app/src/main/java/com/fdzaki/adshield/data/VpnProfileRepository.kt
 app/src/main/java/com/fdzaki/adshield/data/db/AppDatabase.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogDao.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogEntity.kt
+app/src/main/java/com/fdzaki/adshield/protocol/IkeV2VpnEngine.kt
 app/src/main/java/com/fdzaki/adshield/protocol/VpnEngine.kt
 app/src/main/java/com/fdzaki/adshield/protocol/VpnEngineState.kt
 app/src/main/java/com/fdzaki/adshield/protocol/VpnProtocolConfig.kt

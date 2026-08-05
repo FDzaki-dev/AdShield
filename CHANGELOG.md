@@ -1,5 +1,52 @@
 # Changelog
 
+## v3.14.0 — Batch 3/N: IKEv2 native engine, ganti OpenVPN (2026-08-05)
+
+> **Keputusan besar:** OpenVPN DIBATALKAN dari roadmap — riset menemukan
+> TIDAK ADA library resmi non-GPL/AGPL untuk OpenVPN di Android
+> (`ics-openvpn`=GPLv2, `openvpn3` core resmi OpenVPN Inc=AGPLv3, dan
+> OpenVPN Inc menolak commercial license). Pakai keduanya berarti seluruh
+> AdShield wajib ikut open-source. User pilih skip permanen, loncat ke
+> IKEv2 native Android — **0 dependency pihak ketiga, 0 risiko lisensi**
+> (`android.net.VpnManager`/`Ikev2VpnProfile` adalah platform API AOSP,
+> Apache 2.0).
+
+**File baru:**
+1. **`protocol/IkeV2VpnEngine.kt`** — engine `VpnEngine` native pakai
+   `VpnManager`/`Ikev2VpnProfile`. Setiap method/konstanta diverifikasi
+   langsung ke source AOSP (`frameworks/base`) sebelum dipakai, bukan
+   tebakan. 2 batasan platform (bukan gap sementara — batas API itu
+   sendiri): (a) `Ikev2VpnProfile.Builder` butuh API 30+
+   (`FEATURE_IPSEC_TUNNELS`), (b) monitoring state/error publik
+   (`getProvisionedVpnProfileState()`, broadcast `ACTION_VPN_MANAGER_EVENT`)
+   butuh API 33+ — field yang sama ada di source AOSP untuk API 30-32 tapi
+   ditandai `@hide`, TIDAK bisa dipakai app biasa. Di API 30-32, `state`
+   jadi tebakan optimis (`Connected` begitu `startProvisionedVpnProfileSession()`
+   tidak melempar exception), BUKAN sinyal terkonfirmasi.
+
+**File diubah:**
+1. **`protocol/VpnEngine.kt`** — tambah `prepareConsent(config): Intent?`
+   (default `null`, non-breaking). IKEv2 minta consent lewat Intent dari
+   `VpnManager.provisionVpnProfile()` (mirip `VpnService.prepare()` tapi
+   per-call, bukan dicek sekali global) — `VpnEngine` lama tidak punya
+   hook untuk pola ini sama sekali. `WarpVpnEngineAdapter` TIDAK di-override
+   (consent WARP/DNS tetap `VpnService.prepare()` di MainActivity, di luar
+   interface ini).
+2. **`protocol/VpnProtocolConfig.kt`** — tambah `VpnProtocolConfig.IkeV2`
+   dengan 2 metode auth (`certificateAlias` via AndroidKeyStore, atau
+   `username`+`password`/EAP-MSCHAPv2). PSK TIDAK dimodelkan (gap
+   diketahui). Split-tunnel-by-app TIDAK bisa diimplementasi sama sekali
+   dengan API ini (`Ikev2VpnProfile` cuma punya `setBypassable()` global,
+   bukan allow/deny list per-app) — bukan "belum", tapi memang tidak ada
+   di platform API.
+3. **`app/build.gradle.kts`** — versionCode 39→40, versionName 3.13.0→3.14.0.
+
+**BELUM DIWIRE ke UI** (sama seperti WarpVpnEngineAdapter v3.13.0) —
+sengaja, batch ini murni engine + interface. **BELUM dikonfirmasi build
+CI** — cek dulu di sesi berikutnya. Provisioning cert (`certificateAlias`)
+mengasumsikan alias SUDAH ada di AndroidKeyStore — batch ini tidak
+menyediakan UI import sertifikat.
+
 ## v3.13.0 — Batch 2/N: Adaptasi WireGuard/WARP ke VpnEngine (2026-08-05)
 
 > Lanjutan langsung v3.12.0 — urutan batch yang sudah disepakati:

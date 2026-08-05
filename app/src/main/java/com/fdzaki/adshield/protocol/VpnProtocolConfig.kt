@@ -31,6 +31,17 @@ sealed class VpnProtocolConfig {
         override val splitTunnelMode: SplitTunnelMode = SplitTunnelMode.OFF,
     ) : VpnProtocolConfig()
 
+    /**
+     * v3.14.0 — config shape for the native `android.net.VpnManager`/`Ikev2VpnProfile` engine
+     * ([com.fdzaki.adshield.protocol.IkeV2VpnEngine]). Two auth methods are modeled here
+     * (matching what that engine actually implements): [certificateAlias] (RSA digital signature,
+     * key/cert must already exist in AndroidKeyStore — this batch does NOT provision certs) or
+     * [username]+[password] (EAP-MSCHAPv2). Pre-shared key (PSK) auth is NOT modeled — a known
+     * gap, not an oversight; add a `presharedKey` field here first if PSK support is needed later.
+     * [splitTunnelApps]/[splitTunnelMode] are NOT wired — `Ikev2VpnProfile` only exposes a global
+     * `setBypassable(Boolean)` flag, not a per-app allow/deny list, so per-app split tunneling is
+     * not achievable with this platform API at all (not just "not yet implemented").
+     */
     data class IkeV2(
         val serverAddress: String,
         val identity: String,

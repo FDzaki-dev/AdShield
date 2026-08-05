@@ -3,7 +3,67 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.13.0 (2026-08-05) — Batch 2/N: Adaptasi WireGuard/WARP ke `VpnEngine`
+- **v3.14.0 (2026-08-05) — Batch 3/N: IKEv2 native engine, MENGGANTIKAN
+  OpenVPN di roadmap.** **KEPUTUSAN BESAR:** riset (web search, bukan
+  asumsi) menemukan OpenVPN TIDAK PUNYA jalur non-GPL/AGPL di Android —
+  `ics-openvpn` (schwabe) adalah GPLv2 dan secara eksplisit BUKAN library
+  untuk dipakai project lain; `openvpn3` core (dipakai OpenVPN Connect
+  resmi) adalah AGPLv3, dan OpenVPN Inc dikonfirmasi MENOLAK memberi
+  commercial license atas kode itu (support.openvpn.com). Pakai salah
+  satunya berarti SELURUH AdShield wajib ikut open-source. **User
+  memutuskan (2026-08-05): OpenVPN DIBATALKAN PERMANEN dari roadmap**,
+  loncat ke IKEv2 native — JANGAN diangkat lagi kecuali user eksplisit
+  minta dan eksplisit menerima konsekuensi GPL/AGPL.
+  **File baru:** `protocol/IkeV2VpnEngine.kt` — implementasi `VpnEngine`
+  pakai `android.net.VpnManager`/`Ikev2VpnProfile` (platform API AOSP,
+  Apache 2.0, **0 dependency pihak ketiga, 0 risiko lisensi**). Setiap
+  method/konstanta yang dipakai (`Ikev2VpnProfile.Builder`,
+  `setAuthDigitalSignature`/`setAuthUsernamePassword`/`setBypassable`,
+  `VpnManager.provisionVpnProfile`/`startProvisionedVpnProfileSession`/
+  `stopProvisionedVpnProfile`/`getProvisionedVpnProfileState`,
+  `VpnProfileState.STATE_*`, `VpnManager.ACTION_VPN_MANAGER_EVENT` +
+  kategorinya) diverifikasi LANGSUNG ke source AOSP
+  (`frameworks/base/core/java/android/net/{Ikev2VpnProfile,VpnManager,
+  VpnProfileState}.java`) sebelum dipakai di kode — bukan ditebak dari
+  familiarity umum dengan Android.
+  **2 batasan platform (BUKAN gap sementara yang "belum dikerjakan" —
+  ini batas API-nya sendiri, JANGAN dicoba "diperbaiki" tanpa naikkan
+  minSdk engine ini):**
+  1. `Ikev2VpnProfile.Builder(...)` butuh API 30 (Android 11) +
+     `PackageManager.FEATURE_IPSEC_TUNNELS` di device. Di bawah itu,
+     `connect()` langsung `VpnEngineState.Error` tanpa mencoba apa pun.
+  2. Monitoring state/error publik (`VpnManager.
+     getProvisionedVpnProfileState()`, broadcast
+     `ACTION_VPN_MANAGER_EVENT`) butuh API 33 (Android 13). Field yang
+     SAMA ada di source AOSP untuk API 30-32 tapi ditandai `@hide` —
+     TIDAK bisa dipakai app pihak ketiga sama sekali di rentang itu. Di
+     API 30-32, `IkeV2VpnEngine.state` jadi **tebakan optimis**
+     (langsung `Connected` begitu `startProvisionedVpnProfileSession()`
+     tidak melempar exception) — BUKAN konfirmasi tunnel benar-benar
+     jalan. JANGAN klaim device di rentang 30-32 "sudah diverifikasi
+     connect" hanya dari `state` — itu bukan sinyal asli di situ.
+  **Keputusan desain kunci:**
+  - `VpnEngine.prepareConsent(config): Intent?` (default `null`)
+    ditambahkan ke interface — IKEv2 minta consent lewat Intent dari
+    `VpnManager.provisionVpnProfile()` (mirip `VpnService.prepare()` tapi
+    dikembalikan per-call, bukan Activity result code global).
+    `WarpVpnEngineAdapter` (v3.13.0) TIDAK di-override — consent WARP/DNS
+    tetap `VpnService.prepare()` di `MainActivity`, sepenuhnya di luar
+    `VpnEngine`. Ini perubahan ADDITIVE (default method), bukan breaking.
+  - `VpnProtocolConfig.IkeV2` mendukung 2 metode auth: `certificateAlias`
+    (RSA digital signature, key/cert HARUS SUDAH ada di AndroidKeyStore —
+    batch ini TIDAK menyediakan import sertifikat) atau `username`+
+    `password` (EAP-MSCHAPv2). **PSK TIDAK dimodelkan** (gap diketahui,
+    tambah field `presharedKey` dulu kalau nanti dibutuhkan).
+    **Split-tunnel-by-app TIDAK BISA diimplementasi sama sekali** dengan
+    `Ikev2VpnProfile` — API-nya cuma punya `setBypassable(Boolean)`
+    global, tidak ada allow/deny list per-app seperti `VpnService.
+    Builder.addAllowedApplication()`. JANGAN dianggap "belum
+    diimplementasi" — memang tidak ada di platform API ini.
+  **BELUM DIWIRE ke UI** (sama seperti `WarpVpnEngineAdapter` v3.13.0) —
+  sengaja, batch ini murni engine + perluasan interface. **BELUM
+  DIKONFIRMASI build CI** — cek dulu di sesi berikutnya.
+- v3.13.0 (2026-08-05) — Batch 2/N: Adaptasi WireGuard/WARP ke `VpnEngine`
   interface, SELESAI implementasi statis.** Lanjutan langsung v3.12.0, urutan
   batch sesuai rencana yang sudah disepakati (lihat entri v3.12.0 di bawah).
   **File baru:** `protocol/WarpVpnEngineAdapter.kt` — membungkus
@@ -1381,19 +1441,22 @@ Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 
-**PALING BARU (2026-08-05, v3.13.0) — cek ini DULUAN sebelum apa pun lain:**
-build CI sukses dulu untuk batch adapter ini (1 file baru + 1 file config
-diedit, 0 baris `warp/*.kt` disentuh, risiko regresi ke WARP existing
-nyaris nol karena belum di-wire ke UI mana pun) — BARU putuskan apakah
-lanjut Batch 3 (OpenVPN, PALING BERISIKO — lihat peringatan lengkap di
-entri v3.12.0 di bawah) atau migrasi UI ke adapter dulu (belum diminta
-user, opsional). Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa
-resolusi pasti — TIDAK perlu dikejar lagi kecuali user eksplisit angkat
-topik itu lagi.
+**PALING BARU (2026-08-05, v3.14.0) — cek ini DULUAN sebelum apa pun lain:**
+build CI sukses dulu untuk batch IKEv2 engine ini (2 file baru/diubah di
+`protocol/`, 0 file DNS/WARP existing disentuh) — perhatikan khusus
+`@RequiresApi`/import `android.net.Ikev2VpnProfile` dkk yang butuh
+compileSdk 34 (sudah terpasang di project ini). BARU putuskan langkah
+berikut: migrasi UI ke `VpnEngine` (WARP+IKEv2 sekaligus, belum diminta
+user) atau lanjut Batch 4 (Shadowsocks/VLESS via Xray-core — WAJIB cek
+dulu Maven/JitPack coordinates AAR resmi yang benar-benar ada, sama
+seperti riset OpenVPN/IKEv2 di atas, JANGAN asumsikan nama artifact).
+**OpenVPN DIBATALKAN PERMANEN** — jangan diangkat lagi kecuali user
+eksplisit minta & terima konsekuensi GPL/AGPL (lihat entri v3.14.0).
+Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa resolusi pasti —
+TIDAK perlu dikejar lagi kecuali user eksplisit angkat topik itu lagi.
 
-**SEBELUMNYA (2026-08-05, v3.12.0):** build CI batch scaffolding — belum
-dikonfirmasi juga, cek bareng v3.13.0 di atas (satu push, satu run CI
-mencakup keduanya kalau di-bundle jadi satu commit).
+**SEBELUMNYA (2026-08-05, v3.13.0):** build CI batch adapter WARP — belum
+dikonfirmasi juga, cek bareng v3.14.0 di atas kalau di-bundle satu push.
 
 **SEBELUMNYA (2026-08-05, v3.10.2):** fix MTU 32000→1500 — TIDAK
 menolong (superseded by v3.11.0 DoH), jangan diulang cek terpisah.
