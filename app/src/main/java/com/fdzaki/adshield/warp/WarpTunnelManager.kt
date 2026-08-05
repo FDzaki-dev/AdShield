@@ -257,7 +257,17 @@ class WarpTunnelManager(context: Context) {
     private fun startWatchdog() {
         if (watchdogJob?.isActive == true) return
         watchdogJob = managerScope.launch {
-            delay(INITIAL_CHECK_DELAY_MS)
+            // Connection warm-up (v3.9.0 — Internet Surfing Optimization,
+            // batch 2): fire the first health probe immediately instead of
+            // waiting out a fixed startup delay. This does double duty —
+            // it sends the first real packet through the freshly-up
+            // interface (settles WireGuard's handshake/routing right away
+            // rather than leaving it idle), AND it gets a genuine
+            // latency/traffic-confirmed reading onto the UI within roughly
+            // one probe round-trip of connect() instead of leaving the
+            // quality card blank for several seconds.
+            performHealthCheck()
+            delay(HEALTH_CHECK_INTERVAL_MS)
             while (isActive && desiredRunning) {
                 performHealthCheck()
                 delay(HEALTH_CHECK_INTERVAL_MS)
@@ -448,7 +458,6 @@ class WarpTunnelManager(context: Context) {
 
         // Watchdog / connection-quality tuning. Kept conservative to avoid battery drain from
         // a full-tunnel VPN app polling too aggressively.
-        private const val INITIAL_CHECK_DELAY_MS = 8_000L
         private const val HEALTH_CHECK_INTERVAL_MS = 25_000L
         private const val PROBE_TIMEOUT_MS = 4_000
         private const val FAILURE_THRESHOLD = 2

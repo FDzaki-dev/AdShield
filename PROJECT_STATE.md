@@ -3,6 +3,21 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.9.0 (2026-08-05) — Internet Surfing Optimization batch 2: DNS
+  prefetch + cache-warming, WARP connection warm-up, DNS resolver fallback
+  1.1.1.1→1.0.0.1.** Lanjutan roadmap yang di v3.7.0 masih menyisakan 3 item
+  "belum dikerjakan": DNS prefetch, pre-warming domain populer, connection
+  warm-up eksplisit — ketiganya sekarang selesai (lihat CHANGELOG untuk
+  detail lengkap). Ditambah 1 penyesuaian: `UPSTREAM_DNS_SERVERS` fallback
+  diganti dari `8.8.8.8` ke `1.0.0.1` supaya cocok literal dengan requirement
+  "Wajib: DNS cepat 1.1.1.1/1.0.0.1" di roadmap (sebelumnya fallback masih
+  Google, bukan pasangan Cloudflare). Dicek ulang seluruh item roadmap
+  "Internet Surfing Optimization" terhadap kode aktual sebelum mulai —
+  semua item lain (DNS cache, Auto MTU, smart endpoint, fast reconnect, DNS
+  leak protection, kill-switch, packet loss, keepalive 25s, toggle
+  IPv4/IPv6) SUDAH beres sejak v3.7.0/v3.2.1, tidak diimplementasi ulang.
+  **Belum dikonfirmasi build CI + belum ada pengujian di device fisik** —
+  cek dulu di sesi berikutnya sebelum lanjut ke item lain.
 - **v3.8.1 (2026-08-05) — Feedback audit fix: false-positive "ACTIVE" state
   survives DNS establish() failure, across QS tiles + Home ring.** User
   requested: audit "kecacatan logika feedback" di segmen toggle Quick
@@ -1076,7 +1091,19 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**BARU (2026-08-05, v3.8.0): sebelum apa pun yang lain, cek QS Tile di
+**BARU (2026-08-05, v3.9.0): sebelum apa pun yang lain, cek 4 hal dari batch
+Internet Surfing Optimization #2 di device fisik:** (a) build CI sukses
+dulu, (b) nyalakan mode DNS Ad-Block, tunggu ~3 detik, buka Diagnostics/Logs
+— cek apakah ada lookup untuk domain populer (google.com, youtube.com, dst)
+yang muncul TANPA user membuka app apa pun (bukti prefetch jalan), (c)
+buka Chrome/app apa pun ke salah satu domain di `Constants.
+POPULAR_PREFETCH_DOMAINS` segera setelah toggle DNS ON — harus terasa lebih
+cepat resolve pertama kalinya dibanding domain di luar daftar itu, (d)
+nyalakan mode WARP — cek kartu kualitas di Diagnostics/Home terisi
+latency/traffic-confirmed dalam hitungan detik pertama, BUKAN kosong sampai
+~8 detik seperti versi sebelumnya.
+
+**SEBELUMNYA (2026-08-05, v3.8.0): cek QS Tile di
 device fisik.** Urutan: (a) build CI sukses dulu, (b) tambahkan kedua tile
 dari panel "Edit tiles" QS Android, (c) coba toggle DNS saat izin VPN
 BELUM pernah diberikan — konfirmasi dialog izin muncul lalu tile langsung

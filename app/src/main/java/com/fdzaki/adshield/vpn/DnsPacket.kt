@@ -252,6 +252,46 @@ object DnsPacket {
         return null
     }
 
+    /**
+     * Encodes a plain domain string into a raw DNS QUESTION section (labels +
+     * terminator + QTYPE + QCLASS=IN), the same wire format captured from a
+     * real tun packet in [parse]. Used by the DNS-prefetch pass (v3.9.0),
+     * which has no real inbound packet to copy a question section from.
+     */
+    fun encodeQuestionSection(domain: String, qtype: Int): ByteArray {
+        val out = java.io.ByteArrayOutputStream()
+        for (label in domain.split(".")) {
+            if (label.isEmpty()) continue
+            val bytes = label.toByteArray(Charsets.US_ASCII)
+            out.write(bytes.size)
+            out.write(bytes)
+        }
+        out.write(0) // root terminator
+        val name = out.toByteArray()
+        val buf = ByteBuffer.allocate(name.size + 4)
+        buf.put(name)
+        buf.putShort(qtype.toShort())
+        buf.putShort(1) // QCLASS IN
+        return buf.array()
+    }
+
+    /**
+     * Builds a full standalone DNS query message (12-byte header + question),
+     * ready to send straight to an upstream resolver. Used by the DNS-prefetch
+     * pass (v3.9.0) to synthesize a lookup for a domain nobody has actually
+     * asked for yet — [buildForwardedRequest] in AdBlockVpnService instead
+     * always starts from a real captured question section.
+     */
+    fun buildQueryMessage(domain: String, qtype: Int, transactionId: ByteArray): ByteArray {
+        val question = encodeQuestionSection(domain, qtype)
+        val buf = ByteBuffer.allocate(12 + question.size)
+        buf.put(transactionId)
+        buf.putShort(0x0100) // standard query, recursion desired
+        buf.putShort(1); buf.putShort(0); buf.putShort(0); buf.putShort(0)
+        buf.put(question)
+        return buf.array()
+    }
+
     private fun ipv4Checksum(data: ByteArray, offset: Int, length: Int): Int {
         var sum = 0
         var i = offset

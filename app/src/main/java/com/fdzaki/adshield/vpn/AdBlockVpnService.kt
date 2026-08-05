@@ -168,6 +168,75 @@ class AdBlockVpnService : VpnService() {
         }
         startForeground(Constants.NOTIF_ID, buildNotification())
         loopExecutor.execute { runPacketLoop(iface) }
+        prefetchPopularDomains()
+    }
+
+    /**
+     * DNS prefetch / cache warm-up (v3.9.0 — Internet Surfing Optimization,
+     * batch 2). Resolves [Constants.POPULAR_PREFETCH_DOMAINS] in the
+     * background shortly after startup and seeds [DnsCache] with the
+     * answers, so the first REAL query for any of them from an app is
+     * already a cache hit instead of a cold upstream round-trip.
+     *
+     * Deliberately does NOT check the blocklist first: skipping that check
+     * removes a startup-ordering dependency on the blocklist-load coroutine
+     * above, and is harmless either way — a cached answer for a domain that
+     * turns out to be blocked is simply never read, because the packet loop
+     * always checks `blocklist.isBlocked()` BEFORE it ever looks at
+     * [DnsCache] (see `runPacketLoop`). Uses its own dedicated protect()'d
+     * socket, entirely separate from the pooled per-worker-thread sockets in
+     * `forwardToUpstream()`, so a slow/failed prefetch run can never affect
+     * a real in-flight query.
+     */
+    private fun prefetchPopularDomains() {
+        serviceScope.launch(Dispatchers.IO) {
+            kotlinx.coroutines.delay(Constants.PREFETCH_START_DELAY_MS)
+            if (!running.get()) return@launch
+            val socket = try {
+                DatagramSocket().also { protect(it); it.soTimeout = 1500 }
+            } catch (_: Exception) {
+                return@launch
+            }
+            try {
+                for (domain in Constants.POPULAR_PREFETCH_DOMAINS) {
+                    if (!running.get()) break
+                    if (DnsCache.get(domain, DNS_QTYPE_A) == null) {
+                        runCatching { prefetchOne(socket, domain) }
+                    }
+                    kotlinx.coroutines.delay(Constants.PREFETCH_QUERY_GAP_MS)
+                }
+            } finally {
+                runCatching { socket.close() }
+            }
+        }
+    }
+
+    /** One prefetch lookup for a single domain, reusing the same resolver-fallback
+     *  order as real queries. Silent on any failure — a missed prefetch just means
+     *  that domain's first real query pays the normal upstream cost, same as today. */
+    private fun prefetchOne(socket: DatagramSocket, domain: String) {
+        // Fixed marker transaction ID: this reply is only ever consumed by
+        // extractCacheableTtlSeconds()/DnsCache.put() below, never written back
+        // to any app on the tun interface, so it doesn't need to match anything.
+        val txId = byteArrayOf(0x50, 0x50)
+        val request = DnsPacket.buildQueryMessage(domain, DNS_QTYPE_A, txId)
+        val replyBuf = ByteArray(1500)
+        for (server in Constants.UPSTREAM_DNS_SERVERS) {
+            try {
+                socket.send(DatagramPacket(request, request.size, InetSocketAddress(server, Constants.DNS_PORT)))
+                val replyPacket = DatagramPacket(replyBuf, replyBuf.size)
+                socket.receive(replyPacket)
+                val message = replyBuf.copyOf(replyPacket.length)
+                DnsPacket.extractCacheableTtlSeconds(message)?.let { ttl ->
+                    DnsCache.put(domain, DNS_QTYPE_A, message, ttl)
+                }
+                return
+            } catch (_: java.net.SocketTimeoutException) {
+                // try next resolver
+            } catch (_: java.io.IOException) {
+                // try next resolver
+            }
+        }
     }
 
     private fun stopVpn(isModeSwitch: Boolean = false) {
@@ -469,6 +538,9 @@ class AdBlockVpnService : VpnService() {
         // signal at all, unlike WARP which always had lastError.
         private val _lastError = MutableStateFlow<String?>(null)
         val lastError: StateFlow<String?> = _lastError
+
+        /** DNS QTYPE A (IPv4 host address) — used by the prefetch pass, which only ever asks for A records. */
+        private const val DNS_QTYPE_A = 1
     }
 }
 

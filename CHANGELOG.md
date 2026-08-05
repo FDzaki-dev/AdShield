@@ -1,5 +1,67 @@
 # Changelog
 
+## v3.9.0 — Internet Surfing Optimization batch 2: DNS prefetch, warm-up, DNS server switch (2026-08-05)
+
+> Lanjutan roadmap "Internet Surfing Optimization" (batch 1 = v3.7.0). User
+> minta item yang masih tercatat "belum dikerjakan" di v3.7.0 diselesaikan:
+> DNS prefetch, cache domain populer, connection warm-up. Ditambah 1 item
+> "Wajib" dari roadmap yang sebelumnya belum sepenuhnya sesuai (resolver
+> fallback DNS). Analisis statis saja — belum ada pengujian
+> throughput/startup-latency di device fisik.
+
+**Baru:**
+1. **DNS prefetch + cache domain populer** (`vpn/AdBlockVpnService.kt`,
+   `util/Constants.kt`) — 2.5 detik setelah mode DNS Ad-Block aktif, 24
+   domain infrastruktur/CDN bertrafik tinggi (`Constants.
+   POPULAR_PREFETCH_DOMAINS`: Google, YouTube, Apple, Cloudflare, Meta,
+   WhatsApp, TikTok CDN, Microsoft, GitHub, AWS, Wikipedia, X, Discord,
+   Netflix, Spotify) di-resolve di background lewat socket `protect()`
+   terpisah dari socket pooled query nyata, hasil positif langsung masuk
+   `DnsCache` — query PERTAMA app nyata untuk domain-domain ini langsung
+   cache-hit, bukan cold round-trip upstream. Sengaja TIDAK cek blocklist
+   dulu (lihat komentar kode): aman karena packet loop selalu cek
+   `blocklist.isBlocked()` SEBELUM baca `DnsCache`, jadi cache domain yang
+   ternyata diblokir cuma memori terbuang, bukan bug korektnes.
+2. **`vpn/DnsPacket.kt`** — 2 fungsi baru: `encodeQuestionSection()` (encode
+   domain string ke wire-format DNS QUESTION) dan `buildQueryMessage()`
+   (rakit pesan query DNS standalone). Dibutuhkan prefetch karena beda dari
+   forward query biasa, prefetch tidak punya paket tun asli untuk disalin
+   question section-nya.
+3. **Connection warm-up WARP** (`warp/WarpTunnelManager.kt`) —
+   `startWatchdog()` sekarang tembak health-check PERTAMA langsung begitu
+   tunnel UP, bukan tunggu `INITIAL_CHECK_DELAY_MS` (8 detik, dihapus).
+   Manfaat ganda: paket pertama lewat interface baru mempercepat handshake/
+   routing WireGuard settle, DAN kartu kualitas WARP di UI dapat angka
+   latency/traffic-confirmed nyata dalam ~1 round-trip probe, bukan blank
+   sampai 8 detik.
+4. **DNS resolver fallback diganti** (`util/Constants.kt`) —
+   `UPSTREAM_DNS_SERVERS` dari `1.1.1.1, 8.8.8.8` jadi `1.1.1.1, 1.0.0.1`,
+   menyamakan dengan requirement "Wajib: DNS cepat 1.1.1.1/1.0.0.1" di
+   roadmap — resolver kedua sekarang tetap Cloudflare, bukan lompat ke
+   Google saat resolver pertama gagal.
+
+**Item roadmap yang SUDAH beres sejak v3.7.0 (dicek ulang, tidak diulang):**
+DNS cache internal, Auto MTU tuning, Smart endpoint selection, Fast
+reconnect (network-switch watcher), DNS leak protection (struktural via
+WireGuard `AllowedIPs 0.0.0.0/0` + DNS didorong lewat tunnel), Kill-switch
+hardening (reconnect tanpa DOWN dulu), Packet loss detection, Persistent
+keepalive 25s, toggle IPv4/IPv6 routing (`warpRouteIpv6`, sudah ada di
+HomeScreen sejak v3.2.1).
+
+**Item roadmap yang TETAP di luar scope batch ini (perlu keputusan
+arsitektur terpisah, lihat PROJECT_STATE.md):** DoH/DoT untuk mode DNS
+Ad-Block (forward ke upstream saat ini tetap UDP polos by design — lihat
+keputusan lama, bukan regresi baru).
+
+**File disentuh (5):** `util/Constants.kt`, `vpn/DnsPacket.kt`,
+`vpn/AdBlockVpnService.kt`, `warp/WarpTunnelManager.kt`,
+`app/build.gradle.kts` (versionCode 31→32, versionName 3.8.1→3.9.0).
+
+**Belum dikonfirmasi build CI + belum ada pengujian di device fisik**
+(prefetch belum pernah dilihat benar-benar mengurangi cold-lookup di
+Diagnostics/Logs, warm-up WARP belum dicek turunkan waktu-sampai-latency-
+pertama-tampil secara nyata) — cek sesi berikutnya.
+
 ## v3.8.1 — Feedback audit: false-positive "ACTIVE" on DNS failure (2026-08-05)
 
 > User-requested audit of Quick Settings toggle feedback logic (1-batch,

@@ -13,8 +13,12 @@ object Constants {
     const val VPN_ROUTE = "10.111.222.1"
     const val VPN_ADDRESS_PREFIX = 32
 
-    // Real upstream resolvers we forward *allowed* queries to.
-    val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "8.8.8.8")
+    // Real upstream resolvers we forward *allowed* queries to (v3.9.0: both
+    // switched to Cloudflare's pair per the "Internet Surfing Optimization"
+    // roadmap's explicit "DNS cepat" requirement — 1.0.0.1 replaces 8.8.8.8
+    // as the fallback so a first-resolver failure never leaks a query to a
+    // different provider than the one the user asked for).
+    val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "1.0.0.1")
 
     const val DNS_PORT = 53
     const val VPN_MTU = 32000
@@ -54,6 +58,30 @@ object Constants {
     // 1280 as the safe default; we only ever probe UP from there since going
     // below 1280 risks breaking IPv6 path MTU requirements.
     val WARP_MTU_CANDIDATES = listOf(1420, 1400, 1360, 1280)
+
+    // DNS prefetch / cache pre-warming (v3.9.0 — Internet Surfing
+    // Optimization, batch 2). A short, deliberately conservative list of
+    // very high-traffic, non-tracker infra domains (CDNs, OS/app platform
+    // hosts) resolved once in the background right after DNS-AdBlock mode
+    // starts, so the FIRST real app query for any of them is already a
+    // DnsCache hit instead of paying a cold upstream round-trip. Kept short
+    // on purpose: this is a warm-up for the common case, not a general
+    // crawler — a long list would just delay startup and waste a few KB of
+    // data for domains the user may never actually visit this session.
+    val POPULAR_PREFETCH_DOMAINS = listOf(
+        "google.com", "googleapis.com", "gstatic.com", "youtube.com",
+        "ytimg.com", "apple.com", "icloud.com", "cloudflare.com",
+        "fbcdn.net", "instagram.com", "whatsapp.net", "tiktokcdn.com",
+        "microsoft.com", "live.com", "github.com", "githubusercontent.com",
+        "amazonaws.com", "cloudfront.net", "wikipedia.org", "x.com",
+        "discord.com", "discordapp.com", "netflix.com", "spotify.com"
+    )
+    // Delay before the prefetch pass starts, so it never contends with the
+    // VPN interface/blocklist finishing their own startup work.
+    const val PREFETCH_START_DELAY_MS = 2500L
+    // Small pacing gap between each prefetch query — spreads ~24 lookups
+    // over roughly a second instead of bursting them all at once.
+    const val PREFETCH_QUERY_GAP_MS = 40L
 }
 
 /** The two mutually-exclusive protection modes AdShield can run — never both at once. */
