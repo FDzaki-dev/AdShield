@@ -3,8 +3,27 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.2 (2026-08-06) — Wire unit test ke CI (static review, bukan batch
-  fitur).** Ditemukan lewat static review kalau `DnsPacketTest.kt` /
+- **v3.16.3 (2026-08-06) — Fix blind spot diagnostik CI (bukan fix bug
+  aslinya).** Run CI 31051130336 gagal tapi artifact `log_fail_*`-nya cuma
+  berisi `FAILURE_SUMMARY.txt` 3 baris — TIDAK ADA info penyebab sama
+  sekali (kemungkinan besar: compile error Kotlin di test sourceset yang
+  ditambah v3.16.2, yang tidak menulis file report). Fix: console output
+  step test & build sekarang di-`tee` ke log file dan SELALU dicopy ke
+  fail-logs (tidak bergantung pola find report/mapping). **PENYEBAB ASLI
+  KEGAGALAN RUN 31051130336 MASIH BELUM DIKETAHUI** — perlu run CI baru
+  (v3.16.3) yang kalau gagal lagi, artifact-nya sekarang seharusnya berisi
+  `test-output.log`/`build-output.log` dengan pesan error asli.
+- **User memberi audit checklist eksternal** (Reliability, Concurrency &
+  Lifecycle, Security, Performance, Maintainability — lihat pesan chat
+  untuk daftar lengkap) sebagai prioritas kerja berikutnya, urutan:
+  1) Reliability (failover/recovery/reconnect/backoff/network change),
+  2) Concurrency & Lifecycle, 3) Security, 4) Performance, 5) Testing &
+  Diagnostic. **JANGAN mulai item ini sebelum CI v3.16.3 dikonfirmasi
+  lulus** — menumpuk fitur baru di atas build yang belum diketahui
+  statusnya adalah pola risiko yang sama persis dengan insiden WARP
+  (v2.1.0 menambah fitur di atas fondasi belum tervalidasi).
+- v3.16.2 (2026-08-06) — Wire unit test ke CI (static review, bukan batch
+  fitur). Ditemukan lewat static review kalau `DnsPacketTest.kt` /
   `BlocklistManagerTest.kt` (sudah ada di repo & manifest sejak sesi
   sebelumnya) TIDAK PERNAH dijalankan CI — workflow langsung
   `assembleRelease` tanpa step test. Tambah step `gradle testDebugUnitTest`

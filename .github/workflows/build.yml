@@ -36,7 +36,9 @@ jobs:
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Run unit tests
-        run: gradle testDebugUnitTest --no-daemon
+        run: |
+          set -o pipefail
+          gradle testDebugUnitTest --no-daemon 2>&1 | tee test-output.log
 
       - name: Build signed release APK
         env:
@@ -44,7 +46,9 @@ jobs:
           RELEASE_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           RELEASE_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           RELEASE_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: gradle assembleRelease --no-daemon
+        run: |
+          set -o pipefail
+          gradle assembleRelease --no-daemon 2>&1 | tee build-output.log
 
       - name: Rename APK with version number
         run: |
@@ -79,6 +83,12 @@ jobs:
         if: failure()
         run: |
           mkdir -p fail-logs
+          # Console output mentah dari step test & build — ini yang tadi
+          # HILANG di run 31051130336 (kegagalan sebelum ada report/mapping/
+          # test-result file sama sekali, jadi semua find di bawah nihil).
+          for f in test-output.log build-output.log; do
+            [ -f "$f" ] && cp "$f" fail-logs/
+          done
           # R8/minify missing-rules & mapping
           find app/build/outputs/mapping -type f \( -name "missing_rules.txt" -o -name "*.txt" \) -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
           # Lint / test / build reports (html+xml, kecil, cukup buat baca cepat)

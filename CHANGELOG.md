@@ -1,5 +1,36 @@
 # Changelog
 
+## v3.16.3 — Fix diagnostic blind spot: run 31051130336 gagal tanpa detail (2026-08-06)
+
+> User upload `log_fail_20260805_220324_run31051130336.zip` — isinya cuma
+> `FAILURE_SUMMARY.txt` (3 baris: run id, commit, timestamp), TIDAK ADA
+> mapping/reports/test-results sama sekali. Root cause: step `Run unit
+> tests` (baru ditambah v3.16.2) kemungkinan gagal di tahap kompilasi
+> Kotlin test sourceset — error compiler Kotlin ditulis ke console, BUKAN
+> ke file report, jadi semua pola `find` di step diagnostik lama nihil hasil.
+
+**`.github/workflows/build.yml`**
+- Step `Run unit tests` & `Build signed release APK`: output di-pipe ke
+  `tee test-output.log` / `tee build-output.log` (dengan `set -o pipefail`
+  supaya exit code asli tetap terjaga, bukan exit code `tee`).
+- Step `Collect failure diagnostics`: copy kedua file log itu ke
+  `fail-logs/` tanpa syarat (di awal, sebelum pencarian mapping/reports/
+  test-results) — supaya kegagalan tahap kompilasi yang tidak menulis
+  report file apa pun tetap terekam di artifact `log_fail_*`.
+
+**`app/build.gradle.kts`**
+- `versionCode` 44 → 45, `versionName` 3.16.2 → 3.16.3.
+
+**BELUM DIKONFIRMASI & BLOCKING:** run 31051130336 (commit
+`41ffd5619258974dc640dfec478eecaeece208c3`) masih gagal dengan penyebab
+TIDAK DIKETAHUI — v3.16.3 cuma memperbaiki *kemampuan mendiagnosis*,
+BUKAN penyebab gagalnya sendiri, karena penyebabnya belum kebaca sama
+sekali dari artifact yang ada. **Jangan lanjut ke item Audit Checklist
+(reliability/concurrency/security/dst.) sebelum run CI v3.16.3 dicek DAN
+lulus** — menambah fitur di atas build yang belum diketahui statusnya
+mengulang pola risiko yang sama seperti insiden WARP (lihat
+PROJECT_STATE.md bagian pending).
+
 ## v3.16.2 — Wire unit test ke CI (2026-08-06)
 
 > Gap ditemukan lewat static review: `DnsPacketTest.kt` dan
