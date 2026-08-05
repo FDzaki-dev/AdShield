@@ -57,6 +57,7 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val allowedCount by viewModel.allowedCount.collectAsState()
     val loggingEnabled by viewModel.loggingEnabled.collectAsState()
     val autoStartOnBoot by viewModel.autoStartOnBoot.collectAsState()
+    val resourceSnapshot by viewModel.resourceSnapshot.collectAsState()
 
     val appVersion = remember { readAppVersion(context.packageManager, context.packageName) }
 
@@ -113,7 +114,7 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val diagnosticText = remember(
         activeMode, vpnActive, dnsLastError, warpState, warpConnecting,
         warpLastError, warpQuality, blockedCount, allowedCount, loggingEnabled,
-        autoStartOnBoot, batteryExempt
+        autoStartOnBoot, batteryExempt, resourceSnapshot
     ) {
         buildString {
             appendLine("=== AdShield Diagnostik ===")
@@ -141,6 +142,25 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             appendLine("Endpoint dipakai: ${warpQuality.endpointUsed.ifBlank { "-" }}")
             appendLine("Percobaan reconnect: ${warpQuality.reconnectAttempts}")
             appendLine("Error terakhir: ${warpLastError ?: "-"}")
+            appendLine()
+            appendLine("--- Resource (Memori & Baterai) ---")
+            appendLine(
+                "Memori app (PSS): " +
+                    if (resourceSnapshot.appPssKb > 0) "${resourceSnapshot.appPssKb / 1024} MB" else "-"
+            )
+            appendLine(
+                "Memori sistem tersisa: ${resourceSnapshot.systemAvailMemMb} MB" +
+                    if (resourceSnapshot.systemLowMemory) " (RENDAH)" else ""
+            )
+            appendLine(
+                "Baterai: " +
+                    (if (resourceSnapshot.batteryPercent >= 0) "${resourceSnapshot.batteryPercent}%" else "-") +
+                    (if (resourceSnapshot.isCharging) " (mengisi)" else "")
+            )
+            appendLine(
+                "Suhu baterai: " +
+                    (resourceSnapshot.batteryTemperatureC?.let { "%.1f°C".format(it) } ?: "-")
+            )
         }
     }
 
@@ -243,6 +263,36 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldDanger)
                 ) { Text("Lupakan Akun WARP", fontSize = 12.sp) }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            DiagnosticSection(title = "Resource (Memori & Baterai)") {
+                DiagnosticRow(
+                    "Memori app (PSS)",
+                    if (resourceSnapshot.appPssKb > 0) "${resourceSnapshot.appPssKb / 1024} MB" else "-"
+                )
+                DiagnosticRow(
+                    "Memori sistem tersisa",
+                    "${resourceSnapshot.systemAvailMemMb} MB",
+                    valueColor = if (resourceSnapshot.systemLowMemory) ShieldDanger else ShieldTextMuted
+                )
+                if (resourceSnapshot.systemLowMemory) {
+                    DiagnosticRow(
+                        "Status memori sistem",
+                        "RENDAH — app berisiko dihentikan sistem",
+                        valueColor = ShieldDanger
+                    )
+                }
+                DiagnosticRow(
+                    "Baterai",
+                    (if (resourceSnapshot.batteryPercent >= 0) "${resourceSnapshot.batteryPercent}%" else "-") +
+                        (if (resourceSnapshot.isCharging) " (mengisi)" else "")
+                )
+                DiagnosticRow(
+                    "Suhu baterai",
+                    resourceSnapshot.batteryTemperatureC?.let { "%.1f°C".format(it) } ?: "-"
+                )
             }
 
             Spacer(Modifier.height(24.dp))

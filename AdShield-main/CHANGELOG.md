@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.10.0 — Resource profiling instrumentation: memori & baterai (2026-08-05)
+
+> Respons ke audit eksternal (skor 9.0/10) yang menandai "konsumsi baterai &
+> memori perlu profiling" sebagai gap nyata — dicek ulang terhadap
+> PROJECT_STATE.md dan dikonfirmasi 0% dikerjakan sebelumnya (beda dari 2
+> item lain di audit yang sama, "kecepatan surfing" & "reconnect/stabilitas
+> VPN", yang sudah selesai sejak v3.5.0–v3.9.0 dan cuma menunggu validasi
+> device). Scope: instrumentasi baca-saja untuk mengukur, BUKAN optimasi —
+> optimasi baru bisa diarahkan setelah ada data nyata dari lapangan.
+
+**Baru:**
+1. **`util/ResourceMonitor.kt`** (file baru) — snapshot memori app (PSS via
+   `ActivityManager.getProcessMemoryInfo`), memori sistem tersisa + flag
+   low-memory (`ActivityManager.getMemoryInfo`), dan baterai (persen, suhu,
+   status charging via sticky intent `ACTION_BATTERY_CHANGED`). Semua API
+   dipakai TIDAK butuh permission baru apa pun — tidak ada perubahan
+   `AndroidManifest.xml`. Tiap bagian dibungkus `runCatching` terpisah
+   (pola fail-safe sama seperti `util/CrashLogger.kt`) — kegagalan baca
+   satu metrik tidak menjatuhkan metrik lain atau layar Diagnostik.
+2. **`ui/MainViewModel.kt`** — `resourceSnapshot: StateFlow<ResourceMonitor.
+   Snapshot>`, di-poll tiap 3 detik lewat `flow { while(true) { emit(...);
+   delay(...) } }.stateIn(..., WhileSubscribed(5000), ...)`. SENGAJA
+   poll-based dari UI layer, bukan service/logger baru — `WhileSubscribed`
+   berarti loop polling ini hanya benar-benar jalan selagi layar Diagnostik
+   dibuka, tidak menguras apa pun di background saat tidak dilihat (kalau
+   ditambah jadi background sampler permanen, itu sendiri jadi biaya
+   baterai yang justru sedang coba diukur/dihindari).
+3. **`ui/screens/DiagnosticsScreen.kt`** — section baru "Resource (Memori &
+   Baterai)": PSS app (MB), memori sistem tersisa (MB, merah kalau flag
+   `lowMemory` sistem aktif), persen+status-charging baterai, suhu baterai.
+   Ikut masuk ke teks "salin info diagnostik" yang sudah ada (tidak ada
+   sumber kebenaran baru — pola yang sama seperti field lain di layar ini,
+   lihat keputusan arsitektur #8b di PROJECT_STATE.md).
+
+**Belum dikerjakan (sengaja di luar scope batch ini):** histori/logging
+metrik dari waktu ke waktu (baru snapshot titik-waktu saat ini, bukan
+tren) — kalau nanti mau grafik/tren, itu perlu keputusan penyimpanan data
+baru (Room table? interval berapa? retention berapa lama?), bukan
+perluasan kecil dari batch ini. Tidak ada perubahan pada `AdBlockVpnService`/
+`WarpTunnelManager` — batch ini murni instrumentasi baca, TIDAK mengubah
+perilaku VPN/DNS/WARP apa pun. **BELUM dikonfirmasi build CI + belum
+dilihat terisi data nyata di device** — cek dulu di sesi berikutnya.
+
 ## v3.9.0 — Internet Surfing Optimization batch 2: DNS prefetch, warm-up, DNS server switch (2026-08-05)
 
 > Lanjutan roadmap "Internet Surfing Optimization" (batch 1 = v3.7.0). User

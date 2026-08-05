@@ -3,7 +3,32 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.9.0 (2026-08-05) — Internet Surfing Optimization batch 2: DNS
+- **v3.10.0 (2026-08-05) — Resource profiling instrumentation (memori &
+  baterai), respons ke audit eksternal skor 9.0/10.** Audit menandai 5
+  kekurangan; dicek silang dulu terhadap PROJECT_STATE.md sebelum kerja:
+  item "kecepatan surfing" & "reconnect/stabilitas VPN" TERNYATA sudah
+  selesai dikerjakan sejak v3.5.0–v3.9.0 (cuma belum divalidasi device,
+  bukan belum dikerjakan) — TIDAK dikerjakan ulang. Item "memori/baterai
+  profiling" dikonfirmasi 0% dikerjakan sebelumnya — ini yang dikerjakan
+  batch ini. **File baru:** `util/ResourceMonitor.kt` — snapshot PSS app,
+  memori sistem tersisa + flag low-memory, baterai (persen/suhu/status
+  charging), semua lewat API tanpa permission baru (`ActivityManager.
+  getProcessMemoryInfo`/`getMemoryInfo`, sticky intent
+  `ACTION_BATTERY_CHANGED`) — tidak ada perubahan `AndroidManifest.xml`.
+  **`ui/MainViewModel.kt`**: `resourceSnapshot` StateFlow, poll 3 detik via
+  `flow{}.stateIn(..., WhileSubscribed(5000), ...)` — SENGAJA poll dari UI
+  layer bukan service baru, supaya loop hanya jalan selagi Diagnostik
+  dibuka, tidak menguras baterai di background (yang justru sedang coba
+  diukur). **`ui/screens/DiagnosticsScreen.kt`**: section baru "Resource
+  (Memori & Baterai)", masuk juga ke teks copy diagnostik. Murni
+  instrumentasi baca-saja — TIDAK ada perubahan perilaku VPN/DNS/WARP.
+  **Belum dikerjakan (sengaja di luar scope):** histori/tren metrik dari
+  waktu ke waktu (baru snapshot titik-waktu, belum ada penyimpanan
+  Room/interval/retention untuk grafik). **BELUM dikonfirmasi build CI +
+  belum dilihat terisi data nyata di device** — cek dulu di sesi
+  berikutnya, idealnya SEKALIAN dengan 4 item v3.9.0 yang juga masih
+  menunggu validasi device.
+- v3.9.0 (2026-08-05) — Internet Surfing Optimization batch 2: DNS
   prefetch + cache-warming, WARP connection warm-up, DNS resolver fallback
   1.1.1.1→1.0.0.1.** Lanjutan roadmap yang di v3.7.0 masih menyisakan 3 item
   "belum dikerjakan": DNS prefetch, pre-warming domain populer, connection
@@ -1091,7 +1116,16 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**BARU (2026-08-05, v3.9.0): sebelum apa pun yang lain, cek 4 hal dari batch
+**TERBARU (2026-08-05, v3.10.0): cek di device fisik.** (a) build CI
+sukses, (b) buka Diagnostik saat app di background lama / setelah dipakai
+berat (mode WARP+DNS bergantian) — apakah PSS app kelihatan wajar atau
+ada indikasi leak (naik terus tanpa turun), (c) amati field baterai
+(persen/suhu) beberapa saat — pastikan angkanya masuk akal dibanding
+Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
+otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
+ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
+
+**SEBELUMNYA (2026-08-05, v3.9.0): sebelum apa pun yang lain, cek 4 hal dari batch
 Internet Surfing Optimization #2 di device fisik:** (a) build CI sukses
 dulu, (b) nyalakan mode DNS Ad-Block, tunggu ~3 detik, buka Diagnostics/Logs
 — cek apakah ada lookup untuk domain populer (google.com, youtube.com, dst)

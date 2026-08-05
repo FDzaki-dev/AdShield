@@ -11,6 +11,7 @@ import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
 import com.fdzaki.adshield.util.AppMode
+import com.fdzaki.adshield.util.ResourceMonitor
 import com.fdzaki.adshield.vpn.AdBlockVpnService
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.fdzaki.adshield.warp.WarpTunnelManager
@@ -23,11 +24,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
@@ -135,6 +138,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     val blocklistUpdateStatus: StateFlow<String> = settingsRepository.blocklistUpdateStatus
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    /** Memory + battery snapshot for the Diagnostics screen (v3.10.0 —
+     *  resource profiling instrumentation). Polled every
+     *  [RESOURCE_POLL_INTERVAL_MS] inside the flow itself; WhileSubscribed(5000)
+     *  means the polling loop only actually runs while something (the
+     *  Diagnostics screen) is collecting it — it does not sample in the
+     *  background, so it costs nothing while that screen isn't open. */
+    val resourceSnapshot: StateFlow<ResourceMonitor.Snapshot> = flow {
+        val context = getApplication<Application>()
+        while (true) {
+            emit(ResourceMonitor.snapshot(context))
+            delay(RESOURCE_POLL_INTERVAL_MS)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ResourceMonitor.Snapshot())
 
     init {
         viewModelScope.launch { _installedApps.value = installedAppsRepository.loadUserFacingApps() }
@@ -332,5 +349,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun markOnboardingComplete() {
         viewModelScope.launch { settingsRepository.setHasSeenOnboarding(true) }
+    }
+
+    companion object {
+        private const val RESOURCE_POLL_INTERVAL_MS = 3000L
     }
 }

@@ -98,8 +98,9 @@ Alur saat pertama kali diaktifkan:
   Whitelist/Log langsung, atau toggle Nyalakan/Matikan DNS & WARP tanpa
   buka aplikasi dulu (label shortcut toggle otomatis mengikuti mode aktif)
 - **Layar Diagnostik** — status teknis satu layar (versi app, perangkat,
-  mode aktif, status & error terakhir DNS/WARP, statistik) dengan tombol
-  salin-ke-clipboard untuk lapor masalah
+  mode aktif, status & error terakhir DNS/WARP, statistik, memori app +
+  memori sistem tersisa + baterai) dengan tombol salin-ke-clipboard untuk
+  lapor masalah
 - **Onboarding** — 4 layar pengenalan singkat saat pertama kali buka app:
   jelaskan kedua mode & kenapa mutually-exclusive, plus ajakan mengecualikan
   dari optimasi baterai. Bisa dilewati kapan saja, hanya muncul sekali.
@@ -158,6 +159,17 @@ gejala.
 
 ## Status proyek
 
+- **v3.10.0 (terbaru)** — Instrumentasi profiling memori & baterai (layar
+  Diagnostik): PSS memori app, memori sistem tersisa, baterai
+  (persen/suhu/status isi). Murni baca-saja, tidak ada perubahan perilaku
+  VPN/DNS/WARP. Belum divalidasi di device fisik.
+- v3.5.0–v3.9.0 — Rangkaian optimasi performa & reliability ("Internet
+  Surfing Optimization" + audit performa/feedback): DNS cache, socket
+  pooling upstream, blocklist matching O(kedalaman domain), auto-MTU +
+  smart endpoint selection + fast reconnect + kill-switch hardening WARP,
+  DNS prefetch/cache-warming, Quick Settings Tile per-mode. Detail lengkap
+  per versi ada di CHANGELOG.md — daftar di bawah ini belum diperbarui
+  sejak v2.5.0, lihat CHANGELOG.md untuk riwayat v2.6.0 ke atas.
 - **v2.5.0** — DNS AdBlocker (scope ringan): blocklist kustom via URL
   dengan auto-update tiap 24 jam (WorkManager), UI Aturan Kustom lebih
   mudah dikelola (validasi domain, pencarian, pesan kondisi kosong).
