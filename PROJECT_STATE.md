@@ -3,7 +3,24 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.11.0 (2026-08-05) — DNS-over-HTTPS (DoH), respons ke fix MTU
+- **v3.11.1 (2026-08-05) — HOTFIX: compile error di DohClient.kt.** CI
+  build v3.11.0 GAGAL (`compileReleaseKotlin`) — user upload log GitHub
+  Actions, ketahuan dari situ tanpa perlu tes device dulu. Root cause: 2
+  overload `createSocket(InetAddress, ...)` di custom `SSLSocketFactory`
+  meneruskan `InetAddress` mentah ke parameter yang minta `String`
+  (`delegate.createSocket(Socket, String, Int, Boolean)`) — salah tipe,
+  Kotlin gagal resolve overload. Fix: `.hostAddress` di kedua tempat.
+  **Pelajaran:** DohClient.kt (v3.11.0) dikirim TANPA pernah dicoba
+  compile lokal/CI dulu sebelum diserahkan ke user — ke depan, kalau ada
+  akses build tool, coba compile-check dulu sebelum klaim "siap kirim"
+  untuk kode dengan override interface Java/Android yang kompleks
+  (SSLSocketFactory dkk rawan overload-mismatch seperti ini). **MASIH
+  BELUM DIKONFIRMASI build CI sukses SETELAH fix ini** (baru perbaikan
+  sintaks, belum di-submit ulang ke CI) — WAJIB dicek pertama di sesi
+  berikutnya, BARU lanjut ke validasi fungsional DoH yang sudah
+  direncanakan di v3.11.0 (poin a-d di bawah, urutannya TETAP sama,
+  cuma tertunda karena compile error ini harus beres dulu).
+- v3.11.0 (2026-08-05) — DNS-over-HTTPS (DoH), respons ke fix MTU
   v3.10.2 yang TIDAK menolong.** User laporkan error persis
   `DNS_PROBE_FINISHED_BAD_SECURE_CONFIG` (WiFi) + matot (data seluler)
   MASIH terjadi setelah fix MTU. Dicek & disingkirkan: Android Private DNS
@@ -1271,12 +1288,10 @@ Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 
-**PALING BARU (2026-08-05, v3.11.0) — cek ini DULUAN sebelum apa pun lain:**
-lihat urutan (a)-(d) lengkap di "Status terakhir" v3.11.0 di atas — inti:
-build CI sukses → DNS Ad-Block ON di WiFi & data seluler yang tadi gagal →
-domain resolve normal? Kalau iya, sekalian konfirmasi Chrome Secure DNS
-(`chrome://settings/security`) statusnya apa di device user — item ini
-sempat di-skip pengecekannya, masih menggantung.
+**PALING BARU (2026-08-05, v3.11.1) — cek ini DULUAN sebelum apa pun lain:**
+build CI sukses dulu (v3.11.0 sempat GAGAL compile, v3.11.1 fix-nya belum
+pernah dicoba build ulang) — BARU lanjut ke validasi fungsional DoH (lihat
+poin a-d di "Status terakhir" v3.11.0, urutannya tetap sama).
 
 **SEBELUMNYA (2026-08-05, v3.10.2):** fix MTU 32000→1500 — TIDAK
 menolong (superseded by v3.11.0 DoH), jangan diulang cek terpisah.

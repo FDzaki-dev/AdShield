@@ -1,5 +1,22 @@
 # Changelog
 
+## v3.11.1 — HOTFIX: compile error DohClient.kt (2026-08-05)
+
+> CI `compileReleaseKotlin` gagal di v3.11.0: 2 overload `createSocket`
+> di custom `SSLSocketFactory` (`vpn/DohClient.kt`) memanggil
+> `delegate.createSocket(Socket, String, Int, Boolean)` tapi mengirim
+> `InetAddress` di posisi parameter `String` — Kotlin tidak resolve
+> overload manapun.
+
+**Fix:**
+1. **`vpn/DohClient.kt`** — di 2 method (`createSocket(InetAddress, Int)`
+   dan `createSocket(InetAddress, Int, InetAddress, Int)`), konversi ke
+   `.hostAddress` (String) sebelum diteruskan ke `delegate.createSocket()`.
+
+Fungsionalitas DoH v3.11.0 tidak berubah, murni perbaikan sintaks compile.
+**BELUM DIKONFIRMASI** build CI sukses maupun tes device — cek CI dulu di
+sesi berikutnya sebelum lanjut ke validasi fungsional.
+
 ## v3.11.0 — DNS-over-HTTPS (DoH), fallback ke plain DNS (2026-08-05)
 
 > User laporkan v3.10.2 (fix MTU) TIDAK menolong — error persis:

@@ -107,7 +107,7 @@ object DohClient {
                 val s = Socket()
                 vpnService.protect(s)
                 s.connect(java.net.InetSocketAddress(host, port))
-                return delegate.createSocket(s, host, port, true)
+                return delegate.createSocket(s, host.hostAddress, port, true)
             }
 
             override fun createSocket(
@@ -120,7 +120,7 @@ object DohClient {
                 vpnService.protect(s)
                 s.bind(java.net.InetSocketAddress(localAddress, localPort))
                 s.connect(java.net.InetSocketAddress(address, port))
-                return delegate.createSocket(s, address, port, true)
+                return delegate.createSocket(s, address.hostAddress, port, true)
             }
         }
     }

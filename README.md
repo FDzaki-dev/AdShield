@@ -159,7 +159,10 @@ gejala.
 
 ## Status proyek
 
-- **v3.11.0 (terbaru)** — DNS-over-HTTPS (DoH): query DNS dicoba lewat
+- **v3.11.1 (terbaru)** — HOTFIX: compile error di `DohClient.kt` (build
+  v3.11.0 gagal CI). Fungsionalitas sama, murni perbaikan sintaks. Belum
+  dikonfirmasi build sukses (lihat PROJECT_STATE.md).
+- v3.11.0 — DNS-over-HTTPS (DoH): query DNS dicoba lewat
   HTTPS (Cloudflare, lalu Google) dulu sebelum fallback ke plain DNS
   biasa. Merespons laporan user: fix MTU v3.10.2 tidak menolong, plain
   UDP port 53 kemungkinan diblokir total di jaringannya. Belum
