@@ -159,7 +159,12 @@ gejala.
 
 ## Status proyek
 
-- **v3.12.0 (terbaru)** — Batch 1/N Arsitektur Multi-Protokol: fondasi
+- **v3.13.0 (terbaru)** — Batch 2/N: adaptasi WireGuard/WARP existing ke
+  interface `VpnEngine` (`protocol/WarpVpnEngineAdapter.kt`). 0 baris di
+  package `warp/` diubah — adapter murni membungkus `WarpTunnelManager`
+  yang sudah ada, belum di-wire ke UI mana pun. Belum dikonfirmasi build
+  CI (lihat PROJECT_STATE.md).
+- v3.12.0 — Batch 1/N Arsitektur Multi-Protokol: fondasi
   untuk memperluas AdShield dari 2 mode (DNS Ad-Block/WARP) jadi VPN
   client multi-protokol (rencana: + OpenVPN, IKEv2, Shadowsocks/VLESS,
   rilis bertahap per protokol). Batch ini scaffolding saja — interface
@@ -222,9 +227,10 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
-- **Multi-protokol VPN (v3.12.0+, batch 1/N sudah mulai)** — perluasan dari
-  2 mode jadi VPN client multi-protokol: OpenVPN, IKEv2/IPsec,
-  Shadowsocks/VLESS (WireGuard sudah ada via mode WARP). Rilis bertahap 1
+- **Multi-protokol VPN (v3.12.0+, batch 2/N sudah selesai statis)** —
+  perluasan dari 2 mode jadi VPN client multi-protokol: WireGuard/WARP
+  sudah diadaptasi ke `VpnEngine` (v3.13.0, belum di-wire ke UI); OpenVPN,
+  IKEv2/IPsec, Shadowsocks/VLESS masih placeholder. Rilis bertahap 1
   protokol per batch. Lihat PROJECT_STATE.md untuk urutan & status detail.
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)

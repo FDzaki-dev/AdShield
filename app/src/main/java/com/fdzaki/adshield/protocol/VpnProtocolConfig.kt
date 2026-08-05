@@ -52,6 +52,26 @@ sealed class VpnProtocolConfig {
         override val splitTunnelApps: Set<String> = emptySet(),
         override val splitTunnelMode: SplitTunnelMode = SplitTunnelMode.OFF,
     ) : VpnProtocolConfig()
+
+    /**
+     * v3.13.0 — config shape for the existing WireGuard/Cloudflare WARP engine
+     * ([com.fdzaki.adshield.warp.WarpTunnelManager], adapted via
+     * [com.fdzaki.adshield.protocol.WarpVpnEngineAdapter]). Deliberately carries
+     * NO server/key fields, unlike [OpenVpn]/[IkeV2]/[Shadowsocks] above — WARP
+     * is registration-based (WarpAccountRepository/WarpRegistrationClient own
+     * that identity, persisted separately) rather than a user-supplied profile,
+     * so this is just a marker + the one setting the engine already reads at
+     * connect time (routeIpv6, mirrors SettingsRepository.warpRouteIpv6).
+     * [splitTunnelApps]/[splitTunnelMode] are NOT YET WIRED into
+     * WarpTunnelManager.buildConfig() (no addAllowedApplication/
+     * addDisallowedApplication call exists there) — accepted here for
+     * interface consistency, functionally ignored by the adapter for now.
+     */
+    data class Warp(
+        val routeIpv6: Boolean = false,
+        override val splitTunnelApps: Set<String> = emptySet(),
+        override val splitTunnelMode: SplitTunnelMode = SplitTunnelMode.OFF,
+    ) : VpnProtocolConfig()
 }
 
 enum class SplitTunnelMode {

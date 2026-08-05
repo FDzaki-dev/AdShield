@@ -1,5 +1,59 @@
 # Changelog
 
+## v3.13.0 — Batch 2/N: Adaptasi WireGuard/WARP ke VpnEngine (2026-08-05)
+
+> Lanjutan langsung v3.12.0 — urutan batch yang sudah disepakati:
+> "buktikan abstraksi ke engine yang SUDAH terbukti jalan dulu, sebelum
+> tambah engine baru." Batch ini **HANYA menambah 1 file adapter baru** —
+> **0 baris di `warp/*.kt` diubah**, jadi risiko regresi terhadap mode
+> WARP yang sudah ada (UI, QS tile, watchdog, dsb — semua masih panggil
+> `WarpTunnelManager` langsung) adalah nol.
+
+**File baru:**
+1. **`protocol/WarpVpnEngineAdapter.kt`** — implementasi `VpnEngine` yang
+   membungkus `WarpTunnelManager.getInstance()` (singleton yang sudah
+   ada), TANPA mengubah class itu sendiri. Menerjemahkan
+   `Tunnel.State` + `connecting` + `lastError` + `quality.reconnectAttempts`
+   (empat `StateFlow` yang sudah ada di `WarpTunnelManager`) jadi satu
+   `StateFlow<VpnEngineState>` lewat `combine()`.
+
+**File diubah:**
+1. **`protocol/VpnProtocolConfig.kt`** — tambah `VpnProtocolConfig.Warp`
+   (marker config, TANPA field server/key — WARP registrasi-based lewat
+   `WarpAccountRepository`, bukan profil user-supplied seperti
+   OpenVpn/IkeV2/Shadowsocks). `routeIpv6` di config ini **sengaja tidak**
+   diteruskan ke `WarpTunnelManager` — manager itu sendiri sudah baca
+   `SettingsRepository.warpRouteIpv6` langsung tiap `connect()`/
+   `attemptReconnect()` (keputusan arsitektur #6e), jadi meneruskan field
+   ini lewat config akan bikin 2 sumber kebenaran bersaing untuk setting
+   yang sama.
+2. **`app/build.gradle.kts`** — versionCode 38→39, versionName 3.12.0→3.13.0.
+
+**AI Assumption Log (dicatat, bukan diverifikasi lewat compiler/device):**
+- `connectedSinceMs` untuk `VpnEngineState.Connected` DIBUAT BARU di
+  level adapter (`WarpTunnelManager` sendiri tidak melacak timestamp ini
+  — UI WARP yang sudah ada baca "elapsed since" dari notifikasi
+  foreground service, bukan dari sini). Timestamp di-set saat transisi
+  pertama ke `Tunnel.State.UP` terdeteksi, di-reset ke 0 saat state
+  turun dari UP — BELUM diverifikasi lewat compile/device run.
+- Mapping `Reconnecting` HANYA dari `quality.reconnectAttempts > 0` —
+  `WarpTunnelManager.reconnecting` (flag internal yang lebih akurat)
+  bersifat `private`, tidak diekspos publicly, jadi adapter TIDAK bisa
+  membaca itu langsung tanpa mengubah `WarpTunnelManager.kt` (yang
+  sengaja tidak disentuh batch ini). Trade-off yang diterima: window
+  singkat di mana `reconnectAttempts` masih > 0 dari sesi reconnect
+  SEBELUMNYA (baru di-reset ke 0 di `connect()` manual berikutnya) bisa
+  membuat state sempat terbaca `Reconnecting` alih-alih `Disconnected`
+  tepat setelah `disconnect()` manual — kosmetik, tidak memengaruhi
+  `WarpTunnelManager` yang sebenarnya (single source of truth `state`nya
+  sendiri tidak berubah).
+- **BELUM DIWIRE ke UI mana pun** (MainActivity/HomeScreen/BootReceiver/
+  QS tile semua masih panggil `WarpTunnelManager` langsung) — itu
+  keputusan sadar batch ini (lihat kdoc file), bukan kelalaian.
+- **BELUM dikonfirmasi build CI** — cek dulu di sesi berikutnya sebelum
+  lanjut Batch 3 (OpenVPN, item paling berisiko — lihat peringatan
+  PROJECT_STATE.md v3.12.0).
+
 ## v3.12.0 — Batch 1/N: Architecture Multi-Protokol (scaffolding) (2026-08-05)
 
 > **Keputusan besar user (2026-08-05):** AdShield diperluas dari 2 mode

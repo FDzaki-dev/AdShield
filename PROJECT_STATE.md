@@ -3,7 +3,57 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.12.0 (2026-08-05) — Batch 1/N Arsitektur Multi-Protokol
+- **v3.13.0 (2026-08-05) — Batch 2/N: Adaptasi WireGuard/WARP ke `VpnEngine`
+  interface, SELESAI implementasi statis.** Lanjutan langsung v3.12.0, urutan
+  batch sesuai rencana yang sudah disepakati (lihat entri v3.12.0 di bawah).
+  **File baru:** `protocol/WarpVpnEngineAdapter.kt` — membungkus
+  `WarpTunnelManager.getInstance()` yang SUDAH ADA, **0 baris di manapun
+  dalam package `warp/` diubah**. State diterjemahkan lewat `combine()` atas
+  4 `StateFlow` yang sudah publicly exposed oleh `WarpTunnelManager`
+  (`state: StateFlow<Tunnel.State>`, `connecting`, `lastError`, `quality`) —
+  tidak ada field/method baru ditambahkan ke `WarpTunnelManager` itu sendiri.
+  **File diubah:** `protocol/VpnProtocolConfig.kt` (tambah `VpnProtocolConfig.
+  Warp` — marker config TANPA field server/key, WARP tetap registrasi-based
+  lewat `WarpAccountRepository` seperti sebelumnya), `app/build.gradle.kts`
+  (version bump saja).
+  **Keputusan desain kunci (JANGAN dilanggar tanpa diskusi eksplisit):**
+  - `VpnProtocolConfig.Warp.routeIpv6` SENGAJA TIDAK diteruskan ke
+    `WarpTunnelManager.connect()` — manager itu sendiri sudah baca
+    `SettingsRepository.warpRouteIpv6` langsung tiap `connect()`/
+    `attemptReconnect()` (keputusan arsitektur #6e, TIDAK berubah). Kalau
+    field config ini diteruskan juga, akan ada 2 sumber kebenaran bersaing
+    untuk setting yang sama — JANGAN "perbaiki" ini dengan menambah
+    parameter routeIpv6 ke `WarpTunnelManager.connect()` kecuali ada
+    kebutuhan nyata untuk override per-panggilan di luar toggle Home
+    screen yang sudah ada.
+  - `connectedSinceMs` (dipakai `VpnEngineState.Connected`) adalah state
+    BARU yang HANYA ada di level adapter — `WarpTunnelManager` sendiri
+    tidak melacak timestamp ini. Di-set saat transisi pertama terdeteksi
+    ke `Tunnel.State.UP`, di-reset ke 0 saat turun dari UP atau error.
+  - Mapping `VpnEngineState.Reconnecting` cuma dari
+    `quality.reconnectAttempts > 0` (bukan flag internal `reconnecting`
+    milik `WarpTunnelManager`, yang `private` — sengaja tidak diekspos
+    baru demi batch ini supaya 0 baris `WarpTunnelManager.kt` berubah).
+    Diketahui & diterima: window kosmetik sempat baca `Reconnecting`
+    padahal state asli sudah `Disconnected` tepat setelah `disconnect()`
+    manual, karena `reconnectAttempts` baru direset di `connect()`
+    berikutnya bukan di `disconnect()`. TIDAK memengaruhi
+    `WarpTunnelManager` yang sebenarnya (source of truth `state`-nya
+    sendiri tidak berubah sama sekali) — kalau ini dianggap mengganggu
+    nanti, perbaikannya HARUS menambah expose flag `reconnecting` publik
+    di `WarpTunnelManager`, bukan menebak-nebak dari `quality` lagi.
+  - **BELUM DIWIRE ke UI mana pun** — `MainActivity`/`HomeScreen`/
+    `BootReceiver`/`qs/WarpTileService` semua MASIH panggil
+    `WarpTunnelManager` langsung, TIDAK lewat adapter ini. Ini SENGAJA
+    (kdoc file menjelaskan alasan: buktikan interface compile+behave dulu
+    sebelum migrasi call site, Batch Lock — diff batch ini terbatas ke
+    `protocol/` saja). Migrasi UI ke lewat `VpnEngine` (kalau memang mau
+    dilakukan — belum tentu perlu sebelum engine baru lain nambah) adalah
+    batch terpisah lagi, BELUM dikerjakan.
+  **BELUM DIKONFIRMASI build CI** untuk batch ini — cek dulu di sesi
+  berikutnya sebelum lanjut ke Batch 3 (OpenVPN — lihat peringatan risiko
+  di entri v3.12.0 di bawah, TETAP berlaku tanpa perubahan).
+- v3.12.0 (2026-08-05) — Batch 1/N Arsitektur Multi-Protokol
   (scaffolding only).** **KEPUTUSAN ARSITEKTUR BESAR:** user memutuskan
   AdShield diperluas dari 2 mode (DNS Ad-Block/WARP) jadi VPN client
   multi-protokol (+ OpenVPN, IKEv2/IPsec, Shadowsocks/VLESS), rilis
@@ -1331,14 +1381,19 @@ Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 
-**PALING BARU (2026-08-05, v3.12.0) — cek ini DULUAN sebelum apa pun lain:**
-build CI sukses dulu untuk batch scaffolding ini (murni file baru + 1
-dependency, 0 file DNS/WARP existing disentuh, risiko regresi rendah tapi
-tetap wajib dicek) — BARU lanjut ke batch 2 (adaptasi WireGuard/WARP ke
-VpnEngine interface). Urutan batch lengkap ada di "Status terakhir"
-v3.12.0 di atas. Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa
+**PALING BARU (2026-08-05, v3.13.0) — cek ini DULUAN sebelum apa pun lain:**
+build CI sukses dulu untuk batch adapter ini (1 file baru + 1 file config
+diedit, 0 baris `warp/*.kt` disentuh, risiko regresi ke WARP existing
+nyaris nol karena belum di-wire ke UI mana pun) — BARU putuskan apakah
+lanjut Batch 3 (OpenVPN, PALING BERISIKO — lihat peringatan lengkap di
+entri v3.12.0 di bawah) atau migrasi UI ke adapter dulu (belum diminta
+user, opsional). Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa
 resolusi pasti — TIDAK perlu dikejar lagi kecuali user eksplisit angkat
 topik itu lagi.
+
+**SEBELUMNYA (2026-08-05, v3.12.0):** build CI batch scaffolding — belum
+dikonfirmasi juga, cek bareng v3.13.0 di atas (satu push, satu run CI
+mencakup keduanya kalau di-bundle jadi satu commit).
 
 **SEBELUMNYA (2026-08-05, v3.10.2):** fix MTU 32000→1500 — TIDAK
 menolong (superseded by v3.11.0 DoH), jangan diulang cek terpisah.
