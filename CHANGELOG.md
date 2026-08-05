@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.16.1 — Fix CI: R8 minifyReleaseWithR8 FAILED + artifact log kegagalan (2026-08-06)
+
+> Ditemukan dari cek build CI yang tertunda sejak v3.13.0 (lihat PROJECT_STATE.md).
+> Build v3.16.0 **FAILED** di task `minifyReleaseWithR8` — bukan bug kode app,
+> tapi R8 tidak menemukan annotation compile-time-only (`errorprone`,
+> `javax.annotation`) yang ditarik transitif oleh Google Tink lewat
+> `androidx.security:security-crypto:1.1.0` (dipakai `VpnProfileRepository`
+> buat `EncryptedSharedPreferences`). Class-class itu memang tidak ada di
+> runtime classpath by design — solusinya `-dontwarn`, bukan `-keep`.
+
+**File diubah:**
+- `app/proguard-rules.pro` — tambah `-dontwarn` untuk
+  `com.google.errorprone.annotations.**`, `javax.annotation.**`,
+  `javax.annotation.concurrent.**`.
+- `.github/workflows/build.yml` — step baru `Collect failure diagnostics` +
+  `Upload failure log artifact` (`if: failure()`), upload `fail-logs/**`
+  (missing_rules.txt, lint/build reports, FAILURE_SUMMARY.txt) sebagai
+  GitHub Actions artifact bernama `log_fail_<timestampUTC>_run<run_id>`,
+  retention 14 hari. Tujuan: cukup buka tab Actions run yang gagal → download
+  artifact kecil ini, tanpa perlu "Download log archive" mentah lagi.
+- `app/build.gradle.kts` — versionCode 42→43, versionName 3.16.0→3.16.1.
+
+**Belum diverifikasi:** build CI untuk v3.16.1 ini sendiri (root cause R8
+sudah diperbaiki berdasar analisis statis log, tapi belum ada run baru yang
+mengonfirmasi fix-nya benar-benar hijau).
+
 ## v3.16.0 — Batch: bikin layar konfigurasi IKEv2 + wire ke UI (2026-08-06)
 
 > Lanjutan v3.15.0. `IkeV2VpnEngine` (v3.14.0) belum punya UI sama sekali

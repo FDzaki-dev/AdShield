@@ -3,7 +3,25 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.0 (2026-08-06) — Batch: layar konfigurasi IKEv2 + wire ke UI
+- **v3.16.1 (2026-08-06) — Fix CI (bukan batch fitur).** Cek build CI yang
+  wajib dilakukan (tertunda sejak v3.13.0, lihat entri v3.16.0 di bawah)
+  akhirnya dilakukan lewat log GitHub Actions yang diupload user manual
+  (raw log archive run gagal). **Hasil: v3.16.0 FAILED di
+  `minifyReleaseWithR8`** — R8 "Missing class" untuk
+  `com.google.errorprone.annotations.*` dan `javax.annotation.*`
+  (referenced dari `com.google.crypto.tink.*`, ditarik transitif oleh
+  `androidx.security:security-crypto:1.1.0` yang dipakai
+  `VpnProfileRepository` sejak sebelum v3.16.0 — bukan regresi dari batch
+  IKEv2). Fix: `-dontwarn` di `proguard-rules.pro` (annotation compile-time
+  ini memang tidak ada di runtime classpath, jadi `-dontwarn` benar, bukan
+  `-keep`). **Sekaligus nambah workflow step failure-log artifact**
+  (`log_fail_<timestamp>_run<id>`, lihat CHANGELOG.md v3.16.1) supaya
+  next time gagal, cukup download artifact kecil itu — gak perlu lagi user
+  manual download+upload raw log archive kayak sesi ini.
+  **BELUM DIKONFIRMASI**: build CI utk v3.16.1 sendiri belum ada run baru.
+  **WAJIB cek run CI v3.16.1 dulu di sesi berikutnya** — kalau masih gagal,
+  cek artifact `log_fail_*` yang baru (bukan raw log archive lagi).
+- v3.16.0 (2026-08-06) — Batch: layar konfigurasi IKEv2 + wire ke UI
   (lihat CHANGELOG.md untuk daftar file diubah lengkap).** Menutup gap yang
   dicatat eksplisit di entri v3.15.0 di bawah ("IKEv2 belum bisa diwire,
   belum ada UI-nya sama sekali"). Form profil (server/identity/
@@ -1258,6 +1276,15 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-06 (v3.16.0 CI build FAILED, fixed v3.16.1)**: `minifyReleaseWithR8`
+  gagal — R8 "Missing class" untuk annotation compile-time-only dari
+  `com.google.errorprone.annotations.*` / `javax.annotation.*`, ditarik
+  transitif oleh Tink lewat `androidx.security:security-crypto:1.1.0`
+  (dipakai `VpnProfileRepository`, sudah ada sebelum v3.16.0 — bukan
+  regresi IKEv2). Ditemukan lewat raw log archive Actions yang di-upload
+  manual oleh user. Fix: `-dontwarn` di `proguard-rules.pro`. Detail
+  lengkap di "Status terakhir" v3.16.1 di atas. **Belum dikonfirmasi**
+  fix ini benar-benar bikin CI hijau (belum ada run baru).
 - **2026-08-05 (v3.10.1)**: User laporkan total DNS failure (semua app
   kehilangan internet) saat mode DNS Ad-Block aktif di device fisik. Root
   cause: v3.9.0 mengurangi diversity provider upstream resolver (8.8.8.8 →

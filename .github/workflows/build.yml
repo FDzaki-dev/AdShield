@@ -72,6 +72,31 @@ jobs:
           name: AdShield_v${{ steps.version.outputs.version_name }}
           path: out/*.apk
 
+      - name: Collect failure diagnostics
+        if: failure()
+        run: |
+          mkdir -p fail-logs
+          # R8/minify missing-rules & mapping
+          find app/build/outputs/mapping -type f \( -name "missing_rules.txt" -o -name "*.txt" \) -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
+          # Lint / test / build reports (html+xml, kecil, cukup buat baca cepat)
+          find app/build/reports -type f \( -name "*.txt" -o -name "*.xml" \) -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
+          # Ringkasan gagal yang paling relevan (tail dari step summary bawaan Actions)
+          {
+            echo "Build FAILED - run ${{ github.run_id }} (attempt ${{ github.run_attempt }})"
+            echo "Commit: ${{ github.sha }}"
+            echo "Timestamp (UTC): $(date -u +%Y%m%d_%H%M%S)"
+          } > fail-logs/FAILURE_SUMMARY.txt
+          echo "fail_ts=$(date -u +%Y%m%d_%H%M%S)" >> "$GITHUB_ENV"
+
+      - name: Upload failure log artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: log_fail_${{ env.fail_ts }}_run${{ github.run_id }}
+          path: fail-logs/**
+          retention-days: 14
+          if-no-files-found: warn
+
       - name: Publish GitHub Release with APK asset
         uses: softprops/action-gh-release@v2
         with:
