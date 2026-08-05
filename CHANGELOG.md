@@ -1,5 +1,37 @@
 # Changelog
 
+## v3.16.5 — Reliability audit batch 1: retry+backoff untuk registrasi WARP (2026-08-06)
+
+> CI v3.16.4 confirmed hijau oleh user. Mulai kerjakan audit checklist
+> eksternal (Reliability, prioritas #1). Item pertama: "Retry dengan
+> Exponential Backoff untuk handshake/koneksi".
+
+**Temuan:** `WarpTunnelManager.ensureRegistered()` memanggil
+`WarpRegistrationClient.register()` sekali saja — gagal sekali (mis. hiccup
+jaringan sesaat) langsung gagalkan seluruh `connect()`, padahal
+`attemptReconnect()` di file yang sama SUDAH punya exponential backoff untuk
+kegagalan reconnect. Registrasi (yang jalan duluan, sebelum tunnel/watchdog
+ada) jadi satu-satunya titik tanpa retry sama sekali.
+
+**`app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt`**
+- `ensureRegistered()`: retry sampai `REGISTER_MAX_ATTEMPTS` (3x) dengan
+  exponential backoff (`REGISTER_BASE_BACKOFF_MS`=2s → cap
+  `REGISTER_MAX_BACKOFF_MS`=10s) — pola sama dengan `attemptReconnect()`,
+  budget lebih kecil karena ini blocking di dalam `connect()` yang user
+  tunggu langsung (bukan proses background).
+- Tidak ada import baru (`delay`, `min` sudah dipakai di file yang sama).
+
+**`app/build.gradle.kts`**
+- `versionCode` 46 → 47, `versionName` 3.16.4 → 3.16.5.
+
+**Batas jaminan:** ini analisis statis kode Kotlin (logika backoff, tipe,
+scope var sudah diverifikasi manual baris-per-baris) — belum ada bukti
+runtime karena tidak ada Gradle/Android SDK/network di lingkungan kerja
+sesi ini. Belum ada unit test untuk retry ini (`WarpRegistrationClient`
+adalah Kotlin `object`, butuh refactor ke interface/DI dulu untuk bisa
+di-mock di JVM test — dicatat sebagai item terpisah di PROJECT_STATE, belum
+dikerjakan batch ini).
+
 ## v3.16.4 — Fix compile error di DnsPacketTest.kt (root cause ketemu) (2026-08-06)
 
 > User upload `log_fail_20260805_221223_run31051760094.zip` — sekarang ada

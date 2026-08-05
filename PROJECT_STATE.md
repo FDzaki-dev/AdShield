@@ -3,16 +3,40 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.4 (2026-08-06) — Root cause CI FAILED ketemu & diperbaiki.**
-  `test-output.log` dari run 31051760094 menunjukkan `compileDebugUnitTestKotlin
-  FAILED`: 6x error "integer literal does not conform to Byte" di
-  `DnsPacketTest.kt` (literal `222` di `byteArrayOf(10, 111, 222, 5)` dkk. —
-  di luar rentang signed Byte -128..127). Fix: tambah `.toByte()` eksplisit
-  di 6 titik itu. **BELUM DIKONFIRMASI**: run CI v3.16.4 — kalau
-  compileDebugUnitTestKotlin lolos, masih perlu cek apakah SEMUA assertion
-  di dalam test benar-benar PASS (bukan cuma compile sukses). Cek run ini
-  dulu sebelum mulai audit checklist reliability/concurrency/security/dst.
-  yang diminta user.
+- **CI v3.16.4 CONFIRMED HIJAU oleh user.** Mulai kerjakan audit checklist
+  eksternal (lihat daftar lengkap di chat), urutan: Reliability →
+  Concurrency & Lifecycle → Security → Performance → Testing & Diagnostic.
+- **v3.16.5 (2026-08-06) — Reliability audit batch 1/N: retry+backoff
+  registrasi WARP.** `ensureRegistered()` sekarang retry 3x dengan
+  exponential backoff (pola sama dengan `attemptReconnect()`). Item
+  checklist yang SUDAH ada sebelum audit ini (jangan dikerjakan ulang):
+  auto-reconnect WARP dengan backoff (`attemptReconnect`), watchdog
+  network-switch (`registerNetworkWatcher`), auto recovery service
+  crash/kill (`BootReceiver`+`RestartReceiver`+AlarmManager watchdog),
+  kill-switch hardening (v3.7.0, tidak ada gap DOWN saat reconnect).
+  **BELUM DIKERJAKAN (reliability checklist, next batch):**
+  - Failover otomatis WARP→DNS-mode (atau sebaliknya) kalau satu mode gagal
+    total (`MAX_RECONNECT_ATTEMPTS` habis) — saat ini cuma stop & tampilkan
+    error, tidak pindah mode otomatis. **Perlu keputusan produk dulu**:
+    auto-switch ke mode lain mengubah level proteksi user tanpa consent
+    eksplisit (WARP dipilih user untuk enkripsi penuh; auto-fallback ke
+    DNS-only diam-diam mengurangi itu) — jangan implementasikan tanpa
+    konfirmasi user.
+  - Captive portal detection eksplisit (saat ini cuma network-callback
+    generik + trace probe warp=on; captive portal login page belum
+    dibedakan dari "internet benar-benar mati").
+  - Airplane mode: belum diverifikasi manual apakah `networkCallback`
+    benar reconnect setelah airplane mode off (secara desain seharusnya
+    ya — kehilangan network lalu network baru muncul, sama seperti WiFi↔data
+    — tapi belum ada bukti runtime).
+  - Retry+backoff untuk `AdBlockVpnService` (DNS mode): TIDAK relevan/tidak
+    perlu — mode ini cuma forward per-query DNS ke 1.1.1.1/8.8.8.8, kegagalan
+    per-paket sudah ditangani per-request (timeout → requester app retry
+    sendiri, lihat komentar di kode), bukan koneksi persisten seperti WARP.
+  - Belum ada unit test untuk retry registrasi baru ini — `WarpRegistrationClient`
+    perlu direfactor ke interface/DI dulu supaya bisa di-mock di JVM test.
+- v3.16.4 (2026-08-06) — Fix compile error di DnsPacketTest.kt (root cause
+  ketemu).
 - v3.16.3 (2026-08-06) — Fix blind spot diagnostik CI (bukan fix bug
   aslinya). Run CI 31051130336 gagal tapi artifact `log_fail_*`-nya cuma
   berisi `FAILURE_SUMMARY.txt` 3 baris — TIDAK ADA info penyebab sama

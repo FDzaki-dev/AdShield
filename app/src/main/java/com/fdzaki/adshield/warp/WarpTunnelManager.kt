@@ -100,23 +100,39 @@ class WarpTunnelManager(context: Context) {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var lastKnownNetwork: Network? = null
 
-    /** Registers a new WARP identity if none is stored yet. Safe to call every connect(). */
+    /** Registers a new WARP identity if none is stored yet. Safe to call every connect().
+     *
+     *  v3.16.5 — reliability audit: this used to be a single-shot call with no retry at
+     *  all, so a single transient network hiccup during the very first connect() (before
+     *  the tunnel/watchdog's own reconnect logic even exists yet, since there's no account
+     *  to build a tunnel config from) failed the whole connect attempt and forced the user
+     *  to manually tap connect again. Now retries [REGISTER_MAX_ATTEMPTS] times with the
+     *  same exponential-backoff shape as [attemptReconnect] below, capped at
+     *  [REGISTER_MAX_BACKOFF_MS] so a genuinely broken registration (e.g. Cloudflare API
+     *  format change) still fails within a bounded, user-visible time instead of hanging. */
     suspend fun ensureRegistered(): Boolean = withContext(Dispatchers.IO) {
         val existing = accountRepository.getAccount()
         if (existing != null && existing.accountId.isNotBlank()) return@withContext true
 
-        return@withContext try {
-            val account = WarpRegistrationClient.register()
-            accountRepository.saveAccount(account)
-            _lastError.value = null
-            true
-        } catch (e: WarpRegistrationClient.WarpRegistrationException) {
-            _lastError.value = e.message
-            false
-        } catch (e: Exception) {
-            _lastError.value = "Gagal registrasi WARP: ${e.message}"
-            false
+        var lastMessage: String? = null
+        for (attempt in 1..REGISTER_MAX_ATTEMPTS) {
+            try {
+                val account = WarpRegistrationClient.register()
+                accountRepository.saveAccount(account)
+                _lastError.value = null
+                return@withContext true
+            } catch (e: WarpRegistrationClient.WarpRegistrationException) {
+                lastMessage = e.message
+            } catch (e: Exception) {
+                lastMessage = "Gagal registrasi WARP: ${e.message}"
+            }
+            if (attempt < REGISTER_MAX_ATTEMPTS) {
+                val backoffMs = min(REGISTER_BASE_BACKOFF_MS * (1L shl (attempt - 1)), REGISTER_MAX_BACKOFF_MS)
+                delay(backoffMs)
+            }
         }
+        _lastError.value = lastMessage
+        false
     }
 
     /** Brings the tunnel up. Returns true on success. Caller must already hold VPN permission.
@@ -464,6 +480,12 @@ class WarpTunnelManager(context: Context) {
         private const val BASE_BACKOFF_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
+        // Registration retry (v3.16.5) — separate, smaller budget than reconnect: this runs
+        // synchronously inside connect() while the user is waiting for the toggle to flip, so
+        // it needs to fail within a few seconds, not minutes.
+        private const val REGISTER_MAX_ATTEMPTS = 3
+        private const val REGISTER_BASE_BACKOFF_MS = 2_000L
+        private const val REGISTER_MAX_BACKOFF_MS = 10_000L
         private const val TRACE_URL = "https://www.cloudflare.com/cdn-cgi/trace"
         private const val PERSISTENT_KEEPALIVE_SEC = 25 // NAT/carrier timeouts are commonly <60s
         // How long a probed endpoint+MTU stays trusted before selectEndpointAndMtu() re-probes
