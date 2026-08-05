@@ -1,5 +1,27 @@
 # Changelog
 
+## v3.10.2 — HOTFIX: VPN_MTU tidak wajar (32000 → 1500) (2026-08-05)
+
+> User laporkan v3.10.1 (fix resolver diversity) TIDAK menolong — mode DNS
+> Ad-Block masih total internet failure, TERMASUK akses browser ke IP
+> langsung (bypass DNS sepenuhnya). Ini janggal: arsitektur
+> `addRoute(VPN_ROUTE, 32)` cuma capture trafik ke `10.111.222.1` (port
+> 53) — trafik lain seharusnya tidak pernah disentuh VPN sama sekali.
+> Gejala ini mengarah ke tun interface bermasalah di level
+> establish()/kernel, bukan soal resolusi DNS.
+
+**Fix:**
+1. **`util/Constants.kt`** — `VPN_MTU` `32000` → `1500`. Nilai lama jauh
+   di luar MTU link nyata manapun (WiFi/seluler ~1500) — kandidat kuat
+   penyebab tun interface direject/berperilaku aneh oleh network stack
+   Android tertentu.
+
+**BELUM DIKONFIRMASI** user di device fisik — WAJIB jadi hal pertama
+dicek di sesi berikutnya. Kalau masih gagal setelah ini, dugaan bergeser
+ke arah non-DNS-spesifik sepenuhnya (bukan lagi soal resolver ataupun
+MTU) — kemungkinan port 53/UDP diblokir total di jaringan operator user,
+atau ada faktor device/OEM lain di luar kendali kode app.
+
 ## v3.10.1 — HOTFIX: total DNS failure (upstream resolver diversity) (2026-08-05)
 
 > User laporkan: nyalakan mode DNS Ad-Block → SEMUA app kehilangan internet

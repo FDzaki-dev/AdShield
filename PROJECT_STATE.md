@@ -3,7 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.10.1 (2026-08-05) — HOTFIX: total DNS failure di device fisik user
+- **v3.10.2 (2026-08-05) — HOTFIX: VPN_MTU tidak wajar (32000→1500), respons
+  ke laporan v3.10.1 TIDAK menolong.** User konfirmasi lewat checklist: (1)
+  mode DNS ON masih total internet failure sama seperti sebelum v3.10.1,
+  (2) BAHKAN akses browser ke IP langsung (mis. `8.8.8.8`) — yang
+  bypass DNS sepenuhnya — juga gagal total. Ini kunci diagnosis: arsitektur
+  `addRoute(Constants.VPN_ROUTE, 32)` cuma mendaftarkan rute ke
+  `10.111.222.1/32` (port 53), jadi SECARA DESAIN trafik non-DNS (termasuk
+  akses IP langsung) tidak seharusnya pernah lewat/tersentuh tun interface
+  sama sekali — kalau itu pun gagal, masalahnya bukan lagi soal resolusi
+  DNS atau resolver upstream (v3.10.1 sudah benar tapi tidak cukup),
+  melainkan tun interface itu sendiri bermasalah di level
+  establish()/kernel network stack device. **Ditemukan saat audit kode:**
+  `Constants.VPN_MTU = 32000` — jauh di luar MTU link nyata manapun
+  (WiFi/seluler real-world ~1500). Diturunkan ke `1500` (standar). Ini
+  eksekusi langsung atas instruksi user ("last verdict"), BELUM
+  dikonfirmasi hasil di device — WAJIB jadi hal pertama dicek di sesi
+  berikutnya, urutan tes sama seperti sebelumnya (poin 1 & 2 checklist:
+  DNS ON normal? akses IP langsung normal?). **Kalau masih gagal setelah
+  fix MTU ini juga:** kemungkinan besar sudah habis ruang gerak di sisi
+  kode `AdBlockVpnService`/`Constants` — geser dugaan ke (a) port 53/UDP
+  diblokir total oleh jaringan/operator user (solusi: DoH/DoT, roadmap
+  lama yang disisihkan), atau (b) faktor device/OEM/kernel spesifik di
+  luar kendali kode app (minta user coba jaringan lain/device lain kalau
+  ada, untuk isolasi variabel).
+- v3.10.1 (2026-08-05) — HOTFIX: total DNS failure di device fisik user
   (semua app kehilangan internet saat mode DNS Ad-Block aktif).** User
   laporkan langsung: nyalakan DNS Ad-Block → SEMUA app (bukan cuma
   domain tertentu) kehilangan internet total. **Root cause:** v3.9.0
@@ -1213,6 +1237,13 @@ ada indikasi leak (naik terus tanpa turun), (c) amati field baterai
 Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
+
+**PALING BARU (2026-08-05, v3.10.2) — cek ini DULUAN sebelum apa pun lain:**
+(a) update ZIP ke device, build ulang, (b) nyalakan DNS Ad-Block — internet
+normal (bukan matot)?, (c) browser ke IP langsung (`8.8.8.8`) — normal?
+Kalau (b)/(c) MASIH gagal setelah fix MTU ini, STOP coba fix kode lain dulu
+— laporkan balik ke sesi berikutnya, kemungkinan penyebabnya sudah di luar
+kode app (lihat catatan di "Status terakhir" v3.10.2 di atas).
 
 **SEBELUMNYA (2026-08-05, v3.9.0): sebelum apa pun yang lain, cek 4 hal dari batch
 Internet Surfing Optimization #2 di device fisik:** (a) build CI sukses

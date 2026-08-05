@@ -28,7 +28,17 @@ object Constants {
     val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "1.0.0.1", "8.8.8.8")
 
     const val DNS_PORT = 53
-    const val VPN_MTU = 32000
+    // HOTFIX v3.10.2 (see PROJECT_STATE.md): was 32000, an unrealistic tun
+    // MTU (real WiFi/cellular link MTU is ~1500; nothing in the actual
+    // network path supports frames anywhere near 32000). User reported
+    // TOTAL internet failure with DNS Ad-Block on -- including direct-IP
+    // browser access that bypasses DNS entirely, which the DNS-only
+    // addRoute(VPN_ROUTE, 32) architecture should never be able to affect.
+    // That symptom points at the tun interface itself misbehaving at
+    // establish()/kernel level on this device's network stack, not at DNS
+    // resolution -- 1500 is the standard, safe value. NOT YET CONFIRMED by
+    // user on-device -- check this first next session.
+    const val VPN_MTU = 1500
 
     const val PREFS_NAME = "adshield_settings"
     const val KEY_VPN_ENABLED = "vpn_enabled"

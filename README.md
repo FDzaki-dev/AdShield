@@ -159,7 +159,15 @@ gejala.
 
 ## Status proyek
 
-- **v3.10.0 (terbaru)** — Instrumentasi profiling memori & baterai (layar
+- **v3.10.2 (terbaru)** — HOTFIX: `VPN_MTU` diturunkan dari 32000 (tidak
+  wajar) ke 1500 (standar). Merespons laporan user: hotfix resolver
+  diversity v3.10.1 tidak menolong, akses IP langsung pun ikut gagal total
+  saat DNS Ad-Block aktif — mengarah ke tun interface bermasalah, bukan
+  soal DNS. Belum dikonfirmasi di device (lihat PROJECT_STATE.md).
+- v3.10.1 — HOTFIX: upstream DNS resolver diversity (`1.1.1.1, 1.0.0.1,
+  8.8.8.8`) — tidak cukup menyelesaikan masalah total internet failure
+  sendirian, lihat v3.10.2.
+- v3.10.0 — Instrumentasi profiling memori & baterai (layar
   Diagnostik): PSS memori app, memori sistem tersisa, baterai
   (persen/suhu/status isi). Murni baca-saja, tidak ada perubahan perilaku
   VPN/DNS/WARP. Belum divalidasi di device fisik.
