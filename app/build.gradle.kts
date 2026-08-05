@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 37
-        versionName = "3.11.1"
+        versionCode = 38
+        versionName = "3.12.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -88,6 +88,10 @@ dependencies {
     implementation("androidx.navigation:navigation-compose:2.7.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.4")
     implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // Encrypted storage for VPN profile secrets (private keys, passwords,
+    // tokens) — v3.12.0, see VpnProfileRepository.kt / PROJECT_STATE.md.
+    implementation("androidx.security:security-crypto:1.1.0")
 
     // Room (domain log storage)
     implementation("androidx.room:room-runtime:2.6.1")

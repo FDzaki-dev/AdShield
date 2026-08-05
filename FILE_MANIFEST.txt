@@ -13,6 +13,7 @@ app/src/main/java/com/fdzaki/adshield/data/BlocklistManager.kt
 app/src/main/java/com/fdzaki/adshield/data/DnsCache.kt
 app/src/main/java/com/fdzaki/adshield/data/InstalledAppsRepository.kt
 app/src/main/java/com/fdzaki/adshield/data/SettingsRepository.kt
+app/src/main/java/com/fdzaki/adshield/data/VpnProfileRepository.kt
 app/src/main/java/com/fdzaki/adshield/data/db/AppDatabase.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogDao.kt
 app/src/main/java/com/fdzaki/adshield/data/db/DomainLogEntity.kt
@@ -76,6 +77,9 @@ app/src/main/res/values/themes.xml
 app/src/main/res/xml/shortcuts.xml
 app/src/test/java/com/fdzaki/adshield/data/BlocklistManagerTest.kt
 app/src/test/java/com/fdzaki/adshield/vpn/DnsPacketTest.kt
+app/src/main/java/com/fdzaki/adshield/protocol/VpnEngine.kt
+app/src/main/java/com/fdzaki/adshield/protocol/VpnEngineState.kt
+app/src/main/java/com/fdzaki/adshield/protocol/VpnProtocolConfig.kt
 build.gradle.kts
 gradle.properties
 settings.gradle.kts

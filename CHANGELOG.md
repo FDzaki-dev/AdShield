@@ -1,5 +1,56 @@
 # Changelog
 
+## v3.12.0 — Batch 1/N: Architecture Multi-Protokol (scaffolding) (2026-08-05)
+
+> **Keputusan besar user (2026-08-05):** AdShield diperluas dari 2 mode
+> (DNS Ad-Block, WARP) jadi VPN client multi-protokol: WireGuard (sudah
+> ada), + OpenVPN, IKEv2/IPsec, Shadowsocks/VLESS. User eksplisit minta
+> rilis bertahap, 1 engine per batch (Batch Lock dipatuhi). **Batch ini =
+> fondasi arsitektur SAJA — belum ada satu pun engine baru yang
+> fungsional.** DNS Ad-Block & WARP TIDAK disentuh sama sekali di batch
+> ini (0 file mode lama diubah).
+
+**File baru:**
+1. **`protocol/VpnEngine.kt`** — interface kontrak umum tiap engine
+   (`connect()`, `disconnect()`, `state: StateFlow<VpnEngineState>`).
+2. **`protocol/VpnEngineState.kt`** — sealed class state konektivitas
+   (Disconnected/Connecting/Connected/Reconnecting/Error), dipakai semua
+   engine (termasuk nanti WireGuard existing, saat diadaptasi).
+3. **`protocol/VpnProtocolConfig.kt`** — sealed class model konfigurasi
+   per protokol (OpenVpn/IkeV2/Shadowsocks) + `SplitTunnelMode` enum.
+   **Parser `.ovpn`/`.conf`/URL/QR BELUM diimplementasi** — cuma shape
+   data class, field kemungkinan masih berubah setelah parser nyata
+   ditulis per-engine.
+4. **`data/VpnProfileRepository.kt`** — penyimpanan aman (Keamanan Data,
+   poin 3 spesifikasi user) untuk private key/password/token pakai
+   `EncryptedSharedPreferences`, terpisah total dari `SettingsRepository`
+   (DataStore plain) — secrets tidak pernah masuk prefs tak terenkripsi.
+
+**File berubah:**
+- **`util/Constants.kt`** — `AppMode` ditambah 3 konstanta placeholder
+  (`OPENVPN`, `IKEV2`, `SHADOWSOCKS`) — **belum wired ke UI/service
+  manapun**, cuma identifier stabil untuk protocol/ package.
+- **`app/build.gradle.kts`** — dependency `androidx.security:security-crypto:1.1.0`
+  (diverifikasi via web search — versi stable terkini per Jul 2025,
+  BUKAN alpha yang dipakai walau EncryptedSharedPreferences sudah
+  deprecated sejak 1.1.0-beta01, masih berfungsi di 1.1.0 stable).
+
+**BELUM DIKERJAKAN (sengaja, batch terpisah per Batch Lock):**
+- WireGuard/WARP existing belum diadaptasi ke `VpnEngine` interface baru
+  (rencana: batch berikutnya, "buktikan abstraksi ke engine yang sudah
+  jalan" sebelum tambah engine baru)
+- OpenVPN (JNI/native ics-openvpn), IKEv2 (StrongSwan/IKEv2VpnProfile),
+  Shadowsocks/VLESS (Xray-core) — 0% dikerjakan, masing-masing 1 batch
+  terpisah nanti
+- Kill Switch, Split Tunneling UI, Auto-Reconnect NetworkCallback, QS
+  Tile per-protokol baru — menunggu minimal 1 engine baru jalan dulu
+- Foreground Service notification interaktif (durasi/kecepatan) — sudah
+  ada foreground service utk DNS/WARP, belum ada untuk protokol baru
+
+**BELUM DIKONFIRMASI build CI** — batch ini murni file baru + 1
+dependency, risiko regresi ke mode existing rendah (0 file
+DNS/WARP disentuh), tapi tetap WAJIB cek CI dulu sebelum lanjut batch 2.
+
 ## v3.11.1 — HOTFIX: compile error DohClient.kt (2026-08-05)
 
 > CI `compileReleaseKotlin` gagal di v3.11.0: 2 overload `createSocket`

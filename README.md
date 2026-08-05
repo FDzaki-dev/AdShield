@@ -159,8 +159,14 @@ gejala.
 
 ## Status proyek
 
-- **v3.11.1 (terbaru)** — HOTFIX: compile error di `DohClient.kt` (build
-  v3.11.0 gagal CI). Fungsionalitas sama, murni perbaikan sintaks. Belum
+- **v3.12.0 (terbaru)** — Batch 1/N Arsitektur Multi-Protokol: fondasi
+  untuk memperluas AdShield dari 2 mode (DNS Ad-Block/WARP) jadi VPN
+  client multi-protokol (rencana: + OpenVPN, IKEv2, Shadowsocks/VLESS,
+  rilis bertahap per protokol). Batch ini scaffolding saja — interface
+  `VpnEngine`, model config per protokol, penyimpanan aman untuk
+  secrets. Belum ada engine baru yang fungsional. Belum dikonfirmasi
+  build CI (lihat PROJECT_STATE.md).
+- v3.11.1 — HOTFIX: compile error di `DohClient.kt` (build v3.11.0 gagal CI). Fungsionalitas sama, murni perbaikan sintaks. Belum
   dikonfirmasi build sukses (lihat PROJECT_STATE.md).
 - v3.11.0 — DNS-over-HTTPS (DoH): query DNS dicoba lewat
   HTTPS (Cloudflare, lalu Google) dulu sebelum fallback ke plain DNS
@@ -216,6 +222,10 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
+- **Multi-protokol VPN (v3.12.0+, batch 1/N sudah mulai)** — perluasan dari
+  2 mode jadi VPN client multi-protokol: OpenVPN, IKEv2/IPsec,
+  Shadowsocks/VLESS (WireGuard sudah ada via mode WARP). Rilis bertahap 1
+  protokol per batch. Lihat PROJECT_STATE.md untuk urutan & status detail.
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
 - ~~DNS AdBlocker: custom DNS terenkripsi (DoH/DoT)~~ — **DoH selesai

@@ -114,9 +114,24 @@ object Constants {
     const val PREFETCH_QUERY_GAP_MS = 40L
 }
 
-/** The two mutually-exclusive protection modes AdShield can run — never both at once. */
+/** Protection modes AdShield can run — mutually exclusive, never more than
+ *  one active at once (enforced by SettingsRepository.activeMode as single
+ *  source of truth, same pattern as the original DNS/WARP pair).
+ *
+ *  v3.12.0 (see PROJECT_STATE.md decision log): user decided to expand
+ *  AdShield from 2 modes to a multi-protocol VPN client. OPENVPN / IKEV2 /
+ *  SHADOWSOCKS are added here as placeholder identifiers ONLY — no engine
+ *  backs them yet (staged rollout, 1 engine per batch per Batch Lock rule).
+ *  Nothing in the UI can select them yet; adding the constant here first is
+ *  just so VpnProtocolConfig/VpnEngine (protocol/ package) have a stable
+ *  identifier to reference while each engine is built out in its own batch.
+ */
 object AppMode {
     const val NONE = "none"
     const val DNS_ADBLOCK = "dns"
     const val WARP_TUNNEL = "warp"
+    // Not yet functional — placeholders for the staged multi-protocol rollout.
+    const val OPENVPN = "openvpn"
+    const val IKEV2 = "ikev2"
+    const val SHADOWSOCKS = "shadowsocks"
 }

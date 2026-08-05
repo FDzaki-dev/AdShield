@@ -3,7 +3,50 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.11.1 (2026-08-05) — HOTFIX: compile error di DohClient.kt.** CI
+- **v3.12.0 (2026-08-05) — Batch 1/N Arsitektur Multi-Protokol
+  (scaffolding only).** **KEPUTUSAN ARSITEKTUR BESAR:** user memutuskan
+  AdShield diperluas dari 2 mode (DNS Ad-Block/WARP) jadi VPN client
+  multi-protokol (+ OpenVPN, IKEv2/IPsec, Shadowsocks/VLESS), rilis
+  bertahap 1 engine/batch. Krisis DNS/DoH (v3.10.1–v3.11.1) resminya
+  DITINGGALKAN oleh user ("gagal total. jadi buang jauh-jauh pertanyaan
+  itu!!") — TIDAK PERNAH dikonfirmasi apa root cause sebenarnya (DoH pun
+  belum sempat divalidasi device sebelum user pivot). **Kalau user kembali
+  ke topik DNS Ad-Block nanti, ingat: v3.11.1 adalah state terakhir
+  (DoH+fallback plain-UDP+MTU 1500+resolver diversity), status build CI
+  TIDAK PERNAH dikonfirmasi sukses, dan root cause asli (kenapa plain
+  UDP:53 gagal total di jaringan user) TIDAK PERNAH benar-benar
+  diidentifikasi — cuma disingkirkan satu-satu tanpa pengganti pasti
+  terbukti.**
+  Batch 1 ini: `protocol/VpnEngine.kt` (interface), `protocol/VpnEngineState.kt`
+  (sealed state), `protocol/VpnProtocolConfig.kt` (config model per
+  protokol, parser BELUM ada), `data/VpnProfileRepository.kt`
+  (EncryptedSharedPreferences untuk secrets), `AppMode` di Constants.kt
+  ditambah 3 placeholder. **0 file DNS_ADBLOCK/WARP_TUNNEL existing
+  disentuh** — risiko regresi rendah, tapi arsitektur "2 mode
+  mutually-exclusive" akan berubah signifikan begitu engine baru mulai
+  wired ke UI (activeMode jadi >2 kemungkinan nilai, NavGraph/HomeScreen
+  perlu tahu cara render protokol baru).
+  **Rencana batch berikutnya (urutan disepakati via CHANGELOG v3.12.0):**
+  1. Adaptasi WireGuard/WARP existing ke `VpnEngine` interface (buktikan
+     abstraksi ke engine yang SUDAH terbukti jalan sebelum tambah baru)
+  2. OpenVPN (native ics-openvpn via JNI) — **PERINGATAN untuk sesi
+     berikutnya:** ini permintaan paling berisiko dari seluruh scope.
+     Integrasi JNI/native C++ ics-openvpn BUKAN sesuatu yang bisa ditulis
+     dari nol lewat kode Kotlin biasa — butuh source tree asli
+     ics-openvpn (submodule/AAR pihak ketiga) yang HARUS diverifikasi
+     eksistensi & keamanannya dulu (cek Maven/JitPack coordinates real,
+     jangan asumsi/karang nama artifact). JANGAN klaim "sudah
+     terintegrasi" kalau yang sebenarnya cuma wrapper Kotlin di atas
+     dependency yang belum divalidasi bisa di-resolve Gradle.
+  3. IKEv2 — evaluasi dulu `android.net.IkeV2VpnProfile` (native Android
+     10+, TIDAK butuh library pihak ketiga) vs StrongSwan AAR — kalau bisa
+     native API, jauh lebih aman/simpel daripada tambah dependency besar.
+  4. Shadowsocks/VLESS via Xray-core — sama seperti OpenVPN, cek dulu
+     Maven/JitPack coordinates AAR resmi yang benar-benar ada sebelum
+     nulis kode yang mengasumsikan API tertentu.
+  **BELUM DIKONFIRMASI build CI** untuk batch 1 ini — cek dulu di sesi
+  berikutnya sebelum mulai batch 2 (WireGuard adapter).
+- v3.11.1 (2026-08-05) — HOTFIX: compile error di DohClient.kt.** CI
   build v3.11.0 GAGAL (`compileReleaseKotlin`) — user upload log GitHub
   Actions, ketahuan dari situ tanpa perlu tes device dulu. Root cause: 2
   overload `createSocket(InetAddress, ...)` di custom `SSLSocketFactory`
@@ -1288,10 +1331,14 @@ Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 
-**PALING BARU (2026-08-05, v3.11.1) — cek ini DULUAN sebelum apa pun lain:**
-build CI sukses dulu (v3.11.0 sempat GAGAL compile, v3.11.1 fix-nya belum
-pernah dicoba build ulang) — BARU lanjut ke validasi fungsional DoH (lihat
-poin a-d di "Status terakhir" v3.11.0, urutannya tetap sama).
+**PALING BARU (2026-08-05, v3.12.0) — cek ini DULUAN sebelum apa pun lain:**
+build CI sukses dulu untuk batch scaffolding ini (murni file baru + 1
+dependency, 0 file DNS/WARP existing disentuh, risiko regresi rendah tapi
+tetap wajib dicek) — BARU lanjut ke batch 2 (adaptasi WireGuard/WARP ke
+VpnEngine interface). Urutan batch lengkap ada di "Status terakhir"
+v3.12.0 di atas. Krisis DNS/DoH (v3.9.0–v3.11.1) DITINGGALKAN user tanpa
+resolusi pasti — TIDAK perlu dikejar lagi kecuali user eksplisit angkat
+topik itu lagi.
 
 **SEBELUMNYA (2026-08-05, v3.10.2):** fix MTU 32000→1500 — TIDAK
 menolong (superseded by v3.11.0 DoH), jangan diulang cek terpisah.
