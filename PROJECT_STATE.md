@@ -3,6 +3,16 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.16.2 (2026-08-06) — Wire unit test ke CI (static review, bukan batch
+  fitur).** Ditemukan lewat static review kalau `DnsPacketTest.kt` /
+  `BlocklistManagerTest.kt` (sudah ada di repo & manifest sejak sesi
+  sebelumnya) TIDAK PERNAH dijalankan CI — workflow langsung
+  `assembleRelease` tanpa step test. Tambah step `gradle testDebugUnitTest`
+  sebelum build APK + perluas failure diagnostics buat include
+  `test-results/**/*.xml`. **BELUM DIKONFIRMASI: run CI v3.16.2 sendiri**
+  (tidak ada Gradle/Android SDK/network di lingkungan kerja sesi ini, jadi
+  ini murni analisis statis — bukan hasil build/test sungguhan). Cek run
+  CI v3.16.2 dulu di sesi berikutnya.
 - **v3.16.1 (2026-08-06) — Fix CI (bukan batch fitur).** Cek build CI yang
   wajib dilakukan (tertunda sejak v3.13.0, lihat entri v3.16.0 di bawah)
   akhirnya dilakukan lewat log GitHub Actions yang diupload user manual

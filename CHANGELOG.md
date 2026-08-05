@@ -1,5 +1,32 @@
 # Changelog
 
+## v3.16.2 — Wire unit test ke CI (2026-08-06)
+
+> Gap ditemukan lewat static review: `DnsPacketTest.kt` dan
+> `BlocklistManagerTest.kt` (ditambahkan sebelumnya, sudah tercatat di
+> `FILE_MANIFEST.txt`) tidak pernah benar-benar dijalankan oleh
+> `.github/workflows/build.yml` — workflow langsung `gradle assembleRelease`
+> tanpa step test terpisah. Artinya regresi di parser DNS atau logika
+> matching blocklist bisa lolos ke APK release tanpa terdeteksi CI.
+
+**`.github/workflows/build.yml`**
+- Tambah step `Run unit tests` (`gradle testDebugUnitTest --no-daemon`)
+  sebelum step build APK, supaya build gagal cepat kalau ada regresi di
+  `DnsPacket`/`BlocklistManager` — tidak perlu tunggu sampai tahap R8/signing.
+- Step `Collect failure diagnostics` diperluas untuk ikut copy
+  `app/build/test-results/**/*.xml` (hasil JUnit test), bukan cuma
+  `app/build/reports` — supaya kegagalan unit test juga terbaca dari
+  artifact `log_fail_*` yang kecil, konsisten dengan pola yang sudah ada
+  untuk kegagalan R8 di v3.16.1.
+
+**`app/build.gradle.kts`**
+- `versionCode` 43 → 44, `versionName` 3.16.1 → 3.16.2.
+
+**Belum dikonfirmasi** (butuh runner sungguhan, di luar kemampuan analisis
+statis): run CI v3.16.2 sendiri. Cek run ini dulu di sesi berikutnya sebelum
+lanjut ke item pending lain (validasi WARP end-to-end tetap prioritas
+tertinggi, lihat PROJECT_STATE.md).
+
 ## v3.16.1 — Fix CI: R8 minifyReleaseWithR8 FAILED + artifact log kegagalan (2026-08-06)
 
 > Ditemukan dari cek build CI yang tertunda sejak v3.13.0 (lihat PROJECT_STATE.md).

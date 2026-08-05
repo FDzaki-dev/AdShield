@@ -35,6 +35,9 @@ jobs:
           VERSION_NAME=$(grep -oP '(?<=versionName = ")[^"]+' app/build.gradle.kts | head -1)
           echo "version_name=$VERSION_NAME" >> "$GITHUB_OUTPUT"
 
+      - name: Run unit tests
+        run: gradle testDebugUnitTest --no-daemon
+
       - name: Build signed release APK
         env:
           RELEASE_KEYSTORE_PATH: ${{ github.workspace }}/app/release.keystore
@@ -80,6 +83,8 @@ jobs:
           find app/build/outputs/mapping -type f \( -name "missing_rules.txt" -o -name "*.txt" \) -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
           # Lint / test / build reports (html+xml, kecil, cukup buat baca cepat)
           find app/build/reports -type f \( -name "*.txt" -o -name "*.xml" \) -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
+          # JUnit unit test result XML (testDebugUnitTest) — beda folder dari reports/
+          find app/build/test-results -type f -name "*.xml" -exec cp --parents {} fail-logs/ \; 2>/dev/null || true
           # Ringkasan gagal yang paling relevan (tail dari step summary bawaan Actions)
           {
             echo "Build FAILED - run ${{ github.run_id }} (attempt ${{ github.run_attempt }})"
