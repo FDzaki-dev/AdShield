@@ -368,8 +368,24 @@ class WarpTunnelManager(context: Context) {
         try {
             val attempts = _quality.value.reconnectAttempts + 1
             if (attempts > MAX_RECONNECT_ATTEMPTS) {
-                _lastError.value = "WARP terputus berulang kali — auto-reconnect dihentikan " +
-                    "sementara. Coba matikan lalu nyalakan manual, atau periksa koneksi internet."
+                // v3.16.6 — reliability audit: this used to just set lastError and return,
+                // but reconnectAttempts is only reset to 0 by a SUCCESSFUL probe
+                // (performHealthCheck), so with the tunnel genuinely dead the watchdog kept
+                // calling attemptReconnect() again every HEALTH_CHECK_INTERVAL_MS forever —
+                // each call hit this same branch and returned immediately, meaning "dihentikan
+                // sementara" was misleading: nothing ever actually paused, it just silently
+                // failed the same way every ~25s indefinitely (wasted probes/battery, and no
+                // real path back to UP without the user force-toggling the mode off and on).
+                // Now: actually stop the watchdog and cleanly tear the interface down, so the
+                // state is deterministic (fully DOWN + a clear error) instead of a limbo of
+                // infinite silent no-op retries.
+                _lastError.value = "WARP terputus berulang kali — auto-reconnect dihentikan. " +
+                    "Tunnel dimatikan; nyalakan manual untuk mencoba lagi."
+                desiredRunning = false
+                watchdogJob?.cancel()
+                unregisterNetworkWatcher()
+                runCatching { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+                accountRepository.setWasTunnelRunning(false)
                 return
             }
             _quality.value = _quality.value.copy(reconnectAttempts = attempts)

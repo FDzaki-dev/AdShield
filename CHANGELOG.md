@@ -1,5 +1,58 @@
 # Changelog
 
+## v3.16.6 — Reliability audit batch 2/N: keputusan failover + fix give-up state (2026-08-06)
+
+> User serahkan keputusan failover WARP↔DNS ke Claude ("keputusan terbaik
+> berada digenggaman mu"). Keputusan diambil + didokumentasikan di bawah,
+> plus satu bug nyata ditemukan di jalur "give up" saat investigasi.
+
+**Keputusan arsitektur: TIDAK ada auto-switch mode WARP→DNS atau
+sebaliknya.** Alasan: user memilih mode WARP secara eksplisit untuk
+enkripsi penuh trafik. Auto-switch diam-diam ke DNS-only (yang HANYA
+memblokir iklan, TIDAK mengenkripsi trafik lain) saat WARP gagal berarti
+diam-diam menurunkan jaminan keamanan yang user sudah pilih, tanpa consent
+di momen itu. Ini melanggar prinsip dasar aplikasi VPN/privacy: jangan
+pernah melemahkan proteksi tanpa persetujuan eksplisit saat itu terjadi.
+Keputusannya: tetap 2 mode terpisah, tidak saling menggantikan otomatis;
+yang diperbaiki adalah supaya kegagalan WARP itu sendiri berperilaku benar
+dan jelas (lihat di bawah), bukan menutupinya dengan pindah mode diam-diam.
+
+**Bug ditemukan saat investigasi (`WarpTunnelManager.kt`):** setelah
+`MAX_RECONNECT_ATTEMPTS` (5) habis, `attemptReconnect()` cuma `return` —
+tapi `reconnectAttempts` cuma di-reset ke 0 oleh probe yang BERHASIL, jadi
+kalau tunnel-nya benar-benar mati, watchdog tetap manggil `attemptReconnect()`
+lagi tiap `HEALTH_CHECK_INTERVAL_MS` (25 detik) SELAMANYA — tiap panggilan
+langsung `return` di cabang yang sama, jadi pesan "dihentikan sementara"
+menyesatkan: tidak pernah benar-benar berhenti, cuma diam-diam gagal
+berulang tanpa henti (buang baterai/probe, dan gak ada jalan balik ke UP
+tanpa user maksa toggle mode off-on).
+
+**`app/src/main/java/com/fdzaki/adshield/warp/WarpTunnelManager.kt`**
+- Cabang "give up" di `attemptReconnect()`: sekarang benar-benar
+  menghentikan watchdog (`watchdogJob?.cancel()`), unregister network
+  watcher, dan tear down interface (`backend.setState(tunnel, DOWN, null)`)
+  — state jadi deterministik (benar-benar DOWN + error jelas), bukan limbo
+  retry diam-diam selamanya. Pola teardown ini SAMA dengan `disconnect()`
+  yang sudah ada (bukan perilaku baru, cuma dipakai ulang untuk kasus
+  "menyerah").
+- Efek samping yang disengaja: begitu WARP tear-down, trafik kembali lewat
+  jalur normal TANPA proteksi (fail-open untuk konektivitas internet dasar)
+  — tapi dengan pesan error yang sudah SUDAH tersambung ke UI
+  (`warpLastError` di `HomeScreen.kt`, dikonfirmasi masih ada sebelum
+  batch ini). Alternatif fail-closed (blokir semua trafik sampai user
+  restart manual) dipertimbangkan tapi ditolak: user bisa kehilangan
+  internet sepenuhnya tanpa notifikasi push yang jelas kalau mereka tidak
+  sedang membuka app — resiko lebih besar daripada fail-open dengan pesan
+  error yang jelas begitu mereka buka app.
+
+**`app/build.gradle.kts`**
+- `versionCode` 47 → 48, `versionName` 3.16.5 → 3.16.6.
+
+**Batas jaminan:** analisis statis (coroutine cancellation semantics
+diverifikasi manual — `watchdogJob.cancel()` dipanggil dari dalam coroutine
+yang sama dengan job tsb aman, checked-cooperative di suspension point
+berikutnya). Belum ada bukti runtime.
+
 ## v3.16.5 — Reliability audit batch 1: retry+backoff untuk registrasi WARP (2026-08-06)
 
 > CI v3.16.4 confirmed hijau oleh user. Mulai kerjakan audit checklist

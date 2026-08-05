@@ -3,40 +3,25 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **CI v3.16.4 CONFIRMED HIJAU oleh user.** Mulai kerjakan audit checklist
-  eksternal (lihat daftar lengkap di chat), urutan: Reliability →
-  Concurrency & Lifecycle → Security → Performance → Testing & Diagnostic.
-- **v3.16.5 (2026-08-06) — Reliability audit batch 1/N: retry+backoff
-  registrasi WARP.** `ensureRegistered()` sekarang retry 3x dengan
-  exponential backoff (pola sama dengan `attemptReconnect()`). Item
-  checklist yang SUDAH ada sebelum audit ini (jangan dikerjakan ulang):
-  auto-reconnect WARP dengan backoff (`attemptReconnect`), watchdog
-  network-switch (`registerNetworkWatcher`), auto recovery service
-  crash/kill (`BootReceiver`+`RestartReceiver`+AlarmManager watchdog),
-  kill-switch hardening (v3.7.0, tidak ada gap DOWN saat reconnect).
-  **BELUM DIKERJAKAN (reliability checklist, next batch):**
-  - Failover otomatis WARP→DNS-mode (atau sebaliknya) kalau satu mode gagal
-    total (`MAX_RECONNECT_ATTEMPTS` habis) — saat ini cuma stop & tampilkan
-    error, tidak pindah mode otomatis. **Perlu keputusan produk dulu**:
-    auto-switch ke mode lain mengubah level proteksi user tanpa consent
-    eksplisit (WARP dipilih user untuk enkripsi penuh; auto-fallback ke
-    DNS-only diam-diam mengurangi itu) — jangan implementasikan tanpa
-    konfirmasi user.
-  - Captive portal detection eksplisit (saat ini cuma network-callback
-    generik + trace probe warp=on; captive portal login page belum
-    dibedakan dari "internet benar-benar mati").
-  - Airplane mode: belum diverifikasi manual apakah `networkCallback`
-    benar reconnect setelah airplane mode off (secara desain seharusnya
-    ya — kehilangan network lalu network baru muncul, sama seperti WiFi↔data
-    — tapi belum ada bukti runtime).
-  - Retry+backoff untuk `AdBlockVpnService` (DNS mode): TIDAK relevan/tidak
-    perlu — mode ini cuma forward per-query DNS ke 1.1.1.1/8.8.8.8, kegagalan
-    per-paket sudah ditangani per-request (timeout → requester app retry
-    sendiri, lihat komentar di kode), bukan koneksi persisten seperti WARP.
-  - Belum ada unit test untuk retry registrasi baru ini — `WarpRegistrationClient`
-    perlu direfactor ke interface/DI dulu supaya bisa di-mock di JVM test.
-- v3.16.4 (2026-08-06) — Fix compile error di DnsPacketTest.kt (root cause
-  ketemu).
+- **v3.16.6 (2026-08-06) — Reliability audit batch 2/N: keputusan failover
+  + fix bug give-up state.** User serahkan keputusan failover WARP↔DNS ke
+  Claude. **Keputusan (final, jangan diubah tanpa user minta eksplisit):
+  TIDAK ADA auto-switch mode.** WARP dipilih user untuk enkripsi penuh;
+  auto-fallback diam-diam ke DNS-only menurunkan proteksi tanpa consent
+  saat itu terjadi — melanggar prinsip dasar VPN app. Yang diperbaiki
+  sebagai gantinya: bug nyata di mana setelah `MAX_RECONNECT_ATTEMPTS`
+  habis, watchdog TETAP manggil `attemptReconnect()` tiap 25 detik
+  SELAMANYA tanpa pernah benar-benar berhenti (reconnectAttempts cuma
+  reset oleh probe sukses) — padahal pesan errornya bilang "dihentikan
+  sementara". Fix: watchdog & network-watcher benar-benar di-cancel,
+  interface di-tear-down bersih (reuse pola `disconnect()`), begitu give-up
+  terjadi. Efek: begitu WARP menyerah, trafik balik ke jalur normal TANPA
+  proteksi (fail-open, bukan fail-closed) — dipilih sengaja karena
+  fail-closed total bisa membuat user kehilangan internet tanpa notifikasi
+  jelas kalau app tidak sedang dibuka; `warpLastError` sudah tersambung ke
+  `HomeScreen.kt` jadi begitu user buka app, errornya jelas.
+- v3.16.5 (2026-08-06) — Reliability audit batch 1: retry+backoff untuk
+  registrasi WARP.
 - v3.16.3 (2026-08-06) — Fix blind spot diagnostik CI (bukan fix bug
   aslinya). Run CI 31051130336 gagal tapi artifact `log_fail_*`-nya cuma
   berisi `FAILURE_SUMMARY.txt` 3 baris — TIDAK ADA info penyebab sama
@@ -1028,6 +1013,17 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    Implementasi sekarang cek `bases.contains(domain)` lalu jalan
    `domain.substring(dotIndex+1)` tiap level, bukan `for (base in bases)`.
    Ini SENGAJA — biar biayanya O(kedalaman domain) bukan O(ukuran set
+
+4d. **TIDAK ADA auto-switch mode WARP↔DNS saat salah satu gagal total
+   (keputusan v3.16.6, diserahkan user ke Claude untuk diputuskan).**
+   WARP dipilih user secara eksplisit untuk enkripsi penuh trafik;
+   auto-fallback diam-diam ke DNS-only (yang cuma blokir iklan, TIDAK
+   mengenkripsi apa pun) berarti menurunkan jaminan keamanan yang sudah
+   dipilih user tanpa consent di momen itu terjadi — melanggar prinsip
+   dasar aplikasi VPN/privacy. Kalau `MAX_RECONNECT_ATTEMPTS` habis, yang
+   terjadi adalah tunnel WARP di-tear-down bersih + error jelas ke UI
+   (`warpLastError`), BUKAN pindah otomatis ke mode DNS. Jangan ubah ini
+   jadi auto-switch tanpa user memintanya secara eksplisit.
    wildcard), supaya custom blocklist URL (v2.5.0) yang besar tidak
    memperlambat SETIAP query DNS di packet loop. Semantik hasil identik
    dengan versi lama (`domain == base || domain.endsWith(".$base")`),
@@ -1602,6 +1598,20 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 ```
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
+
+**PALING BARU (2026-08-06, reliability audit batch 2/N):**
+1. Cek run CI v3.16.6 (build ijo?).
+2. Reliability checklist yang MASIH belum dikerjakan (urutan dari user):
+   - Captive portal detection eksplisit — saat ini cuma network-callback
+     generik + trace probe `warp=on`; halaman login captive portal belum
+     dibedakan dari "internet benar-benar mati".
+   - Verifikasi runtime (bukan cuma desain) apakah `networkCallback` benar
+     memicu reconnect setelah airplane mode dimatikan lagi.
+   - Belum ada unit test untuk retry registrasi (v3.16.5) atau fix give-up
+     state (v3.16.6) — `WarpRegistrationClient`/`GoBackend` butuh
+     interface/DI dulu supaya bisa di-mock di JVM test (bukan device test).
+3. Setelah Reliability dianggap cukup, lanjut ke Concurrency & Lifecycle
+   (urutan checklist user berikutnya).
 
 **PALING BARU & PALING PENTING (2026-08-05, v3.10.1): konfirmasi fix total
 DNS failure benar-benar memulihkan koneksi.** (a) build CI sukses, (b)
