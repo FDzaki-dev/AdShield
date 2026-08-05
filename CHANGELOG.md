@@ -1,5 +1,39 @@
 # Changelog
 
+## v3.11.0 — DNS-over-HTTPS (DoH), fallback ke plain DNS (2026-08-05)
+
+> User laporkan v3.10.2 (fix MTU) TIDAK menolong — error persis:
+> `DNS_PROBE_FINISHED_BAD_SECURE_CONFIG` di WiFi, matot di data seluler.
+> Bukan Android Private DNS atau Chrome Secure DNS (dikonfirmasi user:
+> keduanya tidak pernah diaktifkan). Kesimpulan: plain UDP port 53 memang
+> diblokir/rusak total di jaringan user — bukan lagi soal kode app.
+> **Keputusan user (2026-08-05, "last verdict"):** implementasi DoH,
+> fallback ke plain DNS biasa kalau DoH gagal, dua provider sekaligus
+> (Cloudflare + Google).
+
+**Fitur baru:**
+1. **`vpn/DohClient.kt`** (baru) — resolver DNS-over-HTTPS pakai
+   `HttpsURLConnection` bawaan Android (tanpa dependency baru). Setiap
+   socket di-`protect()` manual lewat custom `SSLSocketFactory` supaya
+   trafik DoH sendiri tidak ikut ke-tunnel balik ke tun interface kita
+   sendiri (prinsip sama seperti socket UDP upstream yang sudah ada).
+2. **`util/Constants.kt`** — `DOH_ENDPOINTS` (Cloudflare
+   `cloudflare-dns.com/dns-query`, Google `dns.google/dns-query`),
+   `DOH_TIMEOUT_MS = 4000`.
+3. **`vpn/AdBlockVpnService.kt`** — `forwardToUpstream()` dan
+   `prefetchOne()` sekarang coba DoH DULU (kedua provider berurutan),
+   baru fallback ke rantai resolver plain-UDP lama
+   (`Constants.UPSTREAM_DNS_SERVERS`) kalau DoH gagal total. Plain-UDP
+   dipertahankan sebagai jaring pengaman untuk jaringan yang justru
+   memblokir DoH tapi UDP:53 normal — bukan full-replace.
+
+**Belum dikerjakan (sengaja di luar scope batch ini):** DoT (DNS-over-TLS,
+port 853) — DoH sudah cukup untuk kasus user saat ini (trafik lewat 443,
+sama seperti HTTPS biasa); DoT pakai port terpisah (853) yang sama
+rentannya diblokir seperti UDP:53 kalau operator block berdasarkan port,
+jadi prioritasnya rendah. **BELUM DIKONFIRMASI** di device fisik — WAJIB
+jadi hal pertama dicek di sesi berikutnya (lihat PROJECT_STATE.md).
+
 ## v3.10.2 — HOTFIX: VPN_MTU tidak wajar (32000 → 1500) (2026-08-05)
 
 > User laporkan v3.10.1 (fix resolver diversity) TIDAK menolong — mode DNS

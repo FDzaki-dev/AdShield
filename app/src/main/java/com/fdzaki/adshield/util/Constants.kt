@@ -28,6 +28,19 @@ object Constants {
     val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "1.0.0.1", "8.8.8.8")
 
     const val DNS_PORT = 53
+
+    // DNS-over-HTTPS (v3.11.0, see PROJECT_STATE.md decision log). Tried
+    // FIRST for every forwarded query, falling back to plain-UDP
+    // UPSTREAM_DNS_SERVERS below only if every DoH endpoint fails — added
+    // because the user's network was confirmed to break plain UDP:53
+    // entirely (DoH rides port 443, indistinguishable from ordinary HTTPS).
+    // Both providers are tried in order per user decision (2026-08-05):
+    // Cloudflare first (matches existing 1.1.1.1 preference), Google second.
+    val DOH_ENDPOINTS = listOf(
+        "https://cloudflare-dns.com/dns-query",
+        "https://dns.google/dns-query"
+    )
+    const val DOH_TIMEOUT_MS = 4000
     // HOTFIX v3.10.2 (see PROJECT_STATE.md): was 32000, an unrealistic tun
     // MTU (real WiFi/cellular link MTU is ~1500; nothing in the actual
     // network path supports frames anywhere near 32000). User reported

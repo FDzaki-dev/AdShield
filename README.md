@@ -159,11 +159,13 @@ gejala.
 
 ## Status proyek
 
-- **v3.10.2 (terbaru)** — HOTFIX: `VPN_MTU` diturunkan dari 32000 (tidak
-  wajar) ke 1500 (standar). Merespons laporan user: hotfix resolver
-  diversity v3.10.1 tidak menolong, akses IP langsung pun ikut gagal total
-  saat DNS Ad-Block aktif — mengarah ke tun interface bermasalah, bukan
-  soal DNS. Belum dikonfirmasi di device (lihat PROJECT_STATE.md).
+- **v3.11.0 (terbaru)** — DNS-over-HTTPS (DoH): query DNS dicoba lewat
+  HTTPS (Cloudflare, lalu Google) dulu sebelum fallback ke plain DNS
+  biasa. Merespons laporan user: fix MTU v3.10.2 tidak menolong, plain
+  UDP port 53 kemungkinan diblokir total di jaringannya. Belum
+  dikonfirmasi di device (lihat PROJECT_STATE.md).
+- v3.10.2 — HOTFIX: `VPN_MTU` diturunkan dari 32000 (tidak wajar) ke 1500
+  (standar) — tidak cukup menyelesaikan masalah, lihat v3.11.0.
 - v3.10.1 — HOTFIX: upstream DNS resolver diversity (`1.1.1.1, 1.0.0.1,
   8.8.8.8`) — tidak cukup menyelesaikan masalah total internet failure
   sendirian, lihat v3.10.2.
@@ -213,9 +215,9 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 - Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
   menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
-- **DNS AdBlocker:** custom DNS terenkripsi (DoH/DoT) — satu-satunya item
-  tersisa dari kategori ini, butuh perubahan arsitektur di
-  `AdBlockVpnService` (sekarang forward plain-UDP), lihat PROJECT_STATE.md
+- ~~DNS AdBlocker: custom DNS terenkripsi (DoH/DoT)~~ — **DoH selesai
+  v3.11.0** (fallback ke plain-UDP kalau DoH gagal). DoT (port 853) belum
+  dikerjakan, prioritas rendah — lihat PROJECT_STATE.md
 - Statistik per-aplikasi (domain mana diblokir untuk app mana)
 - Dark/light theme toggle (saat ini dark-only)
 - MASQUE (protokol QUIC dari IETF, dipakai iCloud Private Relay) — sengaja

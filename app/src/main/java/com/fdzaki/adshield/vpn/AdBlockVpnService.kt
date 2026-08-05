@@ -220,6 +220,22 @@ class AdBlockVpnService : VpnService() {
         // to any app on the tun interface, so it doesn't need to match anything.
         val txId = byteArrayOf(0x50, 0x50)
         val request = DnsPacket.buildQueryMessage(domain, DNS_QTYPE_A, txId)
+
+        // v3.11.0: try DoH first here too, same reasoning as forwardToUpstream
+        // -- on a network where plain UDP:53 is dead, the plain-UDP loop below
+        // would otherwise silently fail every prefetch attempt forever.
+        try {
+            val dohReply = DohClient.resolve(this, request)
+            if (dohReply != null) {
+                DnsPacket.extractCacheableTtlSeconds(dohReply)?.let { ttl ->
+                    DnsCache.put(domain, DNS_QTYPE_A, dohReply, ttl)
+                }
+                return
+            }
+        } catch (_: Exception) {
+            // fall through to plain-UDP below
+        }
+
         val replyBuf = ByteArray(1500)
         for (server in Constants.UPSTREAM_DNS_SERVERS) {
             try {
@@ -357,9 +373,29 @@ class AdBlockVpnService : VpnService() {
     }
 
     private fun forwardToUpstream(query: DnsPacket.ParsedQuery, output: FileOutputStream) {
+        val dnsRequest = buildForwardedRequest(query)
+
+        // v3.11.0 (see PROJECT_STATE.md): DoH tried FIRST, per user decision
+        // (2026-08-05) after their network was confirmed to break plain
+        // UDP:53 entirely. Falls through to the existing plain-UDP resolver
+        // chain below only if every DoH endpoint fails -- so a network where
+        // DoH itself is blocked (but plain UDP works) still functions.
+        try {
+            val dohReply = DohClient.resolve(this, dnsRequest)
+            if (dohReply != null) {
+                val responsePacket = DnsPacket.wrapUpstreamReply(query, dohReply)
+                synchronized(output) { output.write(responsePacket) }
+                DnsPacket.extractCacheableTtlSeconds(dohReply)?.let { ttl ->
+                    DnsCache.put(query.queryDomain, DnsPacket.qtypeOf(query), dohReply, ttl)
+                }
+                return
+            }
+        } catch (_: Exception) {
+            // fall through to plain-UDP below
+        }
+
         try {
             val socket = getOrCreateUpstreamSocket()
-            val dnsRequest = buildForwardedRequest(query)
             val replyBuf = ByteArray(1500)
 
             // Try each configured resolver in order; if the first one (e.g.

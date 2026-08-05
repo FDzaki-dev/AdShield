@@ -3,7 +3,40 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.10.2 (2026-08-05) — HOTFIX: VPN_MTU tidak wajar (32000→1500), respons
+- **v3.11.0 (2026-08-05) — DNS-over-HTTPS (DoH), respons ke fix MTU
+  v3.10.2 yang TIDAK menolong.** User laporkan error persis
+  `DNS_PROBE_FINISHED_BAD_SECURE_CONFIG` (WiFi) + matot (data seluler)
+  MASIH terjadi setelah fix MTU. Dicek & disingkirkan: Android Private DNS
+  (user konfirmasi tidak pernah diaktifkan) dan Chrome Secure DNS (belum
+  dikonfirmasi user secara eksplisit tapi user langsung minta lanjut ke
+  DoH/DoT tanpa cek ini lebih dulu — "Patuhi perintah saya!!" — jadi
+  kemungkinan Chrome Secure DNS BELUM benar-benar disingkirkan sebagai
+  penyebab tambahan, cuma di-skip pengecekannya atas permintaan user).
+  **Kesimpulan kerja:** plain UDP port 53 kemungkinan besar diblokir/rusak
+  di jaringan user (baik WiFi maupun data seluler) — di luar kendali kode
+  app kalau benar. **Keputusan user (last verdict):** implementasi DoH,
+  fallback ke plain DNS kalau DoH gagal, dua provider (Cloudflare+Google)
+  sekaligus, urutan Cloudflare dulu. Detail implementasi lihat CHANGELOG.md
+  v3.11.0. **PENTING — BELUM DIKONFIRMASI SAMA SEKALI di device fisik**,
+  termasuk hal paling dasar: apakah `HttpsURLConnection` + custom
+  `SSLSocketFactory` yang manual protect() socket ini benar-benar bisa
+  connect lewat tun interface tanpa loop/deadlock — ini pola BARU yang
+  belum pernah dipakai di codebase ini sebelumnya (beda dari raw
+  `DatagramSocket.protect()` yang sudah terbukti jalan). WAJIB jadi hal
+  PALING PERTAMA dicek di sesi berikutnya, urutan: (a) build CI sukses
+  dulu — TLS/HttpsURLConnection API dipakai benar secara sintaks, (b)
+  nyalakan DNS Ad-Block di jaringan yang tadi gagal (WiFi & data seluler
+  keduanya, karena user laporkan gagal di dua-duanya dengan gejala beda),
+  (c) domain apa pun resolve normal (bukti DoH connect + protect() tidak
+  deadlock), (d) kalau MASIH gagal — cek Diagnostik/Logcat apakah errornya
+  soal SSL handshake, soal protect() gagal, atau DoH endpoint sendiri
+  unreachable (baru itu penentu apakah lanjut DoT atau ada bug di
+  DohClient). Kalau DoH ternyata TIDAK menolong juga, itu bukti kuat
+  jaringan user block outbound HTTPS/443 ke domain tertentu juga (bukan
+  cuma port 53) — di titik itu kemungkinan besar sudah di luar yang bisa
+  diselesaikan lewat kode app sama sekali, perlu isolasi jaringan lain
+  (coba SIM/WiFi berbeda) sebelum lanjut coding apa pun lagi.
+- v3.10.2 (2026-08-05) — HOTFIX: VPN_MTU tidak wajar (32000→1500), respons
   ke laporan v3.10.1 TIDAK menolong.** User konfirmasi lewat checklist: (1)
   mode DNS ON masih total internet failure sama seperti sebelum v3.10.1,
   (2) BAHKAN akses browser ke IP langsung (mis. `8.8.8.8`) — yang
@@ -1238,12 +1271,15 @@ Pengaturan > Baterai sistem, (d) belum ada mekanisme alert/notifikasi
 otomatis kalau resource terlalu tinggi — ini snapshot manual only, cocokkan
 ekspektasi user apakah itu cukup atau perlu ambang batas otomatis nanti.
 
-**PALING BARU (2026-08-05, v3.10.2) — cek ini DULUAN sebelum apa pun lain:**
-(a) update ZIP ke device, build ulang, (b) nyalakan DNS Ad-Block — internet
-normal (bukan matot)?, (c) browser ke IP langsung (`8.8.8.8`) — normal?
-Kalau (b)/(c) MASIH gagal setelah fix MTU ini, STOP coba fix kode lain dulu
-— laporkan balik ke sesi berikutnya, kemungkinan penyebabnya sudah di luar
-kode app (lihat catatan di "Status terakhir" v3.10.2 di atas).
+**PALING BARU (2026-08-05, v3.11.0) — cek ini DULUAN sebelum apa pun lain:**
+lihat urutan (a)-(d) lengkap di "Status terakhir" v3.11.0 di atas — inti:
+build CI sukses → DNS Ad-Block ON di WiFi & data seluler yang tadi gagal →
+domain resolve normal? Kalau iya, sekalian konfirmasi Chrome Secure DNS
+(`chrome://settings/security`) statusnya apa di device user — item ini
+sempat di-skip pengecekannya, masih menggantung.
+
+**SEBELUMNYA (2026-08-05, v3.10.2):** fix MTU 32000→1500 — TIDAK
+menolong (superseded by v3.11.0 DoH), jangan diulang cek terpisah.
 
 **SEBELUMNYA (2026-08-05, v3.9.0): sebelum apa pun yang lain, cek 4 hal dari batch
 Internet Surfing Optimization #2 di device fisik:** (a) build CI sukses
