@@ -13,12 +13,19 @@ object Constants {
     const val VPN_ROUTE = "10.111.222.1"
     const val VPN_ADDRESS_PREFIX = 32
 
-    // Real upstream resolvers we forward *allowed* queries to (v3.9.0: both
-    // switched to Cloudflare's pair per the "Internet Surfing Optimization"
-    // roadmap's explicit "DNS cepat" requirement — 1.0.0.1 replaces 8.8.8.8
-    // as the fallback so a first-resolver failure never leaks a query to a
-    // different provider than the one the user asked for).
-    val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "1.0.0.1")
+    // Real upstream resolvers we forward *allowed* queries to. Primary pair
+    // is Cloudflare (1.1.1.1/1.0.0.1) per the "Internet Surfing Optimization"
+    // roadmap's "DNS cepat" requirement (v3.9.0). v3.10.1 HOTFIX: added
+    // 8.8.8.8 (Google) back as a 3rd fallback — v3.9.0 had removed it in
+    // favor of 1.0.0.1, but 1.1.1.1 and 1.0.0.1 are BOTH Cloudflare (same
+    // provider/AS). On networks/carriers that block Cloudflare's DNS
+    // resolvers outright (reported: total DNS failure, ALL apps lost
+    // internet with DNS Ad-Block mode on), that left ZERO working
+    // resolvers — no fallback outside Cloudflare at all. Google is a
+    // different provider/network path, so it survives a Cloudflare-specific
+    // block. JANGAN hapus 8.8.8.8 lagi tanpa data baru yang menunjukkan ini
+    // aman di jaringan user (lihat PROJECT_STATE.md insiden 2026-08-05).
+    val UPSTREAM_DNS_SERVERS = listOf("1.1.1.1", "1.0.0.1", "8.8.8.8")
 
     const val DNS_PORT = 53
     const val VPN_MTU = 32000

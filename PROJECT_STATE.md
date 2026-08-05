@@ -3,7 +3,73 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.10.0 (2026-08-05) — Resource profiling instrumentation (memori &
+- **v3.10.1 (2026-08-05) — HOTFIX: total DNS failure di device fisik user
+  (semua app kehilangan internet saat mode DNS Ad-Block aktif).** User
+  laporkan langsung: nyalakan DNS Ad-Block → SEMUA app (bukan cuma
+  domain tertentu) kehilangan internet total. **Root cause:** v3.9.0
+  mengganti `UPSTREAM_DNS_SERVERS` fallback dari `8.8.8.8` (Google) ke
+  `1.0.0.1` (Cloudflare) supaya sesuai literal requirement roadmap "DNS
+  cepat 1.1.1.1/1.0.0.1" — efek sampingnya TIDAK disadari saat itu: kedua
+  resolver (`1.1.1.1` & `1.0.0.1`) sama-sama Cloudflare/AS yang sama. Di
+  jaringan/operator yang memblokir Cloudflare DNS secara umum, KEDUA
+  resolver gagal bareng — nol fallback provider lain, semua query DNS mati,
+  dan karena app manapun yang butuh resolusi domain baru langsung stuck,
+  efeknya kelihatan sebagai \"internet mati total\" walau VPN cuma nge-tunnel
+  DNS (arsitektur `10.111.222.1/32`-only TETAP benar, ini murni soal upstream
+  resolver-nya sendiri yang tidak bisa dihubungi). **Fix:** `Constants.
+  UPSTREAM_DNS_SERVERS` sekarang `[1.1.1.1, 1.0.0.1, 8.8.8.8]` — primary
+  pair Cloudflare tetap dipertahankan (roadmap requirement tidak dilanggar),
+  Google ditambah balik sebagai fallback ke-3 supaya ada jalur keluar dari
+  provider yang beda kalau Cloudflare diblokir. **Belum dikonfirmasi user
+  apakah fix ini benar-benar memulihkan koneksi di jaringannya** — WAJIB
+  jadi hal pertama dicek di sesi berikutnya sebelum menganggap ini selesai.
+  Kalau MASIH gagal setelah fix, kemungkinan bukan soal resolver spesifik
+  lagi — minta user cek apakah UDP port 53 ke resolver manapun diblokir
+  total di jaringannya (beberapa jaringan publik/korporat/operator memang
+  memaksa semua DNS lewat resolver mereka sendiri), yang butuh solusi beda
+  (DoH/DoT, item roadmap yang sudah lama disisihkan — lihat #0 di bawah).
+  **Pelajaran:** perubahan konfigurasi resolver upstream (atau parameter
+  jaringan lain yang tergantung provider/carrier) HARUS dipandang sebagai
+  perubahan berisiko regional/operator-spesifik, bukan cuma "sesuai spec
+  literal" — sama seperti insiden WARP IPv6 (v3.2.1/v3.3.0) yang juga
+  ternyata operator-spesifik. Ke depan: kalau roadmap minta resolver/
+  endpoint spesifik yang MENGURANGI diversity provider (bukan cuma ganti),
+  pertimbangkan untuk mempertahankan minimal 1 resolver dari provider
+  berbeda sebagai fallback terakhir, bukan full-replace.
+- v3.10.0-hotfix-repack (2026-08-05, PENTING — baca ini dulu sebelum apa
+  pun lain) — insiden nested-folder di GitHub, ZIP sebelumnya SALAH
+  bungkus.** User upload screenshot repo GitHub: root repo berisi folder
+  literal `AdShield-main/` (sejajar `.github/` dan `.gitignore`) alih-alih
+  `app/`, `build.gradle.kts`, dll langsung di root. **Root cause:** ZIP
+  yang di-upload user ke sesi ini (`AdShield-main__5_.zip`) adalah hasil
+  GitHub "Download ZIP" (selalu dibungkus `<repo>-<branch>/`). Saat
+  repackaging v3.10.0, Claude meng-unzip lalu mem-package ULANG folder
+  pembungkus yang sama (`AdShield-main/`) tanpa di-flatten dulu — ZIP
+  hasil pengiriman ikut terbungkus. Command update Termux standar proyek
+  ini (`unzip -o "$LATEST_ZIP" -d ~/projects/AdShield/`) mengasumsikan isi
+  ZIP FLAT (root ZIP = root proyek), BUKAN dibungkus folder lagi — jadi
+  hasil unzip jadi `~/projects/AdShield/AdShield-main/...`, dan `git add -A`
+  ikut men-commit folder bersarang itu ke GitHub. Efek: `build.gradle.kts`
+  tidak ada di root repo → CI Actions tidak bisa temukan project Gradle →
+  build gagal/pending permanen.
+  **Fix:** (1) ZIP pengiriman berikutnya SELALU flat (root ZIP = file
+  proyek langsung, tidak dibungkus nama folder apa pun) — ini sudah aturan
+  baku (`ZIP naming`/`Repack Cleanup Protection` di instruksi standing),
+  pelanggarannya ada di proses packaging sesi lalu, bukan di aturan itu
+  sendiri. (2) Repo GitHub yang SUDAH terlanjur nested wajib diperbaiki
+  manual via command Termux (lihat bagian bawah PROJECT_STATE ini /
+  respons chat sesi insiden) — pindahkan isi `AdShield-main/` ke root lalu
+  hapus folder kosongnya, commit terpisah dari fitur apa pun.
+  **Pelajaran untuk self-verifikasi ke depan:** kalau ZIP sumber yang
+  di-upload user adalah hasil "Download ZIP" GitHub (ciri: nama file
+  `<repo>-<branch>.zip`/`__N_.zip`, isi dibungkus `<repo>-<branch>/`),
+  WAJIB flatten dulu sebelum re-package — JANGAN asumsikan folder
+  pembungkus itu adalah konvensi resmi proyek hanya karena begitu
+  strukturnya saat diterima. Verifikasi `unzip -l` HARUS eksplisit
+  mengecek "apakah top-level ZIP = nama file proyek langsung (app/,
+  build.gradle.kts, dst), bukan cuma 'ada folder pembungkus dengan nama
+  masuk akal'" — kriteria lama terlalu longgar dan meloloskan insiden ini.
+- v3.10.0 (2026-08-05) — Resource profiling instrumentation (memori &
   baterai), respons ke audit eksternal skor 9.0/10.** Audit menandai 5
   kekurangan; dicek silang dulu terhadap PROJECT_STATE.md sebelum kerja:
   item "kecepatan surfing" & "reconnect/stabilitas VPN" TERNYATA sudah
@@ -884,6 +950,21 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-05 (v3.10.1)**: User laporkan total DNS failure (semua app
+  kehilangan internet) saat mode DNS Ad-Block aktif di device fisik. Root
+  cause: v3.9.0 mengurangi diversity provider upstream resolver (8.8.8.8 →
+  1.0.0.1, keduanya sekarang Cloudflare) demi kepatuhan literal ke roadmap
+  — di jaringan yang memblokir Cloudflare DNS, nol fallback tersisa. Fix:
+  `8.8.8.8` ditambah balik sebagai resolver ke-3. Detail lengkap di "Status
+  terakhir" di atas — TIDAK diulang di sini. **Belum dikonfirmasi user
+  fix ini benar-benar memulihkan koneksi.**
+- **2026-08-05 (v3.10.0-hotfix-repack)**: ZIP pengiriman v3.10.0 SALAH
+  bungkus — top-level ZIP masih folder `AdShield-main/` (warisan dari ZIP
+  sumber hasil "Download ZIP" GitHub yang di-upload user), bukan flat.
+  Command update Termux standar meng-unzip itu jadi subfolder bersarang di
+  repo, `build.gradle.kts` hilang dari root → CI tidak menemukan project.
+  Ditemukan oleh user lewat screenshot repo GitHub. Root cause & fix detail
+  lengkap di "Status terakhir" di atas — TIDAK diulang di sini.
 - **2026-08-03 (v2.6.1)**: Lanjutan #3 dari roadmap "stop fitur, fokus
   100% reliability" — unit test dasar untuk `DnsPacket` dan
   `BlocklistManager`. User memutuskan menghentikan sesi tepat di titik
@@ -1116,7 +1197,15 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**TERBARU (2026-08-05, v3.10.0): cek di device fisik.** (a) build CI
+**PALING BARU & PALING PENTING (2026-08-05, v3.10.1): konfirmasi fix total
+DNS failure benar-benar memulihkan koneksi.** (a) build CI sukses, (b)
+nyalakan mode DNS Ad-Block di jaringan yang sama persis dengan yang gagal
+sebelumnya (4.5G), (c) coba browsing/buka app apa pun — HARUS normal, tidak
+ada lagi total loss, (d) kalau masih gagal: itu bukan lagi soal resolver
+Cloudflare-vs-Google — cek apakah UDP port 53 diblokir total di jaringan
+itu (butuh solusi DoH/DoT, bukan ganti-ganti IP resolver lagi).
+
+**SEBELUMNYA (2026-08-05, v3.10.0): cek di device fisik.** (a) build CI
 sukses, (b) buka Diagnostik saat app di background lama / setelah dipakai
 berat (mode WARP+DNS bergantian) — apakah PSS app kelihatan wajar atau
 ada indikasi leak (naik terus tanpa turun), (c) amati field baterai

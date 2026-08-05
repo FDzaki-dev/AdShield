@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.10.1 — HOTFIX: total DNS failure (upstream resolver diversity) (2026-08-05)
+
+> User laporkan: nyalakan mode DNS Ad-Block → SEMUA app kehilangan internet
+> total (bukan sekadar domain tertentu gagal). Root cause: v3.9.0 mengganti
+> fallback resolver `8.8.8.8` (Google) → `1.0.0.1` (Cloudflare) demi
+> kepatuhan literal ke requirement roadmap "DNS cepat 1.1.1.1/1.0.0.1" —
+> efeknya baru terasa sekarang: `1.1.1.1` dan `1.0.0.1` SAMA-SAMA
+> Cloudflare. Di jaringan yang blokir Cloudflare DNS, kedua resolver gagal
+> bareng, nol fallback provider lain tersisa, seluruh resolusi DNS mati.
+
+**Fix:**
+1. **`util/Constants.kt`** — `UPSTREAM_DNS_SERVERS` sekarang
+   `[1.1.1.1, 1.0.0.1, 8.8.8.8]`. Primary pair Cloudflare TETAP
+   dipertahankan (tidak melanggar requirement roadmap), Google ditambah
+   balik sebagai resolver ke-3 — provider berbeda, jalur keluar kalau
+   Cloudflare diblokir di jaringan tertentu.
+
+**Belum dikerjakan:** deteksi otomatis "resolver mana yang benar-benar
+reachable di jaringan ini" (baru fallback berurutan tetap, bukan smart
+selection) — kalau masalah serupa muncul lagi dengan resolver berbeda,
+pertimbangkan probe reachability seperti `WarpEndpointSelector` tapi untuk
+DNS plain-UDP. **BELUM DIKONFIRMASI** user — fix ini berdasar analisis kode
++ pola insiden serupa (WARP IPv6, v3.2.1), bukan hasil tes device langsung.
+WAJIB jadi hal pertama dicek di sesi berikutnya.
+
+## v3.10.0-hotfix-repack — Perbaikan struktur ZIP/repo nested-folder (2026-08-05)
+
+> **Bukan perubahan kode app.** ZIP pengiriman v3.10.0 sebelumnya salah
+> dibungkus (masih ada folder `AdShield-main/` di top-level), warisan dari
+> ZIP sumber "Download ZIP" GitHub yang di-upload user ke sesi ini. Command
+> update Termux standar proyek ini meng-unzip isi ZIP diasumsikan flat
+> langsung ke root proyek — karena masih dibungkus, hasilnya jadi folder
+> `AdShield-main/` bersarang di dalam repo GitHub, `build.gradle.kts` tidak
+> ada di root, CI Actions gagal menemukan project Gradle. Root cause detail
+> di PROJECT_STATE.md. Batch ini: (1) ZIP pengiriman baru — flat, tanpa
+> folder pembungkus apa pun; (2) command Termux untuk memperbaiki repo yang
+> sudah kadung nested di GitHub. **versionCode/versionName TIDAK berubah**
+> — isi kode identik dengan v3.10.0, cuma struktur paket/repo yang diperbaiki.
+
 ## v3.10.0 — Resource profiling instrumentation: memori & baterai (2026-08-05)
 
 > Respons ke audit eksternal (skor 9.0/10) yang menandai "konsumsi baterai &
