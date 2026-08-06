@@ -3,6 +3,78 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.19.0 (2026-08-06) — Testing & Diagnostic audit batch 1/N: DnsPacket
+  coverage gap ditutup.** Kategori TERAKHIR roadmap audit eksternal (semua
+  4 kategori sebelumnya sudah dikerjakan: Reliability ✅, Concurrency &
+  Lifecycle ✅, Security ✅ [1 fix nyata: WARP key encryption + 1 batch
+  clean], Performance ✅ [clean]). User OK Performance cukup, lanjut ke
+  sini. Temuan: `DnsPacketTest.kt` (v2.6.1) cuma cover `parse()`/
+  `buildBlockedResponse()` — 6 method yang ditambah belakangan (v3.7.0
+  DNS cache: `withTransactionId`/`qtypeOf`/`extractCacheableTtlSeconds`;
+  v3.9.0 prefetch: `encodeQuestionSection`/`buildQueryMessage`) 0 test,
+  padahal file ini didokumentasikan sendiri sebagai paling kritis di
+  codebase. Fix: +11 test case baru di file yang sama (bukan file baru),
+  detail lengkap di CHANGELOG.md v3.19.0. `BlocklistManagerTest.kt` sudah
+  cukup lengkap (14 test) dari v2.6.1 — tidak disentuh. Verifikasi statis:
+  lexer nested-comment + brace-balance ke seluruh `app/src` termasuk test
+  baru — 0 masalah. **BELUM DIJALANKAN `./gradlew testDebugUnitTest`**
+  (tidak ada Gradle/JDK Android di sandbox sesi manapun sejauh ini) — WAJIB
+  jadi hal PERTAMA dicek di sesi berikutnya; kalau ada test gagal
+  (kemungkinan besar typo offset byte manual di test baru), itu prioritas
+  nomor satu. **Setelah ini terkonfirmasi lulus: SEMUA 5 kategori audit
+  eksternal (Reliability/Concurrency&Lifecycle/Security/Performance/
+  Testing&Diagnostic) selesai satu putaran penuh** — next milestone
+  kembali ke item lama yang masih pending dari sebelum audit dimulai:
+  validasi WARP di device fisik end-to-end (lihat "Yang HARUS dikerjakan"
+  di bawah, item #1 lama — belum pernah divalidasi sama sekali sepanjang
+  riwayat proyek ini).
+- **v3.18.0 (2026-08-06) — Performance audit batch 1/N: CLEAN (0 fix).**
+  User anggap Security cukup (2 batch, 1 fix nyata + 1 batch clean), lanjut
+  kategori roadmap berikutnya: Performance. Dicek: (1) hot path packet loop
+  (`DnsPacketLoop`) — alokasi per-paket minimal, cache-hit tanpa executor
+  hop, fire-and-forget forward. (2) `BlocklistManager.isBlocked`/
+  `matchesAnyWildcard` — O(1) per level hash-lookup, sudah didokumentasikan
+  sejak batch performa lama, tidak ada regresi. (3) `DnsCache` — TTL-aware,
+  size-capped, eviction murah. (4) `AppUidWhitelistChecker` — uid→package
+  di-cache, hanya dipanggil kalau ada app whitelisted (`hasWhitelistedApps()`
+  guard di caller). (5) `UpstreamForwarder` — socket pooling per-thread
+  sudah ada. (6) Sisi UI: semua `LazyColumn` (`LogsScreen`, `RulesScreen`,
+  `WhitelistScreen`) pakai `key` stabil; filter list pakai
+  `remember(keys)`, tidak recompute tiap recomposition; tidak ada blocking
+  I/O di `Dispatchers.Main`. **Kesimpulan: tidak ada temuan baru** — batch
+  performa sebelumnya (MTU fix v3.2.0, DNS cache v3.7.0, prefetch, wildcard
+  O(1) v3.16.x) sudah menutup hot path yang realistis untuk app ini. **0
+  file diubah, tidak perlu ZIP baru.** Kalau user OK Performance dianggap
+  cukup, kategori terakhir roadmap: **Testing & Diagnostic** (lihat catatan
+  lama: 0 unit test untuk `DnsPacket`/`BlocklistManager` — kandidat utama).
+- **v3.18.0 (2026-08-06) — Security audit batch 2/N: TLS/pinning +
+  hardcoded secret scan, CLEAN (0 fix).** Lanjutan batch 1 (di bawah),
+  user konfirmasi CI v3.18.0 hijau. Dicek: (1) `DohClient.
+  protectingSocketFactory` pakai `SSLContext.getInstance("TLS").
+  init(null,null,null)` — `null` trust manager berarti pakai **default
+  sistem** (validasi normal), BUKAN trust-all; dibungkus cuma untuk
+  nyisipkan `VpnService.protect()` per socket, aman. (2)
+  `WarpRegistrationClient.postJson` ke `api.cloudflareclient.com` —
+  `HttpURLConnection` di atas URL `https://` (validasi TLS standar lewat
+  cast implisit ke `HttpsURLConnection`), dipanggil SEBELUM tunnel WARP UP
+  (`ensureRegistered()` duluan di `connect()`) — jadi TIDAK perlu
+  `protect()` di titik ini, dikonfirmasi lewat baca alur
+  `WarpTunnelManager.connect()`. Tidak ada certificate pinning di manapun
+  — dicatat sebagai desain (bukan requirement wajib untuk app kelas ini),
+  bukan bug. (3) `proguard-rules.pro` +
+  `isMinifyEnabled=true`/`isShrinkResources=true` sudah aktif di release
+  build sejak sebelumnya — tidak ada perubahan diperlukan. (4) Scan
+  hardcoded secret (pola api-key/password/token literal) di seluruh
+  `app/src/main/java` — 0 hit. (5) `.gitignore` sudah exclude
+  `release.keystore`/`*.jks`/`keystore.properties`; `build.gradle.kts`
+  signing config baca dari env var/`keystore.properties`, tidak ada
+  password hardcoded. **0 file diubah batch ini** — tidak perlu ZIP baru/
+  push/version bump, cukup catatan roadmap. Kandidat Security batch 3
+  (kalau user lanjut kategori ini): exported `ContentProvider` — app ini
+  tidak punya, N/A; `QUERY_ALL_PACKAGES` di manifest (dipakai whitelist
+  per-app, legitimate use-case) belum diaudit soal fingerprinting-vector
+  risk. **Kalau user anggap Security cukup, kategori berikutnya sesuai
+  urutan roadmap: Performance.**
 - **v3.18.0 (2026-08-06) — Security audit batch 1/N: WARP private key
   plaintext → EncryptedSharedPreferences.** User konfirmasi v3.17.1 CI
   hijau, lanjut roadmap (urutan audit: Reliability ✅, Concurrency &

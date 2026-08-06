@@ -196,4 +196,132 @@ class DnsPacketTest {
         while (sum shr 16 != 0) sum = (sum and 0xFFFF) + (sum shr 16)
         assertTrue(sum == 0xFFFF)
     }
+
+    // ---- withTransactionId(): DnsCache hit re-stamping (v3.7.0) ----
+
+    @Test
+    fun `withTransactionId swaps only the first two bytes`() {
+        val message = byteArrayOf(0x11, 0x22, 0x33, 0x44, 0x55.toByte())
+        val restamped = DnsPacket.withTransactionId(message, byteArrayOf(0xAA.toByte(), 0xBB.toByte()))
+        assertArrayEquals(byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0x33, 0x44, 0x55.toByte()), restamped)
+        // original buffer must be untouched (returns a copy, not an in-place mutation)
+        assertArrayEquals(byteArrayOf(0x11, 0x22, 0x33, 0x44, 0x55.toByte()), message)
+    }
+
+    @Test
+    fun `withTransactionId returns the message unchanged if either input is too short`() {
+        val tooShortMessage = byteArrayOf(0x01)
+        assertArrayEquals(tooShortMessage, DnsPacket.withTransactionId(tooShortMessage, byteArrayOf(0xAA.toByte(), 0xBB.toByte())))
+
+        val message = byteArrayOf(0x11, 0x22, 0x33)
+        assertArrayEquals(message, DnsPacket.withTransactionId(message, byteArrayOf(0xAA.toByte())))
+    }
+
+    // ---- qtypeOf(): reads QTYPE from the last 4 bytes of the question section ----
+
+    @Test
+    fun `qtypeOf reads QTYPE A record from a real parsed query`() {
+        val packet = buildDnsQueryPacket("example.com")
+        val parsed = DnsPacket.parse(packet, packet.size)!!
+        assertEquals(1, DnsPacket.qtypeOf(parsed)) // QTYPE A = 1, matches buildDnsQueryPacket
+    }
+
+    @Test
+    fun `qtypeOf returns 0 for a too-short question section`() {
+        val fakeQuery = DnsPacket.ParsedQuery(
+            sourceAddress = java.net.InetAddress.getByAddress(byteArrayOf(10, 0, 0, 1)),
+            sourcePort = 1234,
+            destAddress = java.net.InetAddress.getByAddress(byteArrayOf(10, 0, 0, 2)),
+            destPort = 53,
+            dnsTransactionId = byteArrayOf(0, 0),
+            queryDomain = "x",
+            rawDnsQuestionSection = byteArrayOf(0x01, 0x02) // < 4 bytes
+        )
+        assertEquals(0, DnsPacket.qtypeOf(fakeQuery))
+    }
+
+    // ---- encodeQuestionSection() / buildQueryMessage(): DNS-prefetch synthesis (v3.9.0) ----
+
+    @Test
+    fun `encodeQuestionSection round-trips through parse() with the same domain`() {
+        val question = DnsPacket.encodeQuestionSection("prefetch.example.com", qtype = 1)
+        // Wrap it in a full query message + IP/UDP envelope, same shape parse() expects.
+        val query = DnsPacket.buildQueryMessage("prefetch.example.com", qtype = 1, transactionId = byteArrayOf(0x01, 0x02))
+        // buildQueryMessage's question section must match encodeQuestionSection's output exactly.
+        assertArrayEquals(question, query.copyOfRange(12, query.size))
+    }
+
+    @Test
+    fun `encodeQuestionSection ends with QTYPE and QCLASS IN`() {
+        val question = DnsPacket.encodeQuestionSection("a.io", qtype = 28) // AAAA
+        // "a" (1+1) + "io" (1+2) + root terminator (1) = 6 bytes of name, then QTYPE(2)+QCLASS(2)
+        assertEquals(10, question.size)
+        val qtype = ((question[6].toInt() and 0xFF) shl 8) or (question[7].toInt() and 0xFF)
+        val qclass = ((question[8].toInt() and 0xFF) shl 8) or (question[9].toInt() and 0xFF)
+        assertEquals(28, qtype)
+        assertEquals(1, qclass) // IN
+    }
+
+    @Test
+    fun `buildQueryMessage produces a well-formed 12-byte header with QDCOUNT 1`() {
+        val txId = byteArrayOf(0x7A, 0x7B)
+        val message = DnsPacket.buildQueryMessage("wg.example.com", qtype = 1, transactionId = txId)
+        assertArrayEquals(txId, message.copyOfRange(0, 2))
+        val qdCount = ((message[4].toInt() and 0xFF) shl 8) or (message[5].toInt() and 0xFF)
+        assertEquals(1, qdCount)
+        val anCount = ((message[6].toInt() and 0xFF) shl 8) or (message[7].toInt() and 0xFF)
+        assertEquals(0, anCount)
+    }
+
+    // ---- extractCacheableTtlSeconds(): DnsCache TTL extraction (v3.7.0) ----
+
+    /** Builds a minimal DNS *response* message (header + 1 question + 1 A-record answer)
+     *  with the given RCODE/ANCOUNT/TTL, matching what a real upstream reply looks like. */
+    private fun buildDnsResponseMessage(
+        rcode: Int = 0,
+        anCount: Int = 1,
+        ttl: Long = 300L,
+        domain: String = "cached.example.com"
+    ): ByteArray {
+        val question = DnsPacket.encodeQuestionSection(domain, qtype = 1)
+        val buf = ByteBuffer.allocate(12 + question.size + 16)
+        buf.put(byteArrayOf(0x00, 0x01)) // transaction id
+        buf.putShort((0x8000 or rcode).toShort()) // response flag + rcode
+        buf.putShort(1) // QDCOUNT
+        buf.putShort(anCount.toShort())
+        buf.putShort(0); buf.putShort(0) // NSCOUNT, ARCOUNT
+        buf.put(question)
+        if (anCount > 0) {
+            buf.put(0xC0.toByte()); buf.put(0x0C.toByte()) // name = pointer to question
+            buf.putShort(1); buf.putShort(1) // TYPE A, CLASS IN
+            buf.putInt(ttl.toInt())
+            buf.putShort(4)
+            buf.put(byteArrayOf(1, 2, 3, 4))
+        }
+        return buf.array().copyOf(buf.position())
+    }
+
+    @Test
+    fun `extractCacheableTtlSeconds reads the TTL of a valid positive answer`() {
+        val message = buildDnsResponseMessage(rcode = 0, anCount = 1, ttl = 300L)
+        assertEquals(300L, DnsPacket.extractCacheableTtlSeconds(message))
+    }
+
+    @Test
+    fun `extractCacheableTtlSeconds returns null for a non-zero RCODE`() {
+        val message = buildDnsResponseMessage(rcode = 3, anCount = 1) // NXDOMAIN
+        assertNull(DnsPacket.extractCacheableTtlSeconds(message))
+    }
+
+    @Test
+    fun `extractCacheableTtlSeconds returns null when there are zero answers`() {
+        val message = buildDnsResponseMessage(rcode = 0, anCount = 0)
+        assertNull(DnsPacket.extractCacheableTtlSeconds(message))
+    }
+
+    @Test
+    fun `extractCacheableTtlSeconds returns null for a truncated message`() {
+        val tooShort = ByteArray(8)
+        assertNull(DnsPacket.extractCacheableTtlSeconds(tooShort))
+    }
 }

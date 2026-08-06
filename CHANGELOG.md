@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.19.0 — Testing & Diagnostic audit batch 1: DnsPacket coverage gap (2026-08-06)
+
+> Kategori terakhir roadmap audit eksternal (Reliability ✅, Concurrency &
+> Lifecycle ✅, Security ✅, Performance ✅ — semua batch sebelumnya clean/
+> fixed). User anggap Performance cukup, lanjut Testing & Diagnostic.
+
+**Temuan:** `DnsPacketTest.kt` (ditulis v2.6.1) cuma cover `parse()` dan
+`buildBlockedResponse()` — 6 method `DnsPacket` yang ditambah belakangan
+(v3.7.0 DNS cache: `withTransactionId`, `qtypeOf`, `extractCacheableTtlSeconds`;
+v3.9.0 prefetch: `encodeQuestionSection`, `buildQueryMessage`) tidak punya
+test sama sekali, padahal file ini secara eksplisit didokumentasikan
+sebagai "paling kritis, paling gampang salah" di codebase.
+
+**Fix (1 file test, `DnsPacketTest.kt`):** tambah 11 test case baru:
+- `withTransactionId`: swap 2 byte pertama benar, tidak mutasi buffer asli,
+  no-op kalau input terlalu pendek.
+- `qtypeOf`: baca QTYPE dari query asli hasil `parse()`, dan fallback 0
+  untuk question section < 4 byte.
+- `encodeQuestionSection`/`buildQueryMessage`: round-trip konsisten satu
+  sama lain, struktur QTYPE/QCLASS byte-per-byte benar, header 12-byte
+  well-formed (QDCOUNT=1, ANCOUNT=0).
+- `extractCacheableTtlSeconds`: baca TTL dari respons valid, `null` untuk
+  RCODE non-zero (NXDOMAIN dkk), `null` untuk ANCOUNT=0, `null` untuk
+  pesan yang terlalu pendek/truncated — 4 skenario yang jadi dasar
+  keputusan cache DnsCache v3.7.0.
+
+Semua test murni JVM (bangun byte array manual, tidak butuh Android
+framework/Robolectric), pola sama persis dengan test lama supaya konsisten.
+`BlocklistManagerTest.kt` sudah cukup lengkap dari awal (14 test, mencakup
+exact/wildcard/allow-override/critical-allowlist/normalization/remote-list
+diffing) — tidak ada perubahan di batch ini.
+
+**Verifikasi statis:** simulasi lexer nested-block-comment + brace-balance
+ke seluruh `app/src` (termasuk file test baru) — 0 masalah.
+
+**BELUM DIJALANKAN** (`./gradlew testDebugUnitTest` — tidak ada Gradle/JDK
+Android di sandbox) — WAJIB jadi hal pertama dicek di sesi berikutnya;
+kalau ada test yang gagal (typo offset/assertion), itu prioritas nomor
+satu sebelum lanjut apa pun.
+
 ## v3.18.0 — Security audit batch 1: WARP private key tidak lagi plaintext (2026-08-06)
 
 > v3.17.1 dikonfirmasi build CI hijau oleh user. Lanjut ke kategori audit
