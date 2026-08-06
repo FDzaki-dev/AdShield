@@ -32,7 +32,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * contain the packet loop, upstream forwarding + socket pooling, prefetch,
  * per-app UID whitelist resolution, notification building, and watchdog
  * scheduling all inline (~600 lines). All of that logic has been extracted
- * verbatim (ZERO behavior change) into `vpn/dns/*` + `vpn/VpnNotificationFactory`
+ * verbatim (ZERO behavior change) into the `vpn.dns` package + `vpn/VpnNotificationFactory`
  * + `vpn/VpnWatchdog`. This class now only: builds the tun interface, wires
  * the extracted collaborators together, and owns the two executors +
  * CoroutineScope + companion-level public API that the rest of the app

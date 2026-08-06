@@ -159,7 +159,12 @@ gejala.
 
 ## Status proyek
 
-- **v3.17.0 (terbaru)** — Refactor "God Class": `AdBlockVpnService`
+- **v3.17.1 (terbaru)** — HOTFIX: build CI v3.17.0 gagal (`Unclosed
+  comment` di `AdBlockVpnService.kt` — literal `/*` dalam KDoc dibaca
+  Kotlin sebagai nested block comment). Fungsionalitas sama, murni
+  perbaikan sintaks. **Belum dikonfirmasi build sukses** — lihat
+  PROJECT_STATE.md.
+- v3.17.0 — Refactor "God Class": `AdBlockVpnService`
   (~600 baris) dipecah jadi orchestrator tipis + 7 kolaborator baru di
   `vpn/dns/` dan `vpn/` (packet loop, upstream forward, prefetch,
   whitelist per-app, notification, watchdog). Murni structural, 0

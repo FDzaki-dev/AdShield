@@ -3,6 +3,30 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.17.1 (2026-08-06) — HOTFIX build CI gagal dari push v3.17.0.** User
+  upload artifact `log_fail_20260806_023527_run31066001167.zip` —
+  `kspDebugKotlin FAILED`: `AdBlockVpnService.kt:262:1 Unclosed comment`.
+  **Root cause:** KDoc pembuka class (baris 28-43) berisi teks
+  `` `vpn/dns/*` `` di baris 35 — literal `/*` di dalam teks itu dibaca
+  compiler Kotlin sebagai **pembuka block comment baru bersarang** (beda
+  dari Java/C: block comment Kotlin BOLEH nested). `*/` pertama yang
+  ditemukan (baris 43) menutup comment nested itu, BUKAN comment luar —
+  comment luar jadi tidak pernah tertutup sampai EOF, makanya error posisi
+  baris 262 (baris terakhir file), bukan di baris 35 tempat akar masalah
+  sebenarnya. Fix: ganti frasa itu jadi `` `vpn.dns` package `` (tanpa
+  `/*` literal). **Verifikasi tambahan dilakukan**: simulasi lexer nested-
+  block-comment Kotlin (skrip Python sekali-pakai, bukan cuma brace/paren
+  count) dijalankan ke SELURUH file `.kt` di `app/src/main/java` +
+  `app/src/test/java` — 0 file lain bermasalah.
+  **Pelajaran untuk self-verifikasi ke depan:** kalau menulis KDoc yang
+  menyebut path/package dengan wildcard (`foo/bar/*`), JANGAN literal
+  seperti itu di dalam comment Kotlin — tulis `` `foo.bar` package `` atau
+  pisahkan karakter `/` dan `*` supaya tidak pernah membentuk urutan `/*`
+  literal di dalam block comment manapun. Checklist statis sebelumnya
+  (brace/paren balance) TIDAK menangkap kelas bug ini karena `/*…*/` bukan
+  `{…}`/`(…)` — kelas bug baru untuk daftar self-verifikasi.
+  **BELUM di-push ulang / belum dikonfirmasi CI hijau** — WAJIB jadi hal
+  pertama dicek di sesi berikutnya.
 - **v3.17.0 (2026-08-06) — Refactor God Class: `AdBlockVpnService` dipecah
   jadi 8 file, 0 perubahan behavior.** Respons ke audit eksternal user
   ("VPN Service terlalu besar / God Class", skor Coding 8/10). Sebelumnya
@@ -38,17 +62,7 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
   (version bump) — di atas batas normal 10 tapi masih 1 modul (`vpn/`),
   dicatat sebagai Atomic Change (migrasi arsitektur, sesuai permintaan user
   eksplisit "Refactor VpnService God Class") bukan pelanggaran Batch Lock.
-  **BELUM DIKONFIRMASI build CI SAMA SEKALI — WAJIB jadi hal PALING PERTAMA
-  dicek di sesi berikutnya, sebelum item prioritas lain manapun** (termasuk
-  sebelum lanjut ke item audit eksternal lain seperti stress test/optimasi
-  blocklist). Ini menyentuh hot path DNS (packet loop + forward), jadi
-  risiko regresi kalau ada typo/miss saat pemindahan lebih tinggi daripada
-  refactor UI-only historis (v3.0.0 dkk) — verifikasi build sukses DULU,
-  baru kalau ada waktu user coba toggle DNS Ad-Block di device fisik dan
-  konfirmasi domain non-blocklist tetap resolve normal (persis skenario
-  yang pernah rusak di insiden v2.5.1 — bukan berarti bug yang sama
-  balik, tapi hot path yang sama yang paling sensitif kalau refactor ini
-  ada yang salah pindah).
+  **BUILD CI GAGAL** — lihat entri v3.17.1 di atas untuk fix.
 - **v3.16.9 (2026-08-06) — Concurrency & Lifecycle audit batch 2/N:
   `BlocklistManager` race condition.** Target lanjutan yang sudah dicatat
   di batch v3.16.8 kemarin. 2 caller independen di thread berbeda
@@ -1488,6 +1502,15 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Riwayat insiden kronologis
 
+- **2026-08-06 (v3.17.0 CI build FAILED, fixed v3.17.1)**: `kspDebugKotlin`
+  gagal — `AdBlockVpnService.kt:262:1 Unclosed comment`. Root cause: KDoc
+  class berisi literal `` `vpn/dns/*` `` yang dibaca Kotlin sebagai
+  pembuka block comment nested (Kotlin, beda dari Java/C, mendukung
+  nested block comment). Ditemukan lewat artifact `log_fail_*` yang
+  di-upload user manual. Fix: hapus literal `/*` dari teks KDoc. Detail
+  lengkap di "Status terakhir" v3.17.1 di atas. **Belum dikonfirmasi** fix
+  ini benar-benar bikin CI hijau (belum ada run baru).
+
 - **2026-08-06 (v3.16.0 CI build FAILED, fixed v3.16.1)**: `minifyReleaseWithR8`
   gagal — R8 "Missing class" untuk annotation compile-time-only dari
   `com.google.errorprone.annotations.*` / `javax.annotation.*`, ditarik
@@ -1744,15 +1767,12 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.17.0 — refactor God Class):**
-1. Cek run CI v3.17.0 SEBELUM apa pun lain di sesi berikutnya — batch ini
-   menyentuh hot path DNS (packet loop + upstream forward), risiko lebih
-   tinggi dari refactor UI-only historis. Kalau CI merah, cek dulu apakah
-   error compile (kemungkinan besar: import yang kelewat/salah lokasi
-   antar 8 file baru) sebelum menyimpulkan ada regresi logic.
+**PALING BARU & PALING PENTING (2026-08-06, v3.17.1 — HOTFIX build CI v3.17.0):**
+1. Cek run CI v3.17.1 SEBELUM apa pun lain — belum di-push ulang/dikonfirmasi
+   hijau sama sekali sejak fix "Unclosed comment" ini.
 2. Kalau CI hijau: minta user coba toggle DNS Ad-Block di device fisik,
    pastikan domain non-blocklist tetap resolve normal (skenario paling
-   sensitif — lihat catatan di entri v3.17.0 di atas).
+   sensitif dari refactor v3.17.0 — lihat catatan di entri v3.17.0).
 3. Sisa item audit eksternal user (2026-08-06) yang BELUM dikerjakan:
    stress test trafik tinggi, optimasi blocklist engine lebih lanjut,
    crash/performance monitoring tambahan, perkuat auto recovery VPN,

@@ -1,5 +1,32 @@
 # Changelog
 
+## v3.17.1 — HOTFIX build CI gagal dari push v3.17.0 (2026-08-06)
+
+> User upload artifact `log_fail_20260806_023527_run31066001167.zip`:
+> `kspDebugKotlin FAILED` — `AdBlockVpnService.kt:262:1 Unclosed comment`.
+
+**Root cause:** KDoc pembuka `AdBlockVpnService` (baris 28-43) memuat
+teks `` `vpn/dns/*` `` — literal `/*` di dalamnya dibaca compiler Kotlin
+sebagai pembuka block comment BARU yang bersarang di dalam comment yang
+sedang terbuka (Kotlin block comments BOLEH nested, beda dari Java/C).
+`*/` pertama yang ditemukan (baris 43) menutup comment nested itu, bukan
+comment luar — comment luar jadi terbuka sampai akhir file, makanya
+error muncul di baris 262 (baris terakhir), bukan di baris 35 tempat
+akar masalahnya.
+
+**Fix (1 file, `AdBlockVpnService.kt`):** frasa `` `vpn/dns/*` `` diganti
+`` `vpn.dns` package `` — tidak ada perubahan lain.
+
+**Verifikasi tambahan:** skrip Python sekali-pakai yang mensimulasikan
+lexer nested-block-comment Kotlin dijalankan ke SELURUH file `.kt` di
+`app/src/main/java` + `app/src/test/java` — dikonfirmasi 0 file lain
+punya masalah serupa.
+
+**Pelajaran:** checklist statis sebelumnya (brace/paren balance) tidak
+menangkap kelas bug `/* */` karena bukan `{ }`/`( )`. Ke depan, KDoc yang
+menyebut path/wildcard (`foo/bar/*`) harus ditulis `` `foo.bar` package ``
+atau bentuk lain yang tidak pernah membentuk urutan literal `/*`.
+
 ## v3.17.0 — Refactor God Class: AdBlockVpnService dipecah jadi 8 file (2026-08-06)
 
 > Respons ke audit eksternal user: "VPN Service terlalu besar (God Class)"
