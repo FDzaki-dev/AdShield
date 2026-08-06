@@ -3,6 +3,52 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.17.0 (2026-08-06) — Refactor God Class: `AdBlockVpnService` dipecah
+  jadi 8 file, 0 perubahan behavior.** Respons ke audit eksternal user
+  ("VPN Service terlalu besar / God Class", skor Coding 8/10). Sebelumnya
+  ~600 baris dalam 1 class: lifecycle Service, packet loop, upstream
+  forward + socket pooling, prefetch, whitelist per-app UID, notification
+  builder, watchdog scheduler — semua inline.
+  **File baru (package `vpn/dns/` kecuali disebut lain):**
+  `UpstreamForwarder.kt` (forwardToUpstream + DoH-then-UDP fallback +
+  socket pooling per-thread — persis `getOrCreateUpstreamSocket`/
+  `discardUpstreamSocket`/`closeAllSockets` lama, cuma dipindah),
+  `DnsPrefetcher.kt` (prefetchPopularDomains/prefetchOne, persis sama),
+  `AppUidWhitelistChecker.kt` (isFromWhitelistedApp + uidToPackageCache),
+  `DnsPacketLoop.kt` (runPacketLoop + writeBlockedResponse/
+  writeCachedResponse — dijalankan di `loopExecutor`, TETAP terpisah dari
+  `forwardExecutor` sesuai keputusan #11, tidak berubah), `DnsQueryLogger.kt`
+  (logAndCount — counter + Room log). Di `vpn/` (bukan `vpn/dns/`, karena
+  bukan spesifik-DNS): `VpnNotificationFactory.kt` (buildNotification),
+  `VpnWatchdog.kt` (scheduleWatchdog, AlarmManager).
+  **`AdBlockVpnService.kt` sekarang murni orchestrator** (~250 baris): cuma
+  `onCreate`/`onStartCommand`/`startVpn`/`stopVpn`/lifecycle callbacks +
+  wiring ke kolaborator di atas + companion object (`ACTION_START`/
+  `ACTION_STOP`/`EXTRA_MODE_SWITCH`/`lastError`) — **API companion PERSIS
+  SAMA, 0 file lain (MainActivity/MainViewModel/QS tiles/BootReceiver/
+  RestartReceiver) perlu diubah**, sudah diverifikasi via grep menyeluruh
+  sebelum batch ini dimulai (lihat keputusan arsitektur #15 di bawah).
+  **Setiap method dipindah verbatim** (badan fungsi, komentar penjelas
+  insiden/keputusan ikut dipindah ke file barunya) — TIDAK ada logic yang
+  ditulis ulang/"dirapikan" sekalian, supaya risiko regresi minimal untuk
+  batch refactor murni struktural ini. Cuma 2 comment-only doc-reference
+  di file lain (`DohClient.kt`, `WarpEndpointSelector.kt`) diupdate supaya
+  tidak menunjuk ke lokasi lama.
+  **Atomic Change note:** batch ini menyentuh 8 file kode + `build.gradle.kts`
+  (version bump) — di atas batas normal 10 tapi masih 1 modul (`vpn/`),
+  dicatat sebagai Atomic Change (migrasi arsitektur, sesuai permintaan user
+  eksplisit "Refactor VpnService God Class") bukan pelanggaran Batch Lock.
+  **BELUM DIKONFIRMASI build CI SAMA SEKALI — WAJIB jadi hal PALING PERTAMA
+  dicek di sesi berikutnya, sebelum item prioritas lain manapun** (termasuk
+  sebelum lanjut ke item audit eksternal lain seperti stress test/optimasi
+  blocklist). Ini menyentuh hot path DNS (packet loop + forward), jadi
+  risiko regresi kalau ada typo/miss saat pemindahan lebih tinggi daripada
+  refactor UI-only historis (v3.0.0 dkk) — verifikasi build sukses DULU,
+  baru kalau ada waktu user coba toggle DNS Ad-Block di device fisik dan
+  konfirmasi domain non-blocklist tetap resolve normal (persis skenario
+  yang pernah rusak di insiden v2.5.1 — bukan berarti bug yang sama
+  balik, tapi hot path yang sama yang paling sensitif kalau refactor ini
+  ada yang salah pindah).
 - **v3.16.9 (2026-08-06) — Concurrency & Lifecycle audit batch 2/N:
   `BlocklistManager` race condition.** Target lanjutan yang sudah dicatat
   di batch v3.16.8 kemarin. 2 caller independen di thread berbeda
@@ -1405,6 +1451,41 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
    penggunaan tema ini di tempat lain, pastikan tidak mengganggu tampilan
    UI normal (tema ini sengaja tidak render apa pun).
 
+15. **`vpn/AdBlockVpnService.kt` (v3.17.0) — orchestrator-only, JANGAN
+   ditambah logic baru langsung di sini lagi.** Kontrak modul `vpn/` +
+   `vpn/dns/` pasca-refactor:
+   - `AdBlockVpnService` HANYA boleh berisi: lifecycle Service
+     (`onCreate`/`onStartCommand`/`onTaskRemoved`/`onRevoke`/`onDestroy`),
+     `startVpn()`/`stopVpn()` (orkestrasi urutan: builder.establish() →
+     wiring hasil ke kolaborator → settingsRepository write), companion
+     object public API. Kalau nambah pekerjaan baru (mis. protokol DNS
+     baru, jenis forward baru), buat kolaborator baru di `vpn/dns/`
+     (kalau spesifik-DNS) atau `vpn/` (kalau bukan), JANGAN inline lagi
+     di class ini — itu persis yang baru saja diperbaiki.
+   - `UpstreamForwarder`/`DnsPrefetcher` masing-masing MEMEGANG referensi
+     `VpnService` (bukan Context biasa) — WAJIB, karena `VpnService.protect()`
+     dan `DohClient.resolve(vpnService, ...)` butuh instance itu, bukan
+     `Context` generik. Kedua kelas ini dibuat ulang di `onCreate()` tiap
+     kali Service instance baru dibuat — JANGAN dijadikan singleton/
+     companion-level, lifetime-nya sengaja terikat 1:1 ke Service instance
+     yang memegangnya (beda dengan `BlocklistManager`/`DnsCache` yang
+     memang singleton lintas-restart).
+   - `DnsPacketLoop` WAJIB dijalankan di `loopExecutor` (thread tunggal),
+     dan panggilan `forwarder.forwardToUpstream()` di dalamnya WAJIB tetap
+     lewat `forwardExecutor.execute { ... }`, TIDAK PERNAH langsung
+     dipanggil sinkron dari `DnsPacketLoop` — itu persis bug v2.5.1
+     (single shared executor bikin forward tidak pernah jalan) kalau
+     sampai keduanya balik dicampur.
+   - Semua kolaborator baru ini stateless-terhadap-Android-lifecycle
+     KECUALI cache internalnya sendiri (`uidToPackageCache` di
+     `AppUidWhitelistChecker`, socket pool di `UpstreamForwarder`) — kalau
+     nanti butuh unit test, kelas-kelas ini di `vpn/dns/` sudah lebih
+     mudah di-test terisolasi dibanding dulu (tidak perlu subclass/mock
+     `VpnService` penuh untuk test logic blocked/cache/forward-routing di
+     `DnsPacketLoop`, misalnya) — TAPI unit test ini BELUM ditulis di batch
+     ini (batch ini murni structural move, 0 test baru), cuma dicatat
+     sebagai kemungkinan follow-up kalau user minta.
+
 ## Riwayat insiden kronologis
 
 - **2026-08-06 (v3.16.0 CI build FAILED, fixed v3.16.1)**: `minifyReleaseWithR8`
@@ -1663,7 +1744,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU (2026-08-06, Concurrency & Lifecycle audit batch 2/N):**
+**PALING BARU & PALING PENTING (2026-08-06, v3.17.0 — refactor God Class):**
+1. Cek run CI v3.17.0 SEBELUM apa pun lain di sesi berikutnya — batch ini
+   menyentuh hot path DNS (packet loop + upstream forward), risiko lebih
+   tinggi dari refactor UI-only historis. Kalau CI merah, cek dulu apakah
+   error compile (kemungkinan besar: import yang kelewat/salah lokasi
+   antar 8 file baru) sebelum menyimpulkan ada regresi logic.
+2. Kalau CI hijau: minta user coba toggle DNS Ad-Block di device fisik,
+   pastikan domain non-blocklist tetap resolve normal (skenario paling
+   sensitif — lihat catatan di entri v3.17.0 di atas).
+3. Sisa item audit eksternal user (2026-08-06) yang BELUM dikerjakan:
+   stress test trafik tinggi, optimasi blocklist engine lebih lanjut,
+   crash/performance monitoring tambahan, perkuat auto recovery VPN,
+   sederhanakan UX/Home screen — tanya user urutan prioritas berikutnya.
+
+**SEBELUMNYA (2026-08-06, Concurrency & Lifecycle audit batch 2/N):**
 1. Cek run CI v3.16.9 (build ijo?) — belum pernah dicek sama sekali.
 2. Verifikasi device: buka Rules screen, tambah/hapus domain di
    "Izinkan" SAAT VPN DNS Ad-Block aktif dan sedang dipakai browsing —

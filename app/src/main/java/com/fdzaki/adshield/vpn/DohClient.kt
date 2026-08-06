@@ -10,7 +10,9 @@ import javax.net.ssl.SSLContext
 /**
  * DNS-over-HTTPS client (v3.11.0 — see PROJECT_STATE.md decision log).
  *
- * Added because plain-UDP port 53 forwarding (see [AdBlockVpnService.forwardToUpstream])
+ * Added because plain-UDP port 53 forwarding (see
+ * [com.fdzaki.adshield.vpn.dns.UpstreamForwarder.forwardToUpstream], extracted from
+ * AdBlockVpnService in the v3.17.0 God-Class refactor — see PROJECT_STATE.md)
  * was confirmed by the user to fail totally on their network (matching
  * DNS_PROBE_FINISHED_BAD_SECURE_CONFIG-style total failure, ruled out as an
  * Android Private DNS / Chrome Secure DNS setting on their end — the network
@@ -37,7 +39,7 @@ object DohClient {
      * endpoint failed (caller is expected to fall back to plain UDP).
      *
      * @param dnsMessage raw DNS wire-format query bytes (same format already
-     *   built by [AdBlockVpnService.buildForwardedRequest] for the UDP path).
+     *   built by [com.fdzaki.adshield.vpn.dns.UpstreamForwarder] for the UDP path).
      */
     fun resolve(vpnService: VpnService, dnsMessage: ByteArray): ByteArray? {
         for (endpoint in com.fdzaki.adshield.util.Constants.DOH_ENDPOINTS) {

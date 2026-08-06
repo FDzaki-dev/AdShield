@@ -159,7 +159,20 @@ gejala.
 
 ## Status proyek
 
-- **v3.14.0 (terbaru)** — Batch 3/N: IKEv2 native (`protocol/IkeV2VpnEngine.kt`)
+- **v3.17.0 (terbaru)** — Refactor "God Class": `AdBlockVpnService`
+  (~600 baris) dipecah jadi orchestrator tipis + 7 kolaborator baru di
+  `vpn/dns/` dan `vpn/` (packet loop, upstream forward, prefetch,
+  whitelist per-app, notification, watchdog). Murni structural, 0
+  perubahan behavior/API publik. **Belum dikonfirmasi build CI** — lihat
+  PROJECT_STATE.md.
+- v3.16.0–v3.16.9 — Audit Concurrency & Lifecycle (executor leak,
+  `WarpForegroundService` scope leak, `BlocklistManager` race condition)
+  + IKEv2 config screen + wiring. Belum dikonfirmasi build CI untuk
+  seluruh rentang ini (lihat PROJECT_STATE.md).
+- v3.15.0 — Wire WARP ke `VpnEngine` interface di titik drive nyata.
+  Batch 4 (Shadowsocks/VLESS via Xray-core) dibatalkan permanen — butuh
+  toolchain Go/gomobile/NDK sendiri, sejajar OpenVPN.
+- v3.14.0 — Batch 3/N: IKEv2 native (`protocol/IkeV2VpnEngine.kt`)
   pakai `android.net.VpnManager`/`Ikev2VpnProfile` platform API (0
   dependency pihak ketiga). OpenVPN dibatalkan permanen dari roadmap —
   tidak ada jalur non-GPL/AGPL yang legit di Android. Belum di-wire ke
@@ -253,7 +266,10 @@ Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ```
 app/src/main/java/com/fdzaki/adshield/
-├── vpn/            AdBlockVpnService (engine Ad-Block DNS), DnsPacket (parser paket)
+├── vpn/            AdBlockVpnService (orchestrator), DnsPacket (parser paket),
+│                   VpnNotificationFactory, VpnWatchdog
+│   └── dns/        UpstreamForwarder, DnsPrefetcher, DnsPacketLoop,
+│                   AppUidWhitelistChecker, DnsQueryLogger (v3.17.0)
 ├── warp/           WarpTunnelManager (engine WireGuard/WARP), WarpRegistrationClient,
 │                   WarpAccountRepository, WarpForegroundService, WarpAccount
 ├── data/           BlocklistManager, SettingsRepository (DataStore, termasuk

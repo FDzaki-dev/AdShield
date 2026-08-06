@@ -1,5 +1,58 @@
 # Changelog
 
+## v3.17.0 — Refactor God Class: AdBlockVpnService dipecah jadi 8 file (2026-08-06)
+
+> Respons ke audit eksternal user: "VPN Service terlalu besar (God Class)"
+> (skor Coding 8/10, kekurangan #1). Murni structural move — 0 perubahan
+> logic/behavior.
+
+**Sebelum:** `AdBlockVpnService.kt` (~600 baris) berisi lifecycle Service +
+packet loop + upstream forward (DoH/UDP + socket pooling) + prefetch +
+whitelist per-app UID + notification builder + watchdog scheduler, semua
+inline dalam 1 class.
+
+**Sesudah — 7 file baru + 1 file ditulis ulang:**
+- `vpn/dns/UpstreamForwarder.kt` — `forwardToUpstream()`, DoH-then-UDP
+  fallback, socket pool per-worker-thread (`getOrCreateUpstreamSocket`/
+  `discardUpstreamSocket`/`closeAllSockets`), `buildForwardedRequest()`.
+- `vpn/dns/DnsPrefetcher.kt` — `prefetchPopularDomains`/`prefetchOne`.
+- `vpn/dns/AppUidWhitelistChecker.kt` — `isFromWhitelistedApp` +
+  `uidToPackageCache`.
+- `vpn/dns/DnsPacketLoop.kt` — `runPacketLoop` (baca tun, routing
+  blocked/cache/forward) + `writeBlockedResponse`/`writeCachedResponse`.
+- `vpn/dns/DnsQueryLogger.kt` — `logAndCount` (counter + Room log).
+- `vpn/VpnNotificationFactory.kt` — `buildNotification`.
+- `vpn/VpnWatchdog.kt` — `scheduleWatchdog` (AlarmManager).
+- `vpn/AdBlockVpnService.kt` — ditulis ulang jadi orchestrator murni
+  (~250 baris): lifecycle callbacks + wiring kolaborator + companion
+  object public API (`ACTION_START`/`ACTION_STOP`/`EXTRA_MODE_SWITCH`/
+  `lastError`) — **API companion 100% tidak berubah**, jadi 0 file lain
+  (MainActivity, MainViewModel, DnsTileService, BootReceiver,
+  RestartReceiver) perlu diedit.
+
+**Cara pemindahan:** setiap fungsi dipindah verbatim (badan fungsi +
+komentar penjelas insiden/keputusan historis ikut dibawa ke lokasi
+barunya), bukan ditulis ulang — supaya batch refactor struktural ini
+tidak sekalian menyuntik risiko regresi logic. 2 comment-only doc
+reference di file lain (`DohClient.kt`, `WarpEndpointSelector.kt`)
+diupdate supaya menunjuk ke lokasi kode yang baru.
+
+**Keputusan desain (lihat PROJECT_STATE.md keputusan arsitektur #15
+untuk detail lengkap):** `UpstreamForwarder`/`DnsPrefetcher` memegang
+referensi `VpnService` langsung (bukan `Context` generik) karena
+`VpnService.protect()`/`DohClient.resolve()` butuh instance itu — kedua
+kolaborator ini dibuat ulang di `onCreate()` tiap Service instance baru,
+BUKAN singleton. `DnsPacketLoop` tetap WAJIB jalan di `loopExecutor`
+terpisah dari `forwardExecutor` (keputusan #11, tidak berubah).
+
+**Atomic Change:** 8 file kode + `build.gradle.kts` (version bump) — di
+atas batas normal 10 file tapi 1 modul (`vpn/`), migrasi arsitektur atas
+permintaan eksplisit user, dicatat sebagai exception Batch Lock.
+
+**BELUM DIKONFIRMASI build CI SAMA SEKALI** — batch ini menyentuh hot
+path DNS (packet loop + forward), jadi ini WAJIB jadi hal pertama dicek
+di sesi berikutnya sebelum kerja apa pun lagi (lihat PROJECT_STATE.md).
+
 ## v3.16.9 — Concurrency & Lifecycle audit batch 2/N: BlocklistManager race (2026-08-06)
 
 > User konfirmasi diagnostik CI v3.16.8 hijau + snapshot WARP pulih sendiri

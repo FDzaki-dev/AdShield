@@ -37,7 +37,7 @@ object WarpEndpointSelector {
     // WarpTunnelManager.connect()), so there is no full-tunnel VPN interface
     // yet for this UDP traffic to loop back into. If that ordering ever
     // changes, this needs a VpnService.protect() call added — same pattern
-    // as AdBlockVpnService.getOrCreateUpstreamSocket().
+    // as com.fdzaki.adshield.vpn.dns.UpstreamForwarder's socket pooling.
     suspend fun selectBestEndpoint(
         candidates: List<String> = Constants.WARP_ENDPOINT_CANDIDATES
     ): String = coroutineScope {
