@@ -26,9 +26,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.text.NumberFormat
+import java.util.Locale
 import com.fdzaki.adshield.data.VpnProfileRepository
 import com.fdzaki.adshield.protocol.VpnEngineState
 import com.fdzaki.adshield.ui.MainViewModel
@@ -167,13 +171,13 @@ fun HomeScreen(
             StatCard(
                 modifier = Modifier.weight(1f),
                 label = "DIBLOKIR",
-                value = blockedCount.toString(),
+                value = formatStatCount(blockedCount),
                 color = ShieldDanger
             )
             StatCard(
                 modifier = Modifier.weight(1f),
                 label = "DIIZINKAN",
-                value = allowedCount.toString(),
+                value = formatStatCount(allowedCount),
                 color = ShieldGreen
             )
         }
@@ -288,6 +292,11 @@ private fun BrandHeader() {
 private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
     val ringColor = ShieldGreen
     val trackColor = ShieldOutline
+    // Polish pass: this is the app's single most-pressed control — a brief
+    // tactile confirmation on tap matches what premium VPN clients (WARP,
+    // Mullvad) do for their main toggle, and gives feedback even before the
+    // visual ring state finishes updating.
+    val haptic = LocalHapticFeedback.current
 
     Box(
         modifier = Modifier.size(184.dp),
@@ -313,7 +322,10 @@ private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
                 .size(152.dp)
                 .clip(CircleShape)
                 .background(if (active) ShieldAccentDim else ShieldSurface2)
-                .clickable(onClick = onClick),
+                .clickable(onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onClick()
+                }),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -342,6 +354,7 @@ private fun WarpModeCard(
     onToggleRouteIpv6: (Boolean) -> Unit,
     onToggle: (Boolean) -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = ShieldSurface),
@@ -356,12 +369,25 @@ private fun WarpModeCard(
                         .background(if (active) ShieldAccentDim else ShieldSurface2),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Filled.Lock,
-                        contentDescription = null,
-                        tint = if (active) ShieldGreen else ShieldTextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    // Polish pass: "Menyambungkan…" used to be static text with
+                    // no visual motion at all — indistinguishable at a glance
+                    // from any other idle state. A small spinner in the same
+                    // icon slot gives the multi-second registration+handshake
+                    // window an actual progress cue.
+                    if (connecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = ShieldTextMuted
+                        )
+                    } else {
+                        Icon(
+                            Icons.Filled.Lock,
+                            contentDescription = null,
+                            tint = if (active) ShieldGreen else ShieldTextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -379,7 +405,10 @@ private fun WarpModeCard(
                 Switch(
                     checked = active,
                     enabled = !connecting,
-                    onCheckedChange = onToggle,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle(it)
+                    },
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = ShieldGreen,
                         checkedThumbColor = ShieldSurface
@@ -481,6 +510,7 @@ private fun IkeV2ModeCard(
     onToggle: (Boolean) -> Unit,
     onEditProfile: () -> Unit
 ) {
+    val haptic = LocalHapticFeedback.current
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = ShieldSurface),
@@ -495,12 +525,22 @@ private fun IkeV2ModeCard(
                         .background(if (active) ShieldAccentDim else ShieldSurface2),
                     contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Filled.VpnKey,
-                        contentDescription = null,
-                        tint = if (active) ShieldGreen else ShieldTextMuted,
-                        modifier = Modifier.size(18.dp)
-                    )
+                    // Same connecting-spinner treatment as WarpModeCard, for
+                    // visual consistency between the app's two tunnel cards.
+                    if (connecting) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(18.dp),
+                            strokeWidth = 2.dp,
+                            color = ShieldTextMuted
+                        )
+                    } else {
+                        Icon(
+                            Icons.Filled.VpnKey,
+                            contentDescription = null,
+                            tint = if (active) ShieldGreen else ShieldTextMuted,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(Modifier.weight(1f)) {
@@ -519,7 +559,10 @@ private fun IkeV2ModeCard(
                 Switch(
                     checked = active,
                     enabled = !connecting && hasProfile,
-                    onCheckedChange = onToggle,
+                    onCheckedChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle(it)
+                    },
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = ShieldGreen,
                         checkedThumbColor = ShieldSurface
@@ -602,6 +645,12 @@ private fun IkeV2ProfileDialog(
         }
     )
 }
+
+/** Thousands-separated count for [StatCard] — plain `toString()` reads fine
+ *  at small values but turns into an unscannable digit blob once blocked/
+ *  allowed counters climb into the thousands over weeks of normal use. */
+private fun formatStatCount(count: Int): String =
+    NumberFormat.getInstance(Locale("in", "ID")).format(count)
 
 @Composable
 private fun StatCard(

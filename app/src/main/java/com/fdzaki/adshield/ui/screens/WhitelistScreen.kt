@@ -5,6 +5,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -42,13 +44,26 @@ fun WhitelistScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         Column(Modifier.padding(padding)) {
+            // Polish pass: search field brought in line with the leading-icon +
+            // clear-button pattern already used on Logs/Rules — was plain-label
+            // only here before, an inconsistency across otherwise-identical
+            // search affordances in the same app.
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                label = { Text("Cari aplikasi") },
+                placeholder = { Text("Cari aplikasi…", fontSize = 13.sp) },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = { query = "" }) {
+                            Icon(Icons.Filled.Clear, contentDescription = "Hapus pencarian")
+                        }
+                    }
+                },
+                singleLine = true,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(16.dp)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
             )
             Text(
                 "Aplikasi yang di-whitelist tidak akan mengalami pemblokiran domain sama sekali. " +
@@ -58,18 +73,43 @@ fun WhitelistScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 fontSize = 12.sp,
                 modifier = Modifier.padding(horizontal = 16.dp)
             )
-            Spacer(Modifier.height(8.dp))
-            LazyColumn(modifier = Modifier.weight(1f)) {
-                items(filtered, key = { it.packageName }) { app ->
-                    AppRow(
-                        label = app.label,
-                        packageName = app.packageName,
-                        iconBitmap = remember(app.packageName) {
-                            runCatching { app.icon?.toBitmap()?.asImageBitmap() }.getOrNull()
-                        },
-                        isWhitelisted = whitelisted.contains(app.packageName),
-                        onToggle = { checked -> viewModel.toggleAppWhitelist(app.packageName, checked) }
-                    )
+            Spacer(Modifier.height(4.dp))
+            // Feedback consistency: Logs/Rules both show a live count of what's
+            // currently in view; Whitelist previously showed nothing here.
+            if (apps.isNotEmpty()) {
+                Text(
+                    "${whitelisted.size} aplikasi di-whitelist · menampilkan ${filtered.size} dari ${apps.size}",
+                    fontSize = 11.sp,
+                    color = ShieldTextMuted,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                )
+            }
+            Spacer(Modifier.height(4.dp))
+            // Empty states: previously a blank LazyColumn either while the app
+            // list was still loading or when a search matched nothing — both
+            // looked identical to "broken screen". Logs/Rules already handle
+            // this distinction; Whitelist didn't.
+            if (apps.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Memuat daftar aplikasi…", color = ShieldTextMuted, fontSize = 13.sp)
+                }
+            } else if (filtered.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("Tidak ada aplikasi yang cocok dengan pencarian.", color = ShieldTextMuted, fontSize = 13.sp)
+                }
+            } else {
+                LazyColumn(modifier = Modifier.weight(1f)) {
+                    items(filtered, key = { it.packageName }) { app ->
+                        AppRow(
+                            label = app.label,
+                            packageName = app.packageName,
+                            iconBitmap = remember(app.packageName) {
+                                runCatching { app.icon?.toBitmap()?.asImageBitmap() }.getOrNull()
+                            },
+                            isWhitelisted = whitelisted.contains(app.packageName),
+                            onToggle = { checked -> viewModel.toggleAppWhitelist(app.packageName, checked) }
+                        )
+                    }
                 }
             }
         }

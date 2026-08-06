@@ -159,7 +159,19 @@ gejala.
 
 ## Status proyek
 
-- **v3.17.1 (terbaru)** — HOTFIX: build CI v3.17.0 gagal (`Unclosed
+- **v3.20.0 (terbaru)** — Polish UI/UX batch 1/N: `WhitelistScreen`
+  disamakan pola search+empty-state+count dengan Logs/Rules; `HomeScreen`
+  dapat spinner koneksi WARP/IKEv2, haptic feedback di kontrol utama, dan
+  format angka statistik pakai pemisah ribuan. Belum dikonfirmasi build CI
+  — lihat PROJECT_STATE.md/CHANGELOG.md.
+- v3.19.0 — Testing & Diagnostic audit batch 1/N: 11 unit test baru
+  `DnsPacketTest.kt` menutup gap coverage method DNS cache/prefetch.
+  Belum dijalankan (tidak ada Gradle/JDK Android di sandbox) — lihat
+  PROJECT_STATE.md.
+- v3.18.0 — Audit Security (2 batch) + Performance (clean, 0 fix):
+  migrasi WARP private key ke `EncryptedSharedPreferences`, scan TLS/
+  hardcoded-secret bersih. Lihat CHANGELOG.md.
+- v3.17.1 — HOTFIX: build CI v3.17.0 gagal (`Unclosed
   comment` di `AdBlockVpnService.kt` — literal `/*` dalam KDoc dibaca
   Kotlin sebagai nested block comment). Fungsionalitas sama, murni
   perbaikan sintaks. **Belum dikonfirmasi build sukses** — lihat

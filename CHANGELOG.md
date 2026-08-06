@@ -1,5 +1,55 @@
 # Changelog
 
+## v3.20.0 — UI/UX polish pass batch 1: konsistensi, feedback, tactile (2026-08-06)
+
+> User minta "polish UI dan UX sampai matang". Diaudit statis seluruh 6
+> screen (`HomeScreen`/`WhitelistScreen`/`RulesScreen`/`LogsScreen`/
+> `DiagnosticsScreen`/`OnboardingScreen`) — Rules/Logs/Diagnostics sudah
+> cukup matang (search+filter+empty-state+confirm-dialog sudah lengkap
+> dari audit Feedback v3.3.1-v3.3.2). 2 celah nyata ditemukan di
+> `WhitelistScreen` + 3 peningkatan di `HomeScreen`, semua verified via
+> baca kode langsung (bukan asumsi/redesign visual).
+
+**`WhitelistScreen.kt` (celah konsistensi vs Logs/Rules screen):**
+- Search field polos (cuma `label`) diganti pola `placeholder`+leading
+  `Search` icon+trailing `Clear` icon — identik dengan Logs/Rules, yang
+  sebelumnya cuma Whitelist yang beda.
+- Empty state: sebelumnya `LazyColumn` kosong tampil blank total kalau
+  `apps` masih memuat ATAU hasil pencarian nihil — tidak terbedakan dari
+  "layar rusak". Sekarang: "Memuat daftar aplikasi…" (apps masih kosong)
+  vs "Tidak ada aplikasi yang cocok dengan pencarian." (filtered kosong)
+  — pola sama seperti `LogsScreen`/`RulesScreen`.
+- Count feedback baris baru: "N aplikasi di-whitelist · menampilkan X
+  dari Y" — Logs/Rules sudah punya count row serupa, Whitelist belum.
+
+**`HomeScreen.kt`:**
+- **Connecting-state spinner:** `WarpModeCard`/`IkeV2ModeCard` sebelumnya
+  cuma ganti teks jadi "Menyambungkan…" tanpa elemen visual bergerak sama
+  sekali selama jendela registrasi+handshake beberapa detik. Sekarang
+  `CircularProgressIndicator` kecil (18dp) menggantikan icon Lock/VpnKey
+  di slot yang sama selagi `connecting == true`.
+- **Haptic feedback:** `ProtectionRing` (kontrol paling sering ditekan di
+  app ini) + `Switch` WARP/IKEv2 sekarang `performHapticFeedback(
+  HapticFeedbackType.LongPress)` saat ditekan — dipilih untuk selaras
+  dengan pola VPN client premium (WARP resmi, Mullvad), dan memberi
+  konfirmasi taktil bahkan sebelum state visual selesai update. Tidak
+  mengubah `onClick`/`onCheckedChange` behavior asli, cuma menyisipkan
+  haptic call sebelum meneruskan ke callback yang sudah ada.
+- **Format angka StatCard:** `blockedCount`/`allowedCount` sebelumnya
+  `toString()` polos — jadi digit blob susah dibaca begitu masuk ribuan
+  setelah pemakaian berminggu-minggu. Sekarang `NumberFormat` locale
+  `in-ID` (pemisah ribuan titik, mis. "12.345").
+
+**SENGAJA TIDAK diubah:** `ProtectionRing`'s "no fill animation on toggle"
+(kdoc v3.0.0 — restraint yang disengaja, bukan gap); warna/tema/shape
+(scope batch ini murni interaksi+konsistensi, bukan redesign visual);
+`OnboardingScreen` (sudah dilihat, tidak ada celah nyata ditemukan).
+
+**Verifikasi statis:** brace/paren balance + lexer nested-block-comment
+Kotlin ke 2 file yang diubah — 0 masalah. **BELUM dikonfirmasi build CI**
+— cek dulu di sesi berikutnya, sekaligus dengan v3.19.0 yang juga masih
+menunggu (unit test `testDebugUnitTest` belum pernah jalan sama sekali).
+
 ## v3.19.0 — Testing & Diagnostic audit batch 1: DnsPacket coverage gap (2026-08-06)
 
 > Kategori terakhir roadmap audit eksternal (Reliability ✅, Concurrency &

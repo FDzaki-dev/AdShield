@@ -3,7 +3,29 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.19.0 (2026-08-06) — Testing & Diagnostic audit batch 1/N: DnsPacket
+- **v3.20.0 (2026-08-06) — UI/UX polish pass batch 1/N: konsistensi
+  Whitelist + spinner/haptic/format angka Home.** User minta "polish UI
+  dan UX sampai matang" — di luar urutan roadmap audit eksternal (masih
+  di Testing & Diagnostic, belum lanjut). Audit statis 6 screen: Rules/
+  Logs/Diagnostics sudah cukup matang dari batch Feedback lama (v3.3.1/
+  v3.3.2), TIDAK disentuh. `WhitelistScreen` (search field polos tanpa
+  leading/trailing icon, tanpa empty-state, tanpa count row — beda pola
+  dari Logs/Rules) dan `HomeScreen` (connecting state tanpa spinner, tidak
+  ada haptic di kontrol paling sering dipakai, angka StatCard tanpa
+  pemisah ribuan) yang diperbaiki. Detail lengkap per-file di
+  CHANGELOG.md v3.20.0 — tidak diulang di sini. **SENGAJA TIDAK disentuh:**
+  `ProtectionRing` "no fill animation" (keputusan desain v3.0.0, bukan
+  gap), warna/tema/shape manapun (scope murni interaksi, bukan redesign).
+  Verifikasi statis (brace/paren balance + lexer nested-comment) ke 2 file
+  diubah — 0 masalah. **BELUM DIKONFIRMASI build CI** — cek dulu di sesi
+  berikutnya, MASIH BARENG v3.19.0 yang juga belum pernah dicek (unit test
+  `testDebugUnitTest` belum pernah dijalankan sama sekali sejak ditulis).
+  Kalau user minta lanjut polish UI/UX lagi (batch 2/N): kandidat
+  berikutnya — `OnboardingScreen` transisi antar-slide, TalkBack/
+  accessibility label pass menyeluruh (belum diaudit eksplisit), atau
+  balik ke roadmap audit eksternal (Testing & Diagnostic) sesuai urutan
+  lama kalau user lebih mau itu duluan.
+- v3.19.0 (2026-08-06) — Testing & Diagnostic audit batch 1/N: DnsPacket
   coverage gap ditutup.** Kategori TERAKHIR roadmap audit eksternal (semua
   4 kategori sebelumnya sudah dikerjakan: Reliability ✅, Concurrency &
   Lifecycle ✅, Security ✅ [1 fix nyata: WARP key encryption + 1 batch
@@ -1878,7 +1900,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.17.1 — HOTFIX build CI v3.17.0):**
+**PALING BARU & PALING PENTING (2026-08-06, v3.20.0 — UI/UX polish batch 1/N):**
+1. Cek CI v3.20.0 dulu — belum pernah dicek sama sekali sejak push.
+2. Device: tekan ProtectionRing + Switch WARP/IKEv2 — konfirmasi getar
+   terasa (device Infinix XOS user, beberapa OEM strip haptic vendor
+   sendiri, WAJIB dikonfirmasi nyata bukan cuma asumsi API terpanggil).
+3. Device: nyalakan WARP/IKEv2, perhatikan slot icon selama fase
+   "Menyambungkan…" — spinner harus terlihat jalan, bukan macet.
+4. Kalau user mau lanjut polish batch 2/N: `OnboardingScreen` transisi,
+   accessibility/TalkBack label pass — lihat entri v3.20.0 di atas.
+
+**SEBELUMNYA (2026-08-06, v3.17.1 — HOTFIX build CI v3.17.0):**
 1. Cek run CI v3.17.1 SEBELUM apa pun lain — belum di-push ulang/dikonfirmasi
    hijau sama sekali sejak fix "Unclosed comment" ini.
 2. Kalau CI hijau: minta user coba toggle DNS Ad-Block di device fisik,
