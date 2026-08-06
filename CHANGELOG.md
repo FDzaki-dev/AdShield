@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.16.9 — Concurrency & Lifecycle audit batch 2/N: BlocklistManager race (2026-08-06)
+
+> User konfirmasi diagnostik CI v3.16.8 hijau + snapshot WARP pulih sendiri
+> (cold-start blip biasa, bukan bug). Lanjut audit Concurrency & Lifecycle
+> ke target yang sudah dicatat di PROJECT_STATE.md: `BlocklistManager`.
+
+**Ditemukan (`app/src/main/java/com/fdzaki/adshield/data/BlocklistManager.kt`):**
+`setCustomBlocked()`/`setCustomAllowed()`/`setWhitelistedApps()` dipanggil
+dari 2 tempat independen yang jalan di thread/dispatcher berbeda:
+`MainViewModel` (collector Flow `settingsRepository.customBlockedDomains`
+dkk, aktif SELAMA app kebuka) dan `AdBlockVpnService.startVpn()` (sekali
+tiap VPN DNS mulai, di `serviceScope`). Dua bug nyata:
+1. `customBlockedSnapshot` (plain `var`, bukan `@Volatile`, tanpa lock) —
+   race read-modify-write kalau kedua caller di atas kebetulan jalan
+   bersamaan (lost update, bukan cuma soal visibility).
+2. `allowedExact`/`allowedWildcardBases`/`whitelistedApps` di-mutasi lewat
+   `clear()` lalu `add()` satu-satu di atas `ConcurrentHashMap.newKeySet()`
+   — antara `clear()` dan `add()` selesai, `isBlocked()`/`isAppWhitelisted()`
+   yang dipanggil dari packet-loop thread (tiap query DNS) bisa lihat set
+   KOSONG sesaat → domain yang di-allow-list user bisa kepencet blokir
+   sesaat, atau app whitelisted sesaat tidak di-bypass.
+
+**Fix:**
+- `setCustomBlocked()` dibungkus `synchronized(this)` — seluruh urutan
+  baca-diff-tulis jadi atomik antar 2 caller di atas.
+- `allowedExact`+`allowedWildcardBases` diganti satu `AllowSnapshot`
+  (`data class` берisi exact+wildcard) di belakang `@Volatile var` —
+  `setCustomAllowed()` sekarang bangun snapshot baru lengkap dulu lalu
+  SATU KALI assignment atomik, bukan clear-then-add bertahap.
+  `isBlocked()` baca snapshot itu SEKALI ke local val di awal supaya cek
+  exact+wildcard konsisten walau `setCustomAllowed()` gonta-ganti
+  snapshot di tengah pemanggilan.
+- `whitelistedApps` diganti dari `ConcurrentHashMap.newKeySet()` ke
+  `@Volatile var whitelistedApps: Set<String>` dengan pola swap yang sama.
+
+**Dampak nyata sebelum fix:** domain di Aturan Kustom "Izinkan" bisa
+ke-blokir sesaat, atau app di whitelist bisa tetap kena DNS-block
+sesaat, tiap kali Rules screen disave SAAT VPN DNS lagi start/restart
+bersamaan — jendela racenya sempit tapi nyata, bukan hipotetis (2 call
+site sungguhan sudah dikonfirmasi lewat `grep`).
+
+**BELUM DIKONFIRMASI build CI v3.16.9 — cek dulu di sesi berikutnya.**
+
 ## v3.16.8 — Concurrency & Lifecycle audit batch 1/N (2026-08-06)
 
 > Kategori ke-2 dari checklist audit eksternal user (setelah Reliability

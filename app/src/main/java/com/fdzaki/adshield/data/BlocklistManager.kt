@@ -36,9 +36,6 @@ class BlocklistManager private constructor() {
     private val blockedExact = ConcurrentHashMap.newKeySet<String>()
     private val blockedWildcardBases = ConcurrentHashMap.newKeySet<String>()
 
-    private val allowedExact = ConcurrentHashMap.newKeySet<String>()
-    private val allowedWildcardBases = ConcurrentHashMap.newKeySet<String>()
-
     /**
      * Optional downloaded blocklist (see [BlocklistUpdateWorker], v2.5.0).
      * Deliberately kept in its OWN sets, completely separate from
@@ -72,8 +69,29 @@ class BlocklistManager private constructor() {
         "dns.google"
     )
 
-    private val whitelistedApps = ConcurrentHashMap.newKeySet<String>()
+    // v3.16.9 — Concurrency & Lifecycle audit batch 2/N: allowedExact/allowedWildcardBases
+    // (bare ConcurrentHashSets, mutated via clear()-then-add() in setCustomAllowed below) used
+    // to have a real, if narrow, race with isBlocked() — which runs on the VPN packet-loop
+    // thread for EVERY DNS query. Between clear() and the re-adds, a concurrent isBlocked()
+    // call would see a transiently EMPTY allow-list, meaning a domain the user explicitly
+    // allow-listed could be wrongly blocked for that instant. Fixed by replacing both sets
+    // with one @Volatile immutable snapshot swapped in a single atomic write — a reader always
+    // sees either the fully-old or fully-new rules, never a half-updated state.
+    private data class AllowSnapshot(val exact: Set<String>, val wildcard: Set<String>)
+    @Volatile private var allowSnapshot = AllowSnapshot(emptySet(), emptySet())
 
+    // Same reasoning as allowSnapshot above: isAppWhitelisted()/hasWhitelistedApps() are read
+    // from the packet loop on every query; clear()-then-addAll() briefly showed an empty set.
+    @Volatile private var whitelistedApps: Set<String> = emptySet()
+
+    // v3.16.9 — customBlockedSnapshot is only ever read/written from inside setCustomBlocked(),
+    // which is now `synchronized` (see below) — the two callers (MainViewModel's DataStore flow
+    // collector, which runs for the app's entire lifetime, and AdBlockVpnService.startVpn(),
+    // which calls it once per VPN start) run on different coroutine dispatchers/threads and
+    // COULD genuinely race: both do a read-modify-write of this field (diff old vs new, then
+    // add/remove from blockedExact/blockedWildcardBases) with no ordering guarantee between
+    // them, which is a lost-update race, not just a visibility one — synchronized(this) fixes
+    // it by making the whole read-diff-write sequence atomic, not just individual field reads.
     private var customBlockedSnapshot: Set<Entry> = emptySet()
 
     @Volatile var totalBlockedDomainCount: Int = 0
@@ -159,7 +177,7 @@ class BlocklistManager private constructor() {
         return Entry(clean, isWildcard)
     }
 
-    fun setCustomBlocked(domains: Set<String>) {
+    fun setCustomBlocked(domains: Set<String>) = synchronized(this) {
         val parsed = domains.mapNotNull { parseLine(it) }.toSet()
         // Remove entries from the previous snapshot that are no longer present
         (customBlockedSnapshot - parsed).forEach {
@@ -173,16 +191,18 @@ class BlocklistManager private constructor() {
     }
 
     fun setCustomAllowed(domains: Set<String>) {
-        allowedExact.clear()
-        allowedWildcardBases.clear()
+        val exact = mutableSetOf<String>()
+        val wildcard = mutableSetOf<String>()
         domains.mapNotNull { parseLine(it) }.forEach {
-            if (it.isWildcard) allowedWildcardBases.add(it.domain) else allowedExact.add(it.domain)
+            if (it.isWildcard) wildcard.add(it.domain) else exact.add(it.domain)
         }
+        // Single atomic swap — see AllowSnapshot kdoc above for why this replaced
+        // clear()+add() on two separate ConcurrentHashSets.
+        allowSnapshot = AllowSnapshot(exact, wildcard)
     }
 
     fun setWhitelistedApps(packages: Set<String>) {
-        whitelistedApps.clear()
-        whitelistedApps.addAll(packages)
+        whitelistedApps = packages.toSet()
     }
 
     fun isAppWhitelisted(packageName: String?): Boolean =
@@ -231,8 +251,12 @@ class BlocklistManager private constructor() {
 
         if (criticalAllowlist.contains(d)) return false
 
-        if (allowedExact.contains(d)) return false
-        if (allowedWildcardBases.isNotEmpty() && matchesAnyWildcard(d, allowedWildcardBases)) return false
+        // Read the allow-list snapshot ONCE per call (local val) so exact/wildcard checks
+        // below are consistent with each other even if setCustomAllowed() swaps in a new
+        // snapshot concurrently between the two checks — see AllowSnapshot kdoc above.
+        val allow = allowSnapshot
+        if (allow.exact.contains(d)) return false
+        if (allow.wildcard.isNotEmpty() && matchesAnyWildcard(d, allow.wildcard)) return false
 
         if (blockedExact.contains(d) || remoteBlockedExact.contains(d)) return true
         if (blockedWildcardBases.isNotEmpty() && matchesAnyWildcard(d, blockedWildcardBases)) return true

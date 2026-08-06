@@ -3,7 +3,25 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.8 (2026-08-06) — Concurrency & Lifecycle audit batch 1/N.**
+- **v3.16.9 (2026-08-06) — Concurrency & Lifecycle audit batch 2/N:
+  `BlocklistManager` race condition.** Target lanjutan yang sudah dicatat
+  di batch v3.16.8 kemarin. 2 caller independen di thread berbeda
+  (`MainViewModel` flow collector yang aktif selama app kebuka, dan
+  `AdBlockVpnService.startVpn()`) sama-sama manggil
+  `setCustomBlocked`/`setCustomAllowed`/`setWhitelistedApps` — dikonfirmasi
+  lewat `grep`, bukan hipotetis. Fix (detail lengkap CHANGELOG.md v3.16.9):
+  (1) `setCustomBlocked()` di-`synchronized(this)` (ada lost-update race
+  di `customBlockedSnapshot`, plain var tanpa lock). (2)
+  `allowedExact`/`allowedWildcardBases`/`whitelistedApps` diganti dari
+  `clear()`-lalu-`add()` di atas `ConcurrentHashMap.newKeySet()` (ada
+  jendela transient-empty yang kelihatan dari `isBlocked()`/
+  `isAppWhitelisted()` di packet-loop thread) ke `@Volatile` immutable
+  snapshot yang di-swap sekali atomik.
+  **BELUM DIKONFIRMASI build CI v3.16.9** — cek dulu di sesi berikutnya.
+  Diagnostik WARP dari user (packet loss 100%→37%, reconnectAttempts
+  tetap 0) dikonfirmasi cold-start blip biasa, BUKAN bug — tidak perlu
+  fix terpisah untuk itu.
+- v3.16.8 (2026-08-06) — Concurrency & Lifecycle audit batch 1/N.**
   Kategori ke-2 checklist user (Reliability dianggap cukup setelah
   v3.16.7 + CI hijau dikonfirmasi user). Item checklist verbatim tidak
   tersimpan di sini (cuma judul kategori) — batch ini audit mandiri
@@ -1645,21 +1663,20 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU (2026-08-06, Concurrency & Lifecycle audit batch 1/N):**
-1. Cek run CI v3.16.8 (build ijo?) — belum pernah dicek sama sekali.
-2. Verifikasi device (idealnya sekalian): nyalakan WARP lalu buka
-   Recents/force-close app (jangan Stop dari notif) berulang kali (5-10x
-   toggle) — pastikan tidak ada notifikasi WARP "nyangkut"/nyala terus
-   muncul setelah app benar-benar ditutup (bukti `scope.cancel()` bekerja).
-   Untuk DNS mode: toggle on/off berkali-kali lalu cek RAM/thread count app
-   di Pengaturan > App info (atau `adb shell dumpsys meminfo`) tidak naik
-   terus tanpa turun dibanding sebelum fix.
-3. Lanjutkan audit Concurrency & Lifecycle ke bagian yang belum disentuh
-   batch ini kalau user minta lebih dalam: `MainViewModel`/`ui/screens/*`
-   (StateFlow collection scoping), `data/db/*` (Room DAO transaction
-   safety), `BlocklistManager` (in-memory, cek thread-safety akses
-   concurrent dari packet loop + UI).
-4. Setelah Concurrency & Lifecycle dianggap cukup, lanjut ke Security
+**PALING BARU (2026-08-06, Concurrency & Lifecycle audit batch 2/N):**
+1. Cek run CI v3.16.9 (build ijo?) — belum pernah dicek sama sekali.
+2. Verifikasi device: buka Rules screen, tambah/hapus domain di
+   "Izinkan" SAAT VPN DNS Ad-Block aktif dan sedang dipakai browsing —
+   pastikan tidak ada domain allow-list yang kepencet blokir sesaat
+   (sebelumnya race ini sulit direproduksi manual karena jendelanya
+   sempit, jadi ini lebih ke sanity-check daripada bukti definitif).
+3. Sisa target Concurrency & Lifecycle kalau user minta lebih dalam:
+   `MainViewModel`/`ui/screens/*` (StateFlow collection scoping),
+   `data/db/*` (Room DAO transaction safety).
+4. `IkeV2VpnEngine.engineScope` masih belum di-cancel dari
+   `MainViewModel` (lihat catatan v3.16.8) — masih lower-priority,
+   angkat kalau user eksplisit minta.
+5. Setelah Concurrency & Lifecycle dianggap cukup, lanjut ke Security
    (urutan checklist user berikutnya).
 
 **PALING BARU & PALING PENTING (2026-08-05, v3.10.1): konfirmasi fix total
