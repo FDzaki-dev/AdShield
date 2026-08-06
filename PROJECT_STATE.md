@@ -3,7 +3,19 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.20.0 (2026-08-06) — UI/UX polish pass batch 1/N: konsistensi
+- **v3.20.1 (2026-08-06) — HOTFIX build CI gagal dari push v3.20.0.**
+  User upload log CI — `compileDebugKotlin FAILED`, `HomeScreen.kt:174:41`
+  + `:180:41` "Type mismatch: inferred type is Long but Int was expected".
+  Root cause: helper baru `formatStatCount(count: Int)` (v3.20.0) ditulis
+  TANPA grep dulu tipe asli `blockedCount`/`allowedCount` di
+  `MainViewModel` — keduanya `StateFlow<Long>`, bukan `Int`. Fix:
+  parameter jadi `Long`. 1 baris, 1 file. **Pelajaran:** grep tipe
+  deklarasi `StateFlow` asal SEBELUM menulis signature parameter
+  eksplisit untuk helper baru yang menerimanya — jangan asumsikan `Int`
+  dari nama variabel yang terdengar seperti "hitungan". Detail lengkap
+  CHANGELOG.md v3.20.1. **BELUM di-push ulang / belum dikonfirmasi CI
+  hijau** — WAJIB jadi hal pertama dicek di sesi berikutnya.
+- v3.20.0 (2026-08-06) — UI/UX polish pass batch 1/N: konsistensi
   Whitelist + spinner/haptic/format angka Home.** User minta "polish UI
   dan UX sampai matang" — di luar urutan roadmap audit eksternal (masih
   di Testing & Diagnostic, belum lanjut). Audit statis 6 screen: Rules/
@@ -1900,8 +1912,13 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.20.0 — UI/UX polish batch 1/N):**
-1. Cek CI v3.20.0 dulu — belum pernah dicek sama sekali sejak push.
+**PALING BARU & PALING PENTING (2026-08-06, v3.20.1 — HOTFIX build CI v3.20.0):**
+1. Cek run CI v3.20.1 SEBELUM apa pun lain — belum di-push ulang/
+   dikonfirmasi hijau sama sekali sejak fix type-mismatch ini.
+2. Kalau hijau, lanjut checklist device v3.20.0 di bawah (spinner+haptic).
+
+**SEBELUMNYA (2026-08-06, v3.20.0 — UI/UX polish batch 1/N):**
+1. ~~Cek CI v3.20.0~~ — GAGAL, lihat v3.20.1 di atas, sudah di-fix.
 2. Device: tekan ProtectionRing + Switch WARP/IKEv2 — konfirmasi getar
    terasa (device Infinix XOS user, beberapa OEM strip haptic vendor
    sendiri, WAJIB dikonfirmasi nyata bukan cuma asumsi API terpanggil).

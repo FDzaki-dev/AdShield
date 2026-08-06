@@ -649,7 +649,7 @@ private fun IkeV2ProfileDialog(
 /** Thousands-separated count for [StatCard] — plain `toString()` reads fine
  *  at small values but turns into an unscannable digit blob once blocked/
  *  allowed counters climb into the thousands over weeks of normal use. */
-private fun formatStatCount(count: Int): String =
+private fun formatStatCount(count: Long): String =
     NumberFormat.getInstance(Locale("in", "ID")).format(count)
 
 @Composable

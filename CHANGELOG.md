@@ -1,5 +1,36 @@
 # Changelog
 
+## v3.20.1 — HOTFIX build CI gagal dari push v3.20.0 (2026-08-06)
+
+User upload log CI (`log_fail_20260806_085220_run31086594048.zip`) —
+`compileDebugKotlin FAILED`, 2 error identik: `HomeScreen.kt:174:41` dan
+`:180:41`, "Type mismatch: inferred type is Long but Int was expected".
+
+**Root cause:** helper baru `formatStatCount()` (v3.20.0) ditulis dengan
+signature `(count: Int)` tanpa mengecek langsung tipe asli
+`blockedCount`/`allowedCount` di `MainViewModel` — keduanya
+`StateFlow<Long>` (dibaca dari `SettingsRepository`), bukan `Int`.
+Sebelumnya kode lama cuma `blockedCount.toString()` (aman untuk tipe
+apa pun), jadi mismatch ini baru muncul begitu helper dengan parameter
+bertipe eksplisit ditambahkan.
+
+**Fix:** `formatStatCount(count: Int)` → `formatStatCount(count: Long)`.
+1 baris, 1 file (`HomeScreen.kt`). `NumberFormat.format()` overload
+untuk `Long` sudah ada di JDK standar, tidak perlu perubahan lain.
+
+**Pelajaran untuk self-verifikasi ke depan:** saat menambah fungsi
+helper baru yang menerima nilai dari `StateFlow`/`MainViewModel` yang
+sudah ada, WAJIB grep tipe deklarasi aslinya dulu (`grep -n "nama:
+StateFlow"` di `MainViewModel.kt`) sebelum menulis signature parameter
+eksplisit — jangan asumsikan `Int` hanya karena nilainya konseptual
+"hitungan"/counter. Checklist statis sebelumnya (brace/paren balance +
+lexer nested-comment) TIDAK menangkap kelas bug ini karena itu murni
+type-checking, bukan soal struktur sintaks.
+
+**Verifikasi statis:** brace/paren balance ulang — 0 masalah. **BELUM
+di-push ulang / belum dikonfirmasi CI hijau** — WAJIB jadi hal pertama
+dicek di sesi berikutnya.
+
 ## v3.20.0 — UI/UX polish pass batch 1: konsistensi, feedback, tactile (2026-08-06)
 
 > User minta "polish UI dan UX sampai matang". Diaudit statis seluruh 6
