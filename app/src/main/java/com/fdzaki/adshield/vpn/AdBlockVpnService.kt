@@ -556,6 +556,22 @@ class AdBlockVpnService : VpnService() {
 
     override fun onDestroy() {
         stopVpn()
+        // v3.16.8 — Concurrency & Lifecycle audit: loopExecutor/forwardExecutor were never
+        // shut down here. Both are created fresh in onCreate() every time this Service
+        // restarts (each DNS-mode toggle off->on is a NEW instance), but nothing ever called
+        // shutdown() on the OLD instance's executors — ThreadPoolExecutor worker threads
+        // don't self-terminate just because the Service that created them was destroyed and
+        // unreferenced; ExecutorService.shutdown() is the only thing that stops them. Left
+        // unfixed, every toggle leaked 5 live non-daemon threads (1 loopExecutor +
+        // 4 forwardExecutor) that sat idle forever, accumulating for the life of the process.
+        // serviceScope itself is left running (not cancelled) deliberately: its coroutines
+        // (settingsRepository writes, prefetchPopularDomains) all already self-terminate via
+        // running.get() checks within one loop iteration of stopVpn() above, so cancelling
+        // the Job here would risk truncating an in-flight settingsRepository write (e.g.
+        // setWasRunning(false)) with no corresponding benefit — the thread pools were the
+        // actual leak, not the Job.
+        loopExecutor.shutdownNow()
+        forwardExecutor.shutdown()
         super.onDestroy()
     }
 

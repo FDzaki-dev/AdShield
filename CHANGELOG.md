@@ -1,5 +1,58 @@
 # Changelog
 
+## v3.16.8 — Concurrency & Lifecycle audit batch 1/N (2026-08-06)
+
+> Kategori ke-2 dari checklist audit eksternal user (setelah Reliability
+> dianggap cukup — lihat v3.16.7). Item persis dari checklist tidak
+> tersimpan verbatim di PROJECT_STATE.md (cuma judul kategori), jadi batch
+> ini adalah audit mandiri static-review terhadap 2 Service inti aplikasi
+> (`AdBlockVpnService`, `WarpForegroundService`) fokus ke lifecycle
+> cleanup — dua bug nyata ditemukan & diperbaiki.
+
+**`app/src/main/java/com/fdzaki/adshield/warp/WarpForegroundService.kt`
+(bug paling serius batch ini):** `onDestroy()` sebelumnya cuma
+`scope.launch { warpEngine.disconnect() }` tanpa pernah cancel `scope`
+itu sendiri. `observeQualityForNotification()` (dipanggil tiap start)
+menjalankan `combine(...).collect { }` TANPA kondisi berhenti sendiri
+(beda dari loop-loop di `AdBlockVpnService` yang semuanya cek
+`running.get()`) — akibatnya coroutine ini terus jalan SELAMANYA setelah
+Service destroyed, terus memanggil `NotificationManagerCompat.notify()`
+pakai `this@WarpForegroundService` (Context yang sudah destroyed) tiap
+tick state/quality WARP berubah, selama proses app masih hidup. Fix:
+`scope.cancel()` dipanggil di akhir `onDestroy()`; `warpEngine.disconnect()`
+dibungkus `withContext(NonCancellable)` supaya tetap selesai bersih
+walau `scope`-nya sendiri barusan di-cancel (kalau tidak dibungkus,
+`cancel()` bisa memutus `disconnect()` di tengah teardown interface).
+
+**`app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt`:**
+`onDestroy()` sebelumnya tidak pernah `shutdown()` `loopExecutor`
+(single-thread) maupun `forwardExecutor` (4 thread) — keduanya dibuat
+BARU tiap `onCreate()` (tiap toggle DNS-mode off→on bikin instance
+Service baru), tapi instance LAMA-nya tidak pernah di-shutdown. Thread
+worker `ExecutorService` tidak berhenti sendiri hanya karena Service
+pembuatnya destroyed — cuma `shutdown()`/`shutdownNow()` yang
+menghentikannya. Tanpa fix ini, tiap toggle bocor 5 thread non-daemon
+hidup selamanya (menumpuk terus selama proses app hidup). Fix: kedua
+executor di-`shutdown()`/`shutdownNow()` di `onDestroy()`.
+`serviceScope` (coroutine Job) SENGAJA TIDAK di-cancel — semua
+coroutine di dalamnya (termasuk `prefetchPopularDomains()`) sudah
+self-terminate lewat cek `running.get()` dalam satu iterasi loop
+setelah `stopVpn()`, jadi cancel paksa cuma berisiko motong write
+`settingsRepository` yang sedang in-flight (mis. `setWasRunning(false)`)
+tanpa manfaat tambahan — thread pool adalah bug nyatanya, bukan Job-nya.
+
+**Belum diaudit batch ini (lower-priority, dicatat untuk sesi
+berikutnya):** `IkeV2VpnEngine.engineScope`/`pollJob` — dibuat per
+`MainViewModel` instance, tidak pernah di-cancel dari `onCleared()`.
+Prioritas lebih rendah dari 2 bug di atas karena: (a) profil IKEv2
+tetap jalan di level OS (`VpnManager`) terlepas app process hidup/mati,
+jadi ini cuma soal UI-side polling, bukan kebocoran koneksi; (b)
+`MainViewModel` sebagai `AndroidViewModel` di app single-Activity ini
+praktis hidup seumur proses, `onCleared()` jarang benar-benar terpanggil
+di luar proses mati (yang otomatis membereskan semuanya).
+
+**BELUM DIKONFIRMASI build CI v3.16.8 — cek dulu di sesi berikutnya.**
+
 ## v3.16.7 — Reliability audit batch 3/N: captive portal detection (2026-08-06)
 
 > Lanjutan checklist Reliability dari user (item ke-3): membedakan

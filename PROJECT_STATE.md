@@ -3,7 +3,34 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.16.7 (2026-08-06) — Reliability audit batch 3/N: captive portal
+- **v3.16.8 (2026-08-06) — Concurrency & Lifecycle audit batch 1/N.**
+  Kategori ke-2 checklist user (Reliability dianggap cukup setelah
+  v3.16.7 + CI hijau dikonfirmasi user). Item checklist verbatim tidak
+  tersimpan di sini (cuma judul kategori) — batch ini audit mandiri
+  terhadap `AdBlockVpnService`/`WarpForegroundService`, 2 bug nyata
+  ditemukan+fix (lihat CHANGELOG.md v3.16.8 untuk detail lengkap):
+  (1) **`WarpForegroundService.onDestroy()`** tidak pernah cancel
+  `scope` → `observeQualityForNotification()`'s `combine().collect{}`
+  (tanpa kondisi berhenti sendiri) jalan SELAMANYA pasca-destroy,
+  notify() ke Context yang sudah destroyed. Fix: `scope.cancel()` +
+  `disconnect()` dibungkus `NonCancellable` supaya teardown tetap bersih.
+  (2) **`AdBlockVpnService.onDestroy()`** tidak pernah shutdown
+  `loopExecutor`/`forwardExecutor` → 5 thread non-daemon bocor tiap
+  toggle DNS-mode off→on (executor baru dibuat tiap `onCreate()`, yang
+  lama tak pernah di-shutdown). Fix: shutdown keduanya di `onDestroy()`.
+  `serviceScope`-nya SENGAJA tidak di-cancel (lihat alasan di
+  CHANGELOG.md — semua coroutine di dalamnya sudah self-terminate lewat
+  `running.get()`, cancel paksa cuma berisiko motong write
+  `settingsRepository` in-flight).
+  **BELUM DIKONFIRMASI build CI v3.16.8** — cek dulu di sesi berikutnya.
+  **Belum diaudit (lower-priority, dicatat bukan dilupakan):**
+  `IkeV2VpnEngine.engineScope`/`pollJob` tidak pernah di-cancel dari
+  `MainViewModel` (tidak ada `onCleared()` override) — prioritas rendah
+  karena profil IKEv2 tetap jalan di level OS terlepas app process,
+  dan `MainViewModel` di app single-Activity ini praktis hidup seumur
+  proses. Angkat lagi kalau user eksplisit minta atau kalau nanti ada
+  laporan symptom terkait.
+- v3.16.7 (2026-08-06) — Reliability audit batch 3/N: captive portal
   detection.** Item ke-3 checklist Reliability user. Pakai
   `NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL` (flag resmi Android,
   sama dengan notifikasi sistem "Sign in to network") di `onCapabilitiesChanged`
@@ -1618,21 +1645,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU (2026-08-06, reliability audit batch 3/N — captive portal):**
-1. Cek run CI v3.16.7 (build ijo?) — belum pernah dicek sama sekali.
-2. Verifikasi device (idealnya sekalian sesi ini): sambung ke WiFi captive
-   portal sungguhan (hotel/kafe), nyalakan WARP SEBELUM login — cek
-   `lastError` menampilkan pesan captive-portal yang baru (bukan pesan
-   generik "auto-reconnect dihentikan"), lalu login lewat browser — cek
-   WARP otomatis reconnect tanpa toggle manual.
-3. Reliability checklist yang MASIH belum dikerjakan (urutan dari user):
-   - Verifikasi runtime (bukan cuma desain) apakah `networkCallback` benar
-     memicu reconnect setelah airplane mode dimatikan lagi.
-   - Belum ada unit test untuk retry registrasi (v3.16.5), fix give-up
-     state (v3.16.6), atau captive portal (v3.16.7) —
-     `WarpRegistrationClient`/`GoBackend` butuh interface/DI dulu supaya
-     bisa di-mock di JVM test (bukan device test).
-4. Setelah Reliability dianggap cukup, lanjut ke Concurrency & Lifecycle
+**PALING BARU (2026-08-06, Concurrency & Lifecycle audit batch 1/N):**
+1. Cek run CI v3.16.8 (build ijo?) — belum pernah dicek sama sekali.
+2. Verifikasi device (idealnya sekalian): nyalakan WARP lalu buka
+   Recents/force-close app (jangan Stop dari notif) berulang kali (5-10x
+   toggle) — pastikan tidak ada notifikasi WARP "nyangkut"/nyala terus
+   muncul setelah app benar-benar ditutup (bukti `scope.cancel()` bekerja).
+   Untuk DNS mode: toggle on/off berkali-kali lalu cek RAM/thread count app
+   di Pengaturan > App info (atau `adb shell dumpsys meminfo`) tidak naik
+   terus tanpa turun dibanding sebelum fix.
+3. Lanjutkan audit Concurrency & Lifecycle ke bagian yang belum disentuh
+   batch ini kalau user minta lebih dalam: `MainViewModel`/`ui/screens/*`
+   (StateFlow collection scoping), `data/db/*` (Room DAO transaction
+   safety), `BlocklistManager` (in-memory, cek thread-safety akses
+   concurrent dari packet loop + UI).
+4. Setelah Concurrency & Lifecycle dianggap cukup, lanjut ke Security
    (urutan checklist user berikutnya).
 
 **PALING BARU & PALING PENTING (2026-08-05, v3.10.1): konfirmasi fix total

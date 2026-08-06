@@ -23,9 +23,12 @@ import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Thin foreground-service wrapper around [WarpTunnelManager]. Its only jobs
@@ -171,7 +174,23 @@ class WarpForegroundService : Service() {
     }
 
     override fun onDestroy() {
-        scope.launch { warpEngine.disconnect() }
+        // v3.16.8 — Concurrency & Lifecycle audit: `scope` was never cancelled here, so
+        // observeQualityForNotification()'s `combine(...).collect { }` — which has no
+        // self-terminating condition, unlike AdBlockVpnService's loops which all check
+        // running.get() — kept running FOREVER after the service was destroyed, calling
+        // NotificationManagerCompat.notify() against `this@WarpForegroundService` (a
+        // destroyed Service Context) on every single tunnelManager.state/quality tick for
+        // as long as the app process stayed alive. `warpEngine.disconnect()` is wrapped in
+        // NonCancellable so it still runs to completion even though the surrounding `scope`
+        // gets cancelled right after launching it — without that, cancelling `scope`
+        // immediately could interrupt disconnect() mid-teardown (interface left half torn
+        // down) instead of letting it finish cleanly.
+        scope.launch {
+            withContext(NonCancellable) {
+                warpEngine.disconnect()
+            }
+        }
+        scope.cancel()
         super.onDestroy()
     }
 
