@@ -1,5 +1,41 @@
 # Changelog
 
+## v3.18.0 — Security audit batch 1: WARP private key tidak lagi plaintext (2026-08-06)
+
+> v3.17.1 dikonfirmasi build CI hijau oleh user. Lanjut ke kategori audit
+> berikutnya sesuai urutan yang disepakati: Reliability ✅ → Concurrency &
+> Lifecycle ✅ → **Security (mulai batch ini)** → Performance → Testing &
+> Diagnostic.
+
+**Temuan:** `WarpAccountRepository` menyimpan WireGuard private key +
+Cloudflare access token di `preferencesDataStore` — file preferences biasa,
+**tidak terenkripsi** di storage. Berbeda dengan `VpnProfileRepository`
+(OpenVPN/IKEv2/Shadowsocks) yang sejak v3.15.0 sudah pakai
+`EncryptedSharedPreferences`. Private key WARP adalah identitas kripto
+penuh untuk tunnel — kalau device di-root atau file diekstrak fisik, private
+key + token bisa dibaca langsung sebagai teks biasa.
+
+**Fix (1 file, `WarpAccountRepository.kt`):** migrasi total ke
+`EncryptedSharedPreferences` (AES256_SIV key / AES256_GCM value), pola
+persis sama dengan `VpnProfileRepository`. Dependency `security-crypto`
+sudah ada di `build.gradle.kts` (dipakai `VpnProfileRepository`), tidak
+perlu ditambah. API publik (nama properti/method + tipe `Flow`) TIDAK
+berubah — `WarpTunnelManager` (satu-satunya pemakai) nol perubahan.
+`wasTunnelRunning`/`hasAccount` jadi `flow { emit(...) }` one-shot
+(sebelumnya reactive DataStore Flow) — aman karena kedua caller di
+codebase ini cuma pernah `.first()`, tidak pernah `collect` terus-menerus
+(diverifikasi via grep sebelum ubah).
+
+**Efek upgrade:** akun WARP lama yang tersimpan di DataStore lama
+(`adshield_warp`) tidak di-migrasi otomatis — file itu ditinggalkan begitu
+saja. User existing akan re-register WARP sekali secara diam-diam di
+percobaan connect berikutnya (biaya sama seperti `clearAccount()`, bukan
+bug/kehilangan data, cuma perilaku observable saat upgrade).
+
+**Verifikasi:** grep menyeluruh — tidak ada `Log.*` yang menyentuh
+private key/access token WARP di manapun. Simulasi lexer nested-block-
+comment: 0 masalah di seluruh `app/src`.
+
 ## v3.17.1 — HOTFIX build CI gagal dari push v3.17.0 (2026-08-06)
 
 > User upload artifact `log_fail_20260806_023527_run31066001167.zip`:

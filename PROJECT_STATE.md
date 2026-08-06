@@ -3,6 +3,36 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.18.0 (2026-08-06) — Security audit batch 1/N: WARP private key
+  plaintext → EncryptedSharedPreferences.** User konfirmasi v3.17.1 CI
+  hijau, lanjut roadmap (urutan audit: Reliability ✅, Concurrency &
+  Lifecycle ✅, sekarang **Security**, lalu Performance, lalu Testing &
+  Diagnostic). Temuan: `WarpAccountRepository` (private key + access
+  token WARP) masih plain `preferencesDataStore`, padahal
+  `VpnProfileRepository` (profil OpenVPN/IKEv2/Shadowsocks) sejak v3.15.0
+  sudah `EncryptedSharedPreferences`. Fix: migrasi total ke
+  `EncryptedSharedPreferences` (AES256_SIV/AES256_GCM), pola identik
+  `VpnProfileRepository`, dependency `security-crypto` sudah ada di
+  `build.gradle.kts` (tidak perlu ditambah). API publik (property/method
+  names, tipe `Flow`) tidak berubah — `WarpTunnelManager` 0 perubahan.
+  `wasTunnelRunning`/`hasAccount` jadi `flow { emit(...) }` one-shot;
+  aman karena diverifikasi via grep — kedua caller cuma `.first()`, tidak
+  pernah `collect` reactive. **Trade-off yang perlu diketahui user:** akun
+  WARP existing di device TIDAK ter-migrasi otomatis dari DataStore lama
+  (`adshield_warp`, sekarang ditinggalkan) — WARP akan re-register sekali
+  secara diam-diam di percobaan connect berikutnya pasca-update (setara
+  `clearAccount()`, bukan bug). Verifikasi statis: grep — 0 hit
+  `Log.*` yang menyentuh private key/token WARP di manapun; lexer nested-
+  block-comment — 0 masalah di seluruh `app/src`. 1 file kode diubah
+  (`WarpAccountRepository.kt`) + version bump — dalam Batch Lock normal.
+  **BELUM di-push / BELUM dikonfirmasi build CI** — WAJIB jadi hal pertama
+  dicek di sesi berikutnya. Item Security audit lain (belum dikerjakan,
+  kandidat batch 2+): scan hardcoded secret lain, cek exported components
+  manifest — sudah dicek sekilas di sesi ini, tidak ada masalah (semua
+  `exported=true` punya alasan sah: launcher Activity, VpnService/QS-tile
+  yang memang wajib exported untuk dibind sistem, dilindungi permission
+  system-level yang sesuai), belum dicek: ProGuard/R8 minify config,
+  TLS/certificate pinning untuk request ke Cloudflare API.
 - **v3.17.1 (2026-08-06) — HOTFIX build CI gagal dari push v3.17.0.** User
   upload artifact `log_fail_20260806_023527_run31066001167.zip` —
   `kspDebugKotlin FAILED`: `AdBlockVpnService.kt:262:1 Unclosed comment`.
@@ -27,6 +57,15 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
   `{…}`/`(…)` — kelas bug baru untuk daftar self-verifikasi.
   **BELUM di-push ulang / belum dikonfirmasi CI hijau** — WAJIB jadi hal
   pertama dicek di sesi berikutnya.
+  **UPDATE (2026-08-06, sesi verifikasi ulang):** user re-upload ZIP state
+  ini utuh (belum ada perubahan kode baru). Re-run simulasi lexer nested-
+  block-comment Kotlin ke SELURUH `app/src/main/java` + `app/src/test/java`
+  — **0 file bermasalah**, KDoc `AdBlockVpnService.kt` sudah pakai
+  `` `vpn.dns` package `` (bukan literal `/*` lagi). FILE_MANIFEST.txt vs
+  isi ZIP aktual: **94/94 cocok, 0 selisih**. Dotfiles (`.gitignore`,
+  `.github/workflows/build.yml`) utuh. **Kesimpulan: fix v3.17.1 valid
+  secara statis, siap di-push** — CI hijau tetap harus dikonfirmasi user
+  setelah push (di luar jangkauan analisis statis sandbox ini).
 - **v3.17.0 (2026-08-06) — Refactor God Class: `AdBlockVpnService` dipecah
   jadi 8 file, 0 perubahan behavior.** Respons ke audit eksternal user
   ("VPN Service terlalu besar / God Class", skor Coding 8/10). Sebelumnya
