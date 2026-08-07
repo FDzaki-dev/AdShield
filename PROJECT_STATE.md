@@ -3,6 +3,37 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.28.2 (2026-08-07) — ROOT CAUSE ASLI ditemukan (user, bukan Claude):
+  v3.28.0/v3.28.1 salah sasaran fungsi.** User arahkan investigasi ke batch
+  v3.27.0 (perluasan endpoint 6→24, Shadowsocks/MASQUE-benefit) sebagai
+  titik mulai freeze. Ketemu: `WarpEndpointSelector.probe()` — salah satu
+  dari 6 anycast host adalah HOSTNAME literal (`engage.cloudflareclient.com`,
+  bukan IP) — `InetSocketAddress(host, port)` melakukan resolusi DNS
+  BLOCKING yang TIDAK dibatasi `socket.soTimeout` (field itu cuma
+  membatasi `socket.receive()` setelahnya). Kelas bug SAMA PERSIS dengan
+  yang sudah pernah difix di `DohClient`/`probeTrace()`. **Yang membuat ini
+  luput dari fix v3.28.0/v3.28.1:** `selectEndpointAndMtu()` dipanggil
+  SINKRON di dalam `connect()`, SEBELUM `startWatchdog()` — jadi kalau DNS
+  hang di sini, `performHealthCheck()`/`probeTraceCancellable()` (target
+  v3.28.0/v3.28.1) TIDAK PERNAH tercapai sama sekali. Itu sebabnya 2 fix
+  sebelumnya 0% berdampak walau masing-masing secara teknis benar. **Fix:**
+  `selectBestEndpoint()` dibungkus `withTimeoutOrNull(SELECT_HARD_TIMEOUT_MS
+  = 3000ms)`, fallback ke `candidates.first()` kalau timeout — jalur
+  fallback yang sama dengan skenario \"semua probe gagal\" yang sudah ada.
+  Limitasi sama seperti v3.28.0: `withTimeoutOrNull` cuma cancel coroutine
+  bookkeeping, thread IO yang macet di resolusi DNS asli tetap
+  ditinggalkan (leak), TAPI `connect()` sekarang terbukti bounded, tidak
+  hang selamanya. 1 file diubah (`warp/WarpEndpointSelector.kt`) + version
+  bump. Fix v3.28.0/v3.28.1 di `probeTraceCancellable()` TIDAK di-revert —
+  tetap relevan untuk health-check loop begitu loop itu benar-benar mulai.
+  Verifikasi statis brace/paren — 0 masalah. **BELUM DIKONFIRMASI di
+  device** — titik uji: nyalakan WARP, buka Diagnostik ~30 detik →
+  \"Kualitas koneksi\" harus berubah dari \"Belum diperiksa\", kali ini idealnya
+  jauh lebih cepat (≤3-4 detik) karena hang sebenarnya ada di connect()
+  sendiri, bukan di loop 25 detik. **Kalau MASIH gagal setelah ini** —
+  berarti ada hang ketiga di jalur lain; cek dulu apakah `connect()`
+  bahkan pernah return `true` (lihat `_connecting`/`warpConnecting` di UI
+  berhenti berputar atau tidak) sebelum menyalahkan probe manapun lagi.
 - **v3.28.1 (2026-08-07) — v3.28.0 dikonfirmasi TIDAK memperbaiki apa pun
   (user tes device, CI hijau + APK ter-install, gejala identik).** Root
   cause kenapa fix v3.28.0 tidak bekerja: `withTimeoutOrNull` cuma

@@ -1,5 +1,41 @@
 # Changelog
 
+## v3.28.2 (2026-08-07)
+### Fixed
+- **ACTUAL root cause of "Kualitas koneksi: Belum diperiksa" freeze —
+  v3.28.0/v3.28.1 were fixing the wrong function.** User pointed the
+  investigation at the v3.27.0 WARP endpoint-candidate expansion
+  (6→24, Shadowsocks/MASQUE-benefit batch) as the point where the
+  freeze began. Found: `WarpEndpointSelector.probe()`'s
+  `InetSocketAddress(host, port)` construction does a **blocking DNS
+  resolution** for the one hostname candidate
+  (`engage.cloudflareclient.com`) that is **not bounded by
+  `socket.soTimeout`** (that field only governs the later
+  `socket.receive()`) — exact same unbounded-DNS-phase bug class
+  already fixed once for `DohClient`/`probeTrace()`. Critically,
+  `selectEndpointAndMtu()` awaits this synchronously **inside
+  `connect()`, before `startWatchdog()` is ever reached** — so when it
+  hangs, `performHealthCheck()`/`probeTraceCancellable()` (the whole
+  target of v3.28.0/v3.28.1) never runs at all. That's why those two
+  fixes had zero effect on device despite being individually correct.
+  **Fix:** wrapped `selectBestEndpoint()`'s whole probe-and-await block
+  in `withTimeoutOrNull(SELECT_HARD_TIMEOUT_MS = 3000ms)`, falling back
+  to `candidates.first()` on timeout — same fallback path already used
+  for "every probe failed outright". Same caveat as v3.28.0's fix:
+  `withTimeoutOrNull` only cancels coroutine bookkeeping, not the
+  underlying blocking DNS call — a stuck probe's IO thread is
+  abandoned/leaked rather than truly interrupted, but `connect()` is now
+  provably bounded instead of hanging forever. 1 file changed
+  (`warp/WarpEndpointSelector.kt`) + version bump. v3.28.0/v3.28.1's fix
+  to `probeTraceCancellable()` is NOT reverted — it's still correct and
+  still needed for the health-check loop itself once it actually starts.
+  Verifikasi statis brace/paren — 0 masalah. **BELUM DIKONFIRMASI di
+  device** — titik uji: nyalakan WARP, buka Diagnostik dalam ~30 detik →
+  "Kualitas koneksi" harus berubah dari "Belum diperiksa" ke label nyata,
+  dan kali ini seharusnya settle jauh lebih cepat (≤3-4 detik dari
+  connect, bukan nunggu siklus 25 detik) karena hang-nya ada di jalur
+  connect() itu sendiri, bukan di health-check loop.
+
 ## v3.28.1 (2026-08-07)
 ### Fixed
 - **v3.28.0's fix for "Kualitas koneksi: Belum diperiksa" was INEFFECTIVE
