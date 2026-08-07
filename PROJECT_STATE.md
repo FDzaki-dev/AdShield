@@ -3,6 +3,33 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.28.1 (2026-08-07) — v3.28.0 dikonfirmasi TIDAK memperbaiki apa pun
+  (user tes device, CI hijau + APK ter-install, gejala identik).** Root
+  cause kenapa fix v3.28.0 tidak bekerja: `withTimeoutOrNull` cuma
+  membatalkan job coroutine di level bookkeeping — TIDAK bisa
+  menginterupsi panggilan I/O Java yang blocking (non-suspending).
+  `probeTrace()` jalan sinkron di thread IO; kalau dia benar-benar
+  nyangkut (DNS/connect hang), `withTimeoutOrNull` cuma nunggu diam-diam
+  sampai call itu selesai sendiri — persis seolah tidak ada wrapper sama
+  sekali. **Fix nyata:** `probeTraceCancellable()` — jalankan blocking
+  call di `async(Dispatchers.IO)` child, dengan watchdog `launch` sibling
+  yang setelah `PROBE_HARD_TIMEOUT_MS` memanggil
+  `HttpURLConnection.disconnect()` LANGSUNG ke instance koneksi yang
+  sedang in-flight (dipublish via `AtomicReference` SEBELUM blocking call
+  dimulai). `disconnect()` aman dipanggil dari thread lain sesuai
+  kontrak API-nya dan akan membatalkan request yang sedang jalan — socket
+  ditutup paksa (termasuk kalau masih macet di fase DNS/connect), thread
+  yang blocking dapat `IOException` dan BENERAN return, bukan nyangkut
+  selamanya. Ini teknik standar untuk membatalkan `HttpURLConnection`
+  yang memang tidak punya API cancel kooperatif. 1 file diubah (file yang
+  sama dengan v3.28.0) — logic lain tidak disentuh. Verifikasi statis
+  brace/paren — 0 masalah. **BELUM DIKONFIRMASI di device** — titik uji
+  SAMA seperti v3.28.0 (lihat entri di bawah): kalau MASIH gagal setelah
+  ini, kemungkinan hang-nya BUKAN di `probeTrace()` sama sekali —
+  investigasi berikutnya harus geser ke apakah `startWatchdog()`/
+  `managerScope` benar-benar jalan (mis. `desiredRunning` tidak pernah
+  `true`, atau `watchdogJob` gagal ke-launch), bukan lagi ke sisi network
+  call itu sendiri.
 - **v3.28.0 (2026-08-07) — Fix bug lama "Kualitas koneksi: Belum diperiksa"
   macet selamanya.** User minta debugging di luar scope roadmap normal.
   Root cause: `WarpTunnelManager.probeTrace()` pakai `HttpURLConnection`
@@ -2087,7 +2114,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.28.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.28.1 — belum dicek apa pun):**
+1. Device: nyalakan WARP, buka Diagnostik, tunggu ≤30 detik — "Kualitas
+   koneksi" harus berubah dari "Belum diperiksa" ke label nyata.
+2. **Kalau MASIH gagal sama persis setelah ini** — jangan coba fix
+   probe/timeout lagi, itu sudah 2x tidak menyelesaikan. Geser investigasi
+   ke: (a) apakah `startWatchdog()` benar-benar terpanggil (`connect()`
+   sukses sampai baris itu?), (b) apakah `desiredRunning` beneran `true`
+   saat WARP nyala (cek tidak ada exception sebelum baris itu di
+   `connect()`), (c) apakah `managerScope` (Dispatchers.IO + SupervisorJob)
+   masih hidup atau sudah ke-cancel oleh sesuatu. Minta user Logcat filter
+   `WarpTunnelManager`/coroutine exception kalau perlu, karena analisis
+   statis sandbox ini tidak bisa mengonfirmasi apakah watchdog benar2 jalan
+   di device nyata.
+
+**SEBELUMNYA (2026-08-07, v3.28.0 — belum dicek apa pun):**
 1. Cek CI v3.28.0 dulu.
 2. Device: nyalakan WARP, buka Diagnostik, tunggu ≤30 detik — "Kualitas
    koneksi" HARUS berubah dari "Belum diperiksa" ke label nyata (Baik/

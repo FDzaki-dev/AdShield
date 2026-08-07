@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.28.1 (2026-08-07)
+### Fixed
+- **v3.28.0's fix for "Kualitas koneksi: Belum diperiksa" was INEFFECTIVE
+  — confirmed by user on device (CI green, APK installed, symptom
+  identical). Root cause of why the fix didn't work:** `withTimeoutOrNull`
+  only cancels coroutine *job bookkeeping* — it cannot interrupt a
+  blocking, non-suspending Java I/O call. `probeTrace()`'s
+  `HttpURLConnection` read/DNS lookup runs synchronously on an IO thread;
+  when that call is genuinely stuck, `withTimeoutOrNull` sits waiting for
+  it to return on its own, exactly as long as no wrapper existed at all.
+  **Real fix:** rewrote the probe as `probeTraceCancellable()` — runs the
+  blocking call in a child `async(Dispatchers.IO)`, with a sibling
+  watchdog `launch` that, after `PROBE_HARD_TIMEOUT_MS`, calls
+  `HttpURLConnection.disconnect()` directly on the in-flight connection
+  object (published via `AtomicReference` before the blocking call
+  starts). `disconnect()` is documented as safe to call concurrently and
+  aborts the in-flight request — closing the socket (or pending
+  connect/DNS attempt) so the blocked thread gets an `IOException` and
+  actually returns, instead of staying blocked indefinitely. This is the
+  standard workaround for `HttpURLConnection` having no real cooperative
+  cancellation API. 1 file changed (`warp/WarpTunnelManager.kt`) — same
+  file as v3.28.0, no other logic touched. **BELUM DIKONFIRMASI di
+  device** — titik uji SAMA seperti v3.28.0: nyalakan WARP, buka
+  Diagnostik dalam ~30 detik, "Kualitas koneksi" harus berubah dari
+  "Belum diperiksa" ke label nyata dalam ≤1 siklus health-check (25s).
+
 ## v3.28.0 (2026-08-07)
 ### Fixed
 - **"Kualitas koneksi: Belum diperiksa" stuck forever (WARP Diagnostics).**
