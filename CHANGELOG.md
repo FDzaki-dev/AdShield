@@ -1,5 +1,46 @@
 # Changelog
 
+## v3.28.3 (2026-08-07)
+### Fixed
+- **REAL root cause of "Kualitas koneksi: Belum diperiksa" freeze — not a
+  hang at all, a logic bug in `WarpConnectionQuality.level`.** v3.28.0/
+  v3.28.1/v3.28.2 all targeted timeout/hang scenarios that were individually
+  real bugs but NOT this one — the probe was completing fine the whole time.
+  Found by cross-referencing user's device report: `WarpForegroundService`'s
+  persistent notification showed "Terhubung, tapi trafik belum terkonfirmasi
+  lewat WARP" (its own inline `when` branch for "probe succeeded, HTTP
+  response received, but Cloudflare's trace body didn't say `warp=on`") at
+  the SAME TIME the HomeScreen/Diagnostics quality row was stuck showing
+  "Belum diperiksa"/UNKNOWN — two different pieces of UI reading the exact
+  same `WarpConnectionQuality` state and disagreeing. Root cause:
+  `performHealthCheck()`'s success branch (`probe != null`) unconditionally
+  resets `consecutiveFailures = 0` and `reconnectAttempts = 0` even when
+  `probe.warpOn == false` (a response DID arrive, just without WARP
+  confirmed) — so `level`'s old fallback chain
+  (`trafficConfirmed && ... -> GOOD/DEGRADED`, else
+  `consecutiveFailures > 0 || reconnectAttempts > 0 -> BAD`, else
+  `UNKNOWN`) fell all the way through to `UNKNOWN` for this exact case,
+  even though `lastCheckedAt` was very much non-zero (a real check DID
+  happen and got a definitive negative result). **Fix:** removed the
+  `consecutiveFailures`/`reconnectAttempts` condition from the BAD branch —
+  once `lastCheckedAt != 0L` is already true (checked first) and
+  `trafficConfirmed == false`, that's unconditionally BAD, matching what
+  the notification's own separate logic already knew. 1 file changed
+  (`warp/WarpConnectionQuality.kt`) + version bump. **v3.28.0/v3.28.1/
+  v3.28.2 timeout fixes are NOT reverted** — they're independently correct
+  fixes for genuine unbounded-blocking-call bugs (DNS resolution phases not
+  covered by socket/connect timeouts) that just weren't the cause of THIS
+  particular symptom. Verifikasi statis brace/paren — 0 masalah. **BELUM
+  DIKONFIRMASI di device** — titik uji: nyalakan WARP, tunggu sampai
+  notifikasi bilang "Terhubung..." (dengan atau tanpa "trafik belum
+  terkonfirmasi") → Diagnostik/Home HARUS ikut menunjukkan label nyata
+  (minimal "Bermasalah", bukan lagi "Belum diperiksa") begitu notifikasi
+  itu muncul. **Kalau underlying issue-nya sendiri (trafik betulan tidak
+  lewat WARP, `warp=on` tidak pernah muncul) masih terjadi setelah UI-nya
+  benar** — itu bug TERPISAH (WireGuard config/endpoint/MTU tidak
+  benar-benar routing lewat edge Cloudflare), bukan lagi soal
+  diagnostik/tampilan, dan butuh investigasi baru dari titik itu.
+
 ## v3.28.2 (2026-08-07)
 ### Fixed
 - **ACTUAL root cause of "Kualitas koneksi: Belum diperiksa" freeze —

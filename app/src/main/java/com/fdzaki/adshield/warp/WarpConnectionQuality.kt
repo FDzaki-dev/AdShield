@@ -37,12 +37,23 @@ data class WarpConnectionQuality(
     /** Simple 3-level summary for UI (dot color etc.) — not stored, derived on demand. */
     enum class Level { GOOD, DEGRADED, BAD, UNKNOWN }
 
+    // v3.28.3 — fixed a real bug, not a timeout/hang: this getter used to fall through to
+    // UNKNOWN whenever a health-check probe completed successfully (HTTP response received,
+    // so consecutiveFailures/reconnectAttempts both reset to 0 by performHealthCheck()) but
+    // Cloudflare's trace body didn't confirm `warp=on` — e.g. tunnel interface UP, but the
+    // WireGuard config's endpoint/MTU isn't actually routing traffic through the WARP edge.
+    // lastCheckedAt IS non-zero in that case (a real check happened), so this is NOT "never
+    // checked" — it's a genuine bad/unconfirmed result and must show as such, matching what
+    // WarpForegroundService.buildNotification() already independently branches on ("Terhubung,
+    // tapi trafik belum terkonfirmasi lewat WARP") but this getter never mirrored. JANGAN
+    // tambahkan consecutiveFailures/reconnectAttempts kembali sebagai syarat sebelum BAD di
+    // sini — begitu lastCheckedAt != 0L dan trafficConfirmed == false, itu SUDAH cukup untuk
+    // BAD terlepas dari counter lain, itu persis yang bikin bug ini terlewat sebelumnya.
     val level: Level
         get() = when {
             lastCheckedAt == 0L -> Level.UNKNOWN
             trafficConfirmed && (latencyMs ?: Long.MAX_VALUE) <= 200 -> Level.GOOD
             trafficConfirmed -> Level.DEGRADED
-            consecutiveFailures > 0 || reconnectAttempts > 0 -> Level.BAD
-            else -> Level.UNKNOWN
+            else -> Level.BAD
         }
 }

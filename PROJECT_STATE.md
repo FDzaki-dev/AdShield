@@ -3,6 +3,33 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.28.3 (2026-08-07) — BUG SEBENARNYA ketemu (via kontradiksi laporan
+  user: notifikasi vs Diagnostik/Home menunjukkan hal berbeda dari state
+  yang SAMA) — bukan hang sama sekali, murni logic bug di
+  `WarpConnectionQuality.level`.** v3.28.0/v3.28.1/v3.28.2 SEMUA menyasar
+  skenario hang/timeout yang masing-masing nyata sebagai bug tersendiri,
+  TAPI bukan penyebab simptom spesifik ini — probe selalu selesai normal.
+  User laporkan: notifikasi persisten WARP bilang "Terhubung, tapi trafik
+  belum terkonfirmasi lewat WARP" (state UP, probe sudah jalan) SAAT
+  BERSAMAAN Diagnostik/Home masih nunjukin "Belum diperiksa". Root cause:
+  `performHealthCheck()` cabang sukses (`probe != null`) SELALU reset
+  `consecutiveFailures=0`/`reconnectAttempts=0` walau `probe.warpOn==false`
+  (ada respons HTTP, cuma trafik belum lewat WARP) — `level` versi lama
+  jatuh ke `else -> UNKNOWN` untuk kasus ini persis, padahal `lastCheckedAt`
+  SUDAH terisi (bukan 0). Fix: cabang BAD sekarang tidak syaratkan
+  `consecutiveFailures`/`reconnectAttempts` lagi — begitu `lastCheckedAt !=
+  0L` (sudah dicek duluan) dan `trafficConfirmed == false`, itu BAD tanpa
+  syarat tambahan. 1 file (`warp/WarpConnectionQuality.kt`) + version bump.
+  Fix timeout v3.28.0-v3.28.2 TIDAK di-revert — tetap valid untuk bug
+  hang yang berbeda. Verifikasi statis brace/paren — 0 masalah. **BELUM
+  DIKONFIRMASI di device** — titik uji: begitu notifikasi WARP bilang
+  "Terhubung..." (dengan/tanpa "trafik belum terkonfirmasi"), Diagnostik/
+  Home HARUS ikut berubah dari "Belum diperiksa" (minimal ke "Bermasalah").
+  **Kalau UI sudah benar tapi trafik BETULAN tidak pernah lewat WARP
+  (warp=on tidak pernah muncul)** — itu bug lain lagi (config/endpoint/MTU
+  WireGuard), bukan lagi soal tampilan diagnostik, mulai investigasi baru
+  dari situ, JANGAN diasumsikan otomatis selesai kalau labelnya sudah
+  "Bermasalah" tapi trafik WARP-nya sendiri tidak pernah confirmed.
 - **v3.28.2 (2026-08-07) — ROOT CAUSE ASLI ditemukan (user, bukan Claude):
   v3.28.0/v3.28.1 salah sasaran fungsi.** User arahkan investigasi ke batch
   v3.27.0 (perluasan endpoint 6→24, Shadowsocks/MASQUE-benefit) sebagai
