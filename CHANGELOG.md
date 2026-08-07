@@ -1,5 +1,25 @@
 # Changelog
 
+## v3.31.0 — libXray PoC iterasi 3: versi Go persis sesuai error (2026-08-07)
+
+> `GOTOOLCHAIN=local` (v3.30.0) terbukti berguna — run v3.30.0 gagal
+> dengan pesan JELAS, bukan lagi ambigu:
+> ```
+> go: go.mod requires go >= 1.26.3 (running go 1.25.12; GOTOOLCHAIN=local)
+> ```
+> Tinggal pasang persis yang diminta. `go-version: '1.25'` → `'1.26.3'`.
+> `GOTOOLCHAIN=local` tetap dipertahankan (kalau ada modul lain yang
+> minta lebih tinggi lagi, errornya tetap akan sejelas ini, bukan balik
+> jadi opaque).
+
+**Kalau ini masih gagal**: kemungkinan bukan lagi soal versi Go (sudah
+dipenuhi persis), tapi tahap berikutnya di `build/main.py android`
+(NDK version, `gomobile init`, atau langkah build AAR itu sendiri) —
+kirim log barunya, jangan asumsi ini otomatis "hampir selesai".
+
+**Verifikasi statis:** YAML re-validated, 2 job tetap terdaftar. 0 file
+app disentuh — job `build` (APK utama) tidak berubah.
+
 ## v3.30.0 — libXray PoC iterasi 2: fix versi Go (2026-08-07)
 
 > Hasil run v3.29.0 (`libxray-poc-log`, dikirim user): job GAGAL di step

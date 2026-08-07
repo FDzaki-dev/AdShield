@@ -3,6 +3,12 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.31.0 (2026-08-07) — libXray PoC iterasi 3.** Log run v3.30.0
+  kasih error persis: "go.mod requires go >= 1.26.3". `go-version`
+  dinaikkan jadi `'1.26.3'` pas. **WAJIB dicek**: job `libxray-poc` run
+  v3.31.0 hijau/merah? Kalau masih merah, kemungkinan sudah bukan soal
+  versi Go lagi (itu sudah dipenuhi persis) — kirim log baru, jangan
+  diasumsikan "dikit lagi".
 - **v3.30.0 (2026-08-07) — libXray PoC iterasi 2, fix versi Go.** Log
   run v3.29.0 dibaca (bukan ditebak): `golang.org/x/mobile` butuh
   go>=1.25, Go auto-upgrade sempat ke 1.25.12 lalu coba naik lagi ke
@@ -2100,7 +2106,15 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.30.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.31.0 — belum dicek apa pun):**
+1. Cek job `libxray-poc` run v3.31.0 — hijau atau merah?
+2. Kalau merah: kirim log baru — errornya kemungkinan besar BUKAN lagi
+   soal versi Go (sudah dipenuhi persis `>= 1.26.3`), jadi ini titik
+   data baru, bukan lanjutan pola yang sama.
+3. Kalau hijau + ada `.aar`: lanjut roadmap langkah 3 (integrasi ke
+   `WarpTunnelManager`, di belakang flag, fallback tetap ada).
+
+**SEBELUMNYA (2026-08-07, v3.30.0):**
 1. Cek job `libxray-poc` run v3.30.0 — hijau atau merah?
 2. Kalau masih merah: kirim `libxray-build.log` baru (dari artifact
    `libxray-poc-log`) — errornya seharusnya sudah spesifik ("go.mod

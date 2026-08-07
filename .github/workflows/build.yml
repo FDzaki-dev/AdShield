@@ -147,7 +147,11 @@ jobs:
           # failed ("toolchain not available") rather than actually needing
           # 1.26 to exist — see GOTOOLCHAIN=local below, which stops that
           # escalation instead of chasing it version-by-version blind.
-          go-version: '1.25'
+          # v3.30.0 tried '1.25' — log run v3.30.0 (GOTOOLCHAIN=local doing its
+          # job: clear error instead of an opaque download failure) says
+          # exactly: "go.mod requires go >= 1.26.3 (running go 1.25.12)".
+          # No more guessing needed — pin the exact version it asked for.
+          go-version: '1.26.3'
 
       - name: Pin Go toolchain (no further auto-download)
         # v3.30.0: without this, `go mod tidy` (run internally by gomobile
