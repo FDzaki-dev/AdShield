@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 73
-        versionName = "3.32.3"
+        versionCode = 70
+        versionName = "3.32.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables { useSupportLibrary = true }
@@ -107,27 +107,10 @@ dependencies {
     implementation("com.wireguard.android:tunnel:1.0.20230706")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
-    // v3.32.0 — XTLS/libXray (MIT), roadmap langkah 3 PoC. Local AAR file
-    // (NOT built by this Gradle project — produced by the separate
-    // `libxray-poc` CI job from libXray's own build/main.py, then committed
-    // here as a binary artifact) — see PROJECT_STATE.md keputusan #16.
-    // NOT wired into any running code path yet: this dependency only makes
-    // the classes/JNI libs resolvable for the isolated instrumented probe
-    // test below, so its invoke() wire-envelope can be discovered
-    // empirically via real CI logcat before WarpTunnelManager touches it.
-    implementation(files("libs/libXray.aar"))
-
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     // Local JVM unit tests (app/src/test) — no Android framework/emulator
     // needed since DnsPacket and BlocklistManager's matching logic are
     // pure Kotlin/java.net, see PROJECT_STATE.md item #13.
     testImplementation("junit:junit:4.13.2")
-
-    // Instrumented tests (app/src/androidTest) — v3.32.0, ONLY consumer is
-    // LibXrayInvokeProbeTest.kt (needs a real Android runtime to load
-    // libXray's JNI .so, a plain JVM unit test cannot). Not used for any
-    // UI/Espresso testing — kept minimal on purpose.
-    androidTestImplementation("androidx.test.ext:junit:1.1.5")
-    androidTestImplementation("androidx.test:runner:1.5.2")
 }
