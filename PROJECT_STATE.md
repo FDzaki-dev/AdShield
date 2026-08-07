@@ -3,7 +3,22 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.23.0 (2026-08-06) — Apple-Style batch 4/N: toggle-row fix
+- **v3.24.0 (2026-08-07) — Apple-Style batch 5/N: toggle-row fix
+  diperluas ke IPv6 route switch (HomeScreen).** CI v3.23.0 confirmed
+  hijau (user, "Hijau sudah dari lama"). Satu-satunya Switch di app yang
+  masih belum pakai pola `toggleable(role = Role.Switch)` — baris
+  "Rutekan IPv6 lewat WARP" di `WarpModeCard` — sekarang disamakan
+  dengan 2 card WARP/IKEv2 (v3.23.0), Logs, Whitelist (v3.22.0). `haptic`
+  dipakai ulang dari scope composable yang sama, tidak ada deklarasi
+  baru. Verifikasi statis brace/paren + dup-import — 0 masalah. Detail
+  CHANGELOG.md v3.24.0. **Dengan batch ini, SEMUA Switch di app sudah
+  konsisten — sapuan toggle-row accessibility DIANGGAP SELESAI**, jangan
+  diulang lagi kecuali ada Switch baru ditambahkan ke masa depan.
+  **BELUM DIKONFIRMASI CI v3.24.0** — WAJIB dicek duluan di sesi
+  berikutnya sebelum lanjut apa pun. Titik uji device: tap di
+  label/deskripsi IPv6 (bukan cuma kotak Switch) ikut toggle; tap Switch
+  langsung tetap toggle sekali.
+- v3.23.0 (2026-08-06) — Apple-Style batch 4/N: toggle-row fix
   diperluas ke HomeScreen.** CI v3.22.0 confirmed hijau. Item yang
   SENGAJA ditunda di v3.22.0 sekarang dikerjakan: `WarpModeCard`/
   `IkeV2ModeCard` di `HomeScreen.kt` dapat `Modifier.toggleable(role =

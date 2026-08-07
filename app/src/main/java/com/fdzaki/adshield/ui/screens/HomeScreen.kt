@@ -472,7 +472,17 @@ private fun WarpModeCard(
             Spacer(Modifier.height(12.dp))
             HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.toggleable(
+                    value = routeIpv6,
+                    role = Role.Switch,
+                    onValueChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleRouteIpv6(it)
+                    }
+                )
+            ) {
                 Column(Modifier.weight(1f)) {
                     Text(
                         "Rutekan IPv6 lewat WARP",
@@ -490,7 +500,11 @@ private fun WarpModeCard(
                 Spacer(Modifier.width(8.dp))
                 Switch(
                     checked = routeIpv6,
-                    onCheckedChange = onToggleRouteIpv6,
+                    // Row above now owns the toggle via `toggleable` — null
+                    // here prevents a double-fire when tapping directly on
+                    // the Switch's own hit target (same pattern as the two
+                    // tunnel cards above, Logs, and Whitelist).
+                    onCheckedChange = null,
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = ShieldGreen,
                         checkedThumbColor = ShieldSurface
