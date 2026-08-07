@@ -1,5 +1,52 @@
 # Changelog
 
+## v3.21.1 — Apple-Style batch 2/N: ProtectionRing press-scale + debug sweep hasil temuan real bug (2026-08-06)
+
+User: "Lanjut" (setelah v3.21.0 dianggap sudah build hijau — **catatan:
+saya TIDAK menerima log CI baru, ini asumsi dari instruksi "Lanjut" itu
+sendiri, bukan verifikasi nyata**, lihat PROJECT_STATE.md).
+
+**`HomeScreen.kt` — press-scale di `ProtectionRing`:**
+- Kontrol paling sering ditekan di app ini sekarang scale-down 0.94x saat
+  ditahan (`animateFloatAsState` + `collectIsPressedAsState`, tween
+  120ms) — gestur taktil khas iOS di hampir semua tombol.
+- Ripple Material default di kontrol ini SENGAJA dimatikan
+  (`indication = null`) supaya scale animation jadi satu-satunya feedback
+  visual, bukan numpuk dengan ripple lingkaran Material — konsisten sama
+  bahasa motion Apple (scale, bukan ripple).
+- `interactionSource` HANYA drive animasi lokal ini — tidak membungkus
+  ulang `onClick`/haptic yang sudah ada, logic toggle 100% sama persis.
+
+**Debug sweep (diminta eksplisit: "debugging... sampai matang") — 1 bug
+nyata ditemukan, TIDAK terkait batch manapun sebelumnya:**
+- `res/values/colors.xml`: `shield_bg_dark` = **#0F1512** — dipakai di
+  `themes.xml` buat `android:statusBarColor`/`navigationBarColor`/
+  `windowBackground` (yaitu apa yang kelihatan SEBELUM Compose sempat
+  gambar apa pun + area status/nav bar sistem di sekitar konten Compose).
+  Nilai ini TIDAK PERNAH cocok dengan `ShieldBgDark` di Compose manapun —
+  bukan #181816 (nilai lama) ataupun #000000 (nilai baru v3.21.0) — bug
+  drift lama yang sudah ada sejak sebelum sesi ini, cuma gak kelihatan di
+  palet lama yang sama-sama gelap-kusam, sekarang bakal SANGAT kelihatan
+  (status bar hijau tua vs konten app hitam pekat). **Fix: disamakan ke
+  #000000.**
+- Sekalian dibersihkan: `shield_primary`/`shield_primary_dark`/
+  `shield_accent`/`shield_danger` di file yang sama — di-grep, 100% TIDAK
+  direferensikan di mana pun (bukan cuma di Kotlin, di seluruh `app/src`).
+  Dihapus. (Dicatat di sini sesuai aturan hapus-file-butuh-izin — user
+  sudah kasih otorisasi umum "kamu putuskan sendiri" di pesan sebelumnya.)
+
+**SENGAJA TIDAK diubah:** `WarpModeCard`/`IkeV2ModeCard` Switch — sudah
+punya feedback taktil bawaan Material Switch sendiri (thumb slide),
+nambah scale animation di situ jadi tumpang tindih, bukan polish; `NavRow`
+list items — ripple Material default di baris list sudah cukup dekat
+dengan pola list iOS (highlight saat ditekan), tidak perlu diganti scale.
+
+**Verifikasi statis:** brace/paren balance + duplicate-import check
+`HomeScreen.kt` — 0 masalah. XML `colors.xml` divalidasi well-formed. Grep
+ulang referensi `shield_bg_dark` — masih resolve dengan benar ke
+`themes.xml`. **BELUM DIKONFIRMASI CI** (baik v3.21.0 maupun v3.21.1 ini)
+— lihat PROJECT_STATE.md.
+
 ## v3.21.0 — Apple-Style redesign batch 1/N (2026-08-06)
 
 User: "rombak UI dan UX ala Apple-Style dan anti regresi", lalu di pesan

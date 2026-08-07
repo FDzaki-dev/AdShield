@@ -1,9 +1,13 @@
 package com.fdzaki.adshield.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -23,6 +27,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -298,6 +303,19 @@ private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
     // visual ring state finishes updating.
     val haptic = LocalHapticFeedback.current
 
+    // Apple-style pass (batch 2): a brief press-scale-down, the same
+    // tactile motion language iOS uses on nearly every tappable control.
+    // `interactionSource` only drives this local scale animation — it does
+    // NOT replace or wrap the existing onClick/haptic logic below, so the
+    // actual toggle behavior is byte-for-byte unchanged from before.
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.94f else 1f,
+        animationSpec = tween(durationMillis = 120),
+        label = "protectionRingScale"
+    )
+
     Box(
         modifier = Modifier.size(184.dp),
         contentAlignment = Alignment.Center
@@ -320,12 +338,17 @@ private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
         Box(
             modifier = Modifier
                 .size(152.dp)
+                .scale(scale)
                 .clip(CircleShape)
                 .background(if (active) ShieldAccentDim else ShieldSurface2)
-                .clickable(onClick = {
-                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    onClick()
-                }),
+                .clickable(
+                    interactionSource = interactionSource,
+                    indication = null,
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onClick()
+                    }
+                ),
             contentAlignment = Alignment.Center
         ) {
             Icon(
