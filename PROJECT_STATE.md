@@ -3,6 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.28.0 (2026-08-07) — Fix bug lama "Kualitas koneksi: Belum diperiksa"
+  macet selamanya.** User minta debugging di luar scope roadmap normal.
+  Root cause: `WarpTunnelManager.probeTrace()` pakai `HttpURLConnection`
+  yang `connectTimeout`/`readTimeout`-nya TIDAK menutup fase resolusi DNS
+  (keterbatasan platform Android/JVM yang terdokumentasi, bukan salah
+  ketik) — kalau lookup DNS host `TRACE_URL` macet, `probeTrace()` block
+  selamanya, `performHealthCheck()` tidak pernah selesai,
+  `WarpConnectionQuality.lastCheckedAt` tidak pernah ditulis, `level`
+  macet di `UNKNOWN` ("Belum diperiksa") selamanya alih-alih pernah
+  settle ke pembacaan nyata. Fix: bungkus panggilan probe dengan
+  `withTimeoutOrNull(PROBE_HARD_TIMEOUT_MS = 6000)` di dalam
+  `withContext(Dispatchers.IO)` — plafon luar yang menjamin
+  `performHealthCheck()` tetap lanjut (mencatat probe gagal, label
+  pindah ke status nyata) walau socket blocking di bawahnya masih
+  nyangkut. Lebih tinggi dari `PROBE_TIMEOUT_MS=4000` yang sudah ada,
+  supaya di kasus normal timeout connect/read asli yang duluan kena —
+  ini murni jaring pengaman untuk kasus itu gagal. 1 file diubah
+  (`warp/WarpTunnelManager.kt`) + version bump — 0 perubahan logic
+  tunnel/reconnect/endpoint-selection lain. Verifikasi statis brace/paren
+  — 0 masalah. **BELUM DIKONFIRMASI CI/device** — titik uji: nyalakan
+  WARP, buka Diagnostik dalam ~30 detik → "Kualitas koneksi" harus
+  berubah dari "Belum diperiksa" ke label nyata (Baik/Agak lambat/
+  Bermasalah), tidak boleh diam >1 siklus health-check (25s). Roadmap
+  utama (endpoint 24 kandidat v3.27.0, dst) TIDAK disentuh batch ini —
+  murni bug-fix di luar antrian prioritas biasa sesuai permintaan user.
 - **v3.27.0 (2026-08-07) — Shadowsocks/MASQUE benefit-only (protokol TETAP
   tidak diimplementasi), + fix desync versi.** User minta manfaat 2
   protokol yang sebelumnya dibatalkan (Xray-core/Shadowsocks, MASQUE/QUIC
@@ -2062,7 +2087,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.27.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.28.0 — belum dicek apa pun):**
+1. Cek CI v3.28.0 dulu.
+2. Device: nyalakan WARP, buka Diagnostik, tunggu ≤30 detik — "Kualitas
+   koneksi" HARUS berubah dari "Belum diperiksa" ke label nyata (Baik/
+   Agak lambat/Bermasalah). Kalau MASIH macet di "Belum diperiksa" lebih
+   dari 1 siklus health-check (25 detik), berarti hard-timeout 6 detik
+   ini masih belum cukup menutup skenario hang aslinya — laporkan durasi
+   persis "Belum diperiksa" bertahan, itu jadi patokan menaikkan
+   PROBE_HARD_TIMEOUT_MS atau menyelidiki hang di lapisan lain.
+
+**SEBELUMNYA (2026-08-07, v3.27.0 — belum dicek apa pun):**
 1. Cek CI v3.27.0 dulu — belum pernah di-push/dicek sama sekali.
 2. Device WARP: nyalakan WARP normal di jaringan biasa — pastikan tetap
    connect (endpoint list berubah bentuk 6→24 entri, port baru 500/1701/

@@ -1,5 +1,31 @@
 # Changelog
 
+## v3.28.0 (2026-08-07)
+### Fixed
+- **"Kualitas koneksi: Belum diperiksa" stuck forever (WARP Diagnostics).**
+  Root cause: `WarpTunnelManager.probeTrace()`'s `HttpURLConnection`
+  `connectTimeout`/`readTimeout` only bound the TCP connect/read phases —
+  DNS resolution for `TRACE_URL`'s host is NOT covered by either timeout on
+  Android/JVM (documented platform limitation, not a coding mistake in the
+  original probe). If that DNS lookup stalled, `probeTrace()` blocked
+  forever, `performHealthCheck()` never completed, `WarpConnectionQuality
+  .lastCheckedAt` was never written, and `level` stayed `UNKNOWN` ("Belum
+  diperiksa") indefinitely instead of ever settling to a real reading.
+  Fix: wrapped the probe call in `withTimeoutOrNull(PROBE_HARD_TIMEOUT_MS =
+  6000)` inside `withContext(Dispatchers.IO)` — a hard outer ceiling that
+  guarantees `performHealthCheck()` proceeds (and records a failed probe,
+  moving the label to a real "Bermasalah"/retry state) even if the
+  underlying blocking socket call is still stuck. Comfortably above the
+  existing `PROBE_TIMEOUT_MS = 4000` so normal connect/read timeouts still
+  fire first in the common case; this is purely a safety net for the case
+  they don't. 1 file changed (`warp/WarpTunnelManager.kt`), 0 behavior
+  change to tunnel/reconnect/endpoint-selection logic.
+- **BELUM DIKONFIRMASI CI/device** — titik uji: nyalakan WARP, buka
+  Diagnostik dalam ~30 detik → "Kualitas koneksi" harus berubah dari
+  "Belum diperiksa" ke label nyata (Baik/Agak lambat/Bermasalah), tidak
+  boleh diam di "Belum diperiksa" lebih dari ~1 siklus health-check (25s).
+
+
 ## v3.27.0 — Shadowsocks/MASQUE *benefits* adopted, protokolnya sendiri TIDAK disentuh (2026-08-07)
 
 > User eksplisit minta manfaat dari Shadowsocks & MASQUE tanpa implementasi

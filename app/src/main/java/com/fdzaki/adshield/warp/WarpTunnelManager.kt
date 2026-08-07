@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.DatagramPacket
@@ -368,7 +369,19 @@ class WarpTunnelManager(context: Context) {
             return
         }
 
-        val probe = probeTrace()
+        // v3.28.0 bug fix: HttpURLConnection's connectTimeout/readTimeout (set inside
+        // probeTrace()) do NOT bound DNS resolution on Android/JVM — if the lookup for
+        // TRACE_URL's host stalls (flaky tunnel DNS, captive/broken resolver, etc.),
+        // probeTrace() can block forever. That silently starved this whole coroutine,
+        // so lastCheckedAt was never written and the UI-facing "Kualitas koneksi" label
+        // stayed stuck at "Belum diperiksa" indefinitely instead of ever settling to a
+        // real GOOD/DEGRADED/BAD reading. PROBE_HARD_TIMEOUT_MS is an outer safety net —
+        // it can't interrupt the blocking socket call itself (that thread may still leak
+        // until the OS eventually kills it), but it guarantees this coroutine proceeds
+        // and reports a failure instead of hanging the health-check loop permanently.
+        val probe = withContext(Dispatchers.IO) {
+            withTimeoutOrNull(PROBE_HARD_TIMEOUT_MS) { probeTrace() }
+        }
         val stats = runCatching { backend.getStatistics(tunnel) }.getOrNull()
         if (probe != null) {
             // v3.7.0 packet-loss estimate: rolling window over the last few probe
@@ -575,6 +588,10 @@ class WarpTunnelManager(context: Context) {
         // a full-tunnel VPN app polling too aggressively.
         private const val HEALTH_CHECK_INTERVAL_MS = 25_000L
         private const val PROBE_TIMEOUT_MS = 4_000
+        /** Hard ceiling for the whole probeTrace() call (v3.28.0), including DNS resolution,
+         *  which PROBE_TIMEOUT_MS alone does not bound. Comfortably above PROBE_TIMEOUT_MS
+         *  so a normal connect+read timeout still fires first in the common case. */
+        private const val PROBE_HARD_TIMEOUT_MS = 6_000L
         private const val FAILURE_THRESHOLD = 2
         private const val BASE_BACKOFF_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L
