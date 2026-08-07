@@ -1,5 +1,93 @@
 # Changelog
 
+## v3.32.0 — libXray invoke() envelope probe, roadmap langkah 2.5 (2026-08-07)
+
+> User konfirmasi job `libxray-poc` run v3.31.0 HIJAU, upload artifact
+> `libxray-poc-log` (`libXray.aar` 96.7MB + `libxray-build.log` 75 baris,
+> 0 error). Diverifikasi statis (bukan asumsi): AAR asli, 4 ABI
+> `libgojni.so` (armeabi-v7a/arm64-v8a/x86/x86_64) + `classes.jar` valid
+> berisi API resmi XTLS/libXray terbaru — dibongkar lewat parser bytecode
+> `.class` custom (tidak ada `javap`/JDK penuh di sandbox sesi ini, cuma
+> JRE) untuk baca method table `LibXray.class` persis: HANYA ada
+> `invoke(String):String`, `registerDialerController`,
+> `registerListenerController`, `registerProcessFinder`, `resetDNS`,
+> `setDNS`, `touch`, `_init` — TIDAK ADA method terpisah `xrayVersion()`/
+> `getFreePorts()`/`runXray()` dst. Semua aksi (daftar lengkap dari README:
+> `getFreePorts convertShareLinksToXrayJson ... ping pingBatch testXray
+> runXray runXrayFromJson stopXray xrayVersion getXrayState`) didispatch
+> lewat SATU `invoke(String):String`, respons JSON `{success, data,
+> error}` (dikonfirmasi lewat cuplikan README yang terindeks web search:
+> "Invoke returns a failure response with success: false, data: null...").
+>
+> **YANG TIDAK ditemukan meski sudah dicari (web search + fetch README
+> resmi XTLS/libXray, + baca ulang SEMUA getter/setter di 13 kelas
+> Request/Response lewat parser bytecode yang sama):** field
+> "action"/"name"/"method" apa pun di `LibXrayInvokeRequest` (cuma punya
+> `APIVersion: Long`) atau kelas manapun lain yang menunjukkan bagaimana
+> `invoke()` tahu request JSON yang dikirim itu untuk aksi yang mana.
+> Kelas-kelas `RunXrayRequest{XrayJson}`/`GetFreePortsRequest{Count}`/dst
+> adalah objek Go asli (gomobile proxy, `refnum`+`incGoRef`) yang dipakai
+> platform lain (iOS Swift/cgo) — TIDAK ADA bukti langsung mereka
+> disable/diserialize persis begitu ke dalam String yang diterima
+> `invoke()` di Android.
+>
+> **Keputusan: JANGAN tulis integrasi `WarpTunnelManager`/engine baru di
+> atas tebakan field ini** — pola menebak lalu klaim "sudah terintegrasi"
+> tanpa validasi persis pola krisis DNS v3.9.0-v3.11.1 (2x insiden nyata
+> di riwayat proyek ini). Sebagai gantinya: instrumented test baru
+> `LibXrayInvokeProbeTest.kt` mencoba 9 bentuk envelope kandidat (variasi
+> nama key diskriminator `name`/`action`/`method`, casing `count`/`Count`,
+> nesting `getFreePortsRequest`/`data`, dengan/tanpa `apiVersion`) ke aksi
+> read-only tanpa efek samping (`getFreePorts`, count=1 — scan port bebas
+> lokal, TIDAK butuh `DialerController`/`ProcessFinder`/VPN aktif sama
+> sekali), log RAW request+response tiap kandidat ke Logcat dengan prefix
+> `CANDIDATE-WIN:`/`CANDIDATE-MISS:`/`CANDIDATE-ERROR:` supaya sesi
+> berikutnya baca 1 file logcat dan langsung tahu bentuk yang benar (atau
+> tahu pasti kalau ke-9 hipotesis ini semua salah, tanpa perlu re-run).
+>
+> **File diubah/baru (7 file — batch normal, di bawah batas 10):**
+> - `app/libs/libXray.aar` (BARU, binary 96.7MB) — AAR asli dari artifact
+>   CI run v3.31.0 yang dikonfirmasi user, dicommit supaya job probe tidak
+>   perlu rebuild dari source Go tiap kali (build Go dari nol di
+>   `libxray-poc` makan waktu lama, AAR-nya sendiri deterministik sekali
+>   sukses).
+> - `app/build.gradle.kts` — `implementation(files("libs/libXray.aar"))`
+>   + 2 dependency `androidTest` baru (`androidx.test.ext:junit:1.1.5`,
+>   `androidx.test:runner:1.5.2` — HANYA dipakai test probe ini, belum ada
+>   Espresso/UI test lain). versionCode/versionName bump.
+> - `app/src/androidTest/java/com/fdzaki/adshield/xray/
+>   LibXrayInvokeProbeTest.kt` (BARU) — lihat KDoc di file itu sendiri
+>   untuk detail lengkap tiap kandidat, tidak diulang di sini.
+> - `.github/workflows/build.yml` — job baru `libxray-invoke-probe`,
+>   SEPENUHNYA independen dari `build` dan `libxray-poc` (tidak ada
+>   `needs:`, `continue-on-error: true` di level job) — pakai
+>   `reactivecircus/android-emulator-runner@v2` (emulator x86_64 API 30,
+>   cocok salah satu dari 4 ABI AAR) untuk `connectedDebugAndroidTest`
+>   ter-filter ke SATU kelas test ini saja, upload logcat sebagai artifact
+>   `libxray-invoke-probe-log`.
+>
+> **SENGAJA TIDAK disentuh:** `WarpTunnelManager.kt`, package `warp/`
+> manapun, `protocol/` manapun — 0 baris. Ini murni riset/probe terisolasi,
+> tidak ada jalur eksekusi app normal yang menyentuh `libXray` sama sekali
+> di batch ini.
+>
+> **BELUM DIKONFIRMASI run CI job baru ini** (nama `libxray-invoke-probe`)
+> — WAJIB jadi hal pertama dicek di sesi berikutnya. Baca
+> `invoke-probe-logcat.log` dari artifact `libxray-invoke-probe-log`:
+> - Ada baris `CANDIDATE-WIN:` → itu bentuk envelope yang benar, BARU dari
+>   situ mulai desain `XrayWarpEngine`/config WireGuard-outbound dengan
+>   `reserved` bytes (roadmap langkah 3 sesungguhnya).
+> - 0 `CANDIDATE-WIN:` sama sekali → kirim isi lengkap logcat-nya ke sesi
+>   berikutnya, JANGAN tebak kandidat ke-10 tanpa data itu di tangan —
+>   kemungkinan besar perlu baca source Go `XTLS/libXray` langsung (bukan
+>   cuma README) untuk fungsi yang menangani `invoke()`.
+> - Kalau bahkan `LibXray.touch()` gagal (native lib tidak ter-load sama
+>   sekali di ABI x86_64 emulator) → itu temuan terpisah & lebih mendasar,
+>   cek dulu apakah ABI x86_64 di AAR benar-benar valid (re-extract
+>   `libXray.aar` dari artifact, cek ukuran `jni/x86_64/libgojni.so` masuk
+>   akal, bandingkan dengan yang sudah diverifikasi statis sesi ini:
+>   ~53.9MB).
+
 ## v3.31.0 — libXray PoC iterasi 3: versi Go persis sesuai error (2026-08-07)
 
 > `GOTOOLCHAIN=local` (v3.30.0) terbukti berguna — run v3.30.0 gagal

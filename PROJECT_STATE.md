@@ -3,6 +3,28 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.32.0 (2026-08-07) — libXray invoke() envelope probe, roadmap
+  langkah 2.5.** User konfirmasi `libxray-poc` v3.31.0 HIJAU, upload
+  artifact (`libXray.aar` 96.7MB + log 0 error) — diverifikasi statis lewat
+  parser bytecode `.class` custom (bukan asumsi): AAR asli, 4 ABI, API
+  resmi terbaru. **Temuan kunci:** `LibXray.invoke(String):String` adalah
+  SATU-SATUNYA dispatcher publik (dikonfirmasi, bukan tebakan) — TAPI
+  bentuk JSON envelope-nya (field diskriminator aksi) TIDAK ada di
+  README/dokumentasi publik manapun yang berhasil ditemukan (web search +
+  fetch dilakukan, hasil detail di CHANGELOG.md v3.32.0). **Keputusan:
+  JANGAN tulis integrasi WarpTunnelManager di atas tebakan** — sebagai
+  gantinya, instrumented test baru `LibXrayInvokeProbeTest.kt` (di
+  belakang job CI terisolasi `libxray-invoke-probe`, emulator x86_64 API
+  30) coba 9 kandidat envelope ke aksi read-only `getFreePorts`, log
+  mentah ke Logcat dengan prefix `CANDIDATE-WIN`/`MISS`/`ERROR`. 0 baris
+  `warp/`/`protocol/` disentuh. **WAJIB dicek sesi berikutnya**: run CI
+  job `libxray-invoke-probe` (BUKAN `build` atau `libxray-poc`, job baru
+  terpisah) — baca `invoke-probe-logcat.log` dari artifact
+  `libxray-invoke-probe-log`, cari `CANDIDATE-WIN:`. Kalau ketemu, BARU
+  mulai desain engine Xray sungguhan (config WireGuard-outbound + reserved
+  bytes). Kalau 0 win, JANGAN tebak kandidat baru tanpa log itu di tangan
+  — baca source Go `XTLS/libXray` langsung dulu. Detail lengkap 9
+  kandidat + alasan tiap satu di CHANGELOG.md v3.32.0.
 - **v3.31.0 (2026-08-07) — libXray PoC iterasi 3.** Log run v3.30.0
   kasih error persis: "go.mod requires go >= 1.26.3". `go-version`
   dinaikkan jadi `'1.26.3'` pas. **WAJIB dicek**: job `libxray-poc` run
@@ -2106,13 +2128,28 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.31.0 — belum dicek apa pun):**
-1. Cek job `libxray-poc` run v3.31.0 — hijau atau merah?
-2. Kalau merah: kirim log baru — errornya kemungkinan besar BUKAN lagi
-   soal versi Go (sudah dipenuhi persis `>= 1.26.3`), jadi ini titik
-   data baru, bukan lanjutan pola yang sama.
-3. Kalau hijau + ada `.aar`: lanjut roadmap langkah 3 (integrasi ke
-   `WarpTunnelManager`, di belakang flag, fallback tetap ada).
+**PALING BARU & PALING PENTING (2026-08-07, v3.32.0 — belum dicek apa pun):**
+1. Cek job **`libxray-invoke-probe`** (job BARU, terpisah dari `build` dan
+   `libxray-poc`) — download artifact `libxray-invoke-probe-log`, buka
+   `invoke-probe-logcat.log`.
+2. Cari baris `CANDIDATE-WIN:` — kalau ada, itu bentuk envelope
+   `invoke()` yang benar (request JSON persis tertulis di baris itu).
+   BARU dari situ mulai desain engine Xray sungguhan: config JSON
+   WireGuard-outbound ke peer WARP + `reserved` bytes (dari `client_id`
+   registrasi Cloudflare, BELUM disimpan di `WarpAccount` — perlu
+   ditambah dulu, lihat catatan di CHANGELOG v3.32.0/riset field
+   `config.client_id` wgcf), tun fd lewat `env.xray.tun.fd` di root
+   config (API `SetTunFd` sudah dihapus versi ini, dikonfirmasi README).
+3. Kalau 0 `CANDIDATE-WIN:` sama sekali: JANGAN tebak kandidat ke-10
+   tanpa data tambahan — baca source Go `github.com/XTLS/libXray`
+   langsung (fungsi yang handle `Invoke`/`CGoInvoke`) sebelum lanjut.
+4. Kalau bahkan `LibXray.touch()` gagal di log: native lib x86_64 tidak
+   ter-load di emulator — cek dulu apakah itu masalah AAR atau masalah
+   setup emulator/ABI mismatch sebelum simpulkan apa pun soal envelope.
+
+**SEBELUMNYA (2026-08-07, v3.31.0 — sudah dicek, CI confirmed hijau):**
+1. ~~Cek job `libxray-poc` run v3.31.0~~ — HIJAU, dikonfirmasi user,
+   AAR diverifikasi statis valid. Lanjut ke v3.32.0 di atas.
 
 **SEBELUMNYA (2026-08-07, v3.30.0):**
 1. Cek job `libxray-poc` run v3.30.0 — hijau atau merah?
