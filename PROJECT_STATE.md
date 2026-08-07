@@ -3,6 +3,21 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.29.0 (2026-08-07) — Roadmap native fix langkah 1+2 (BUKAN
+  integrasi).** Langkah 1: keputusan basis = **Xray-core via
+  `XTLS/libXray`** (MIT, wrapper mobile resmi, native dukung `reserved`
+  bytes WireGuard) — bepass-sdk (CC BY-NC-SA) & fork wireguard-go sendiri
+  DITOLAK, alasan lengkap di CHANGELOG.md. Langkah 2: job CI baru
+  `libxray-poc` di `.github/workflows/build.yml`, TERPISAH TOTAL dari
+  job `build` (gak bisa blokir APK/release), cuma nyoba build libXray
+  utk Android pakai Go 1.21.6 + NDK 26.1.10909125 (versi dari referensi
+  `SaeedDev94/Xray`, BELUM diverifikasi cocok) dan upload log-nya sbg
+  artifact `libxray-poc-log`. **0 kode WarpTunnelManager/WarpAccount
+  disentuh — jalur WARP v3.28.0 yg jalan sekarang tidak berubah.**
+  **WAJIB dicek sebelum lanjut**: buka Actions run v3.29.0, job
+  `libxray-poc` hijau/merah? Kalau merah, WAJIB baca artifact
+  `libxray-poc-log` dulu sebelum sesi berikutnya nulis kode apa pun —
+  JANGAN asumsi toolchain-nya benar cuma karena sudah ditulis.
 - **v3.28.0 (2026-08-07) — Honest WARP labeling, root cause "reserved
   bytes" dikonfirmasi 2x independen (kode + web research), fix native
   BELUM dikerjakan (sengaja, lihat CHANGELOG.md v3.28.0 utk alasan +
@@ -2075,7 +2090,25 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.28.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.29.0 — belum dicek apa pun):**
+1. **Cek job `libxray-poc` di Actions run v3.29.0 dulu, TERPISAH dari
+   job `build`** — build APK utama harusnya tetap hijau seperti biasa
+   (0 kode app disentuh), tapi job PoC yang baru ini kemungkinan BESAR
+   merah di percobaan pertama (toolchain Go/NDK version belum
+   diverifikasi, wajar). Itu bukan darurat, itu memang tujuan PoC-nya.
+2. Kalau `libxray-poc` merah: download artifact `libxray-poc-log`,
+   salin `libxray-build.log` (fokus baris error paling akhir) ke sesi
+   Claude berikutnya utk iterasi versi Go/NDK.
+3. Kalau `libxray-poc` hijau (ada .aar): itu baru artinya toolchain-nya
+   kepasang di CI — BELUM berarti WARP+reserved-bytes langsung jalan.
+   Lanjut ke roadmap langkah 3 (integrasi ke `WarpTunnelManager` di
+   belakang flag, jalur lama tetap fallback) baru setelah ini, bukan
+   sebelumnya.
+4. **Jangan skip ke langkah 3/4 tanpa hasil PoC di tangan** — itu
+   persis pola "klaim fix tanpa validasi" yang sudah 2x bikin krisis di
+   proyek ini (DNS v3.9-v3.11).
+
+**SEBELUMNYA (2026-08-07, v3.28.0):**
 1. Cek CI v3.28.0 — exhaustive `when` atas `Level` yang baru (4 cabang)
    harus kompil bersih, ini murni penambahan enum + label, risiko rendah.
 2. Device: buka Home/Diagnostik saat WARP aktif — pastikan label baru

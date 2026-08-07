@@ -120,3 +120,83 @@ jobs:
           files: out/*.apk
           generate_release_notes: true
           make_latest: true
+
+  # v3.29.0 — libXray Android build feasibility PoC (roadmap langkah 2,
+  # PROJECT_STATE.md). Completely independent job (no `needs:`), so it can
+  # never delay or block the `build` job above or the GitHub Release it
+  # publishes — this is ONLY here to answer one question with a real CI
+  # log instead of a guess: "does XTLS/libXray (MIT-licensed official
+  # mobile wrapper for Xray-core, which natively supports the WireGuard
+  # 'reserved' bytes WARP needs — see CHANGELOG.md v3.28.0/v3.29.0) even
+  # build for Android on THIS project's runners?" continue-on-error is
+  # set deliberately: a red result here must never look like "the app is
+  # broken" in the Actions UI — it just means the next session needs to
+  # read fail-logs and adjust toolchain versions, same as any other CI
+  # iteration.
+  libxray-poc:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          # SaeedDev94/Xray (MIT, F-Droid-listed, real shipping Xray Android
+          # client — closest public precedent we found for this exact build)
+          # documents go1.21.6 as its working version for this toolchain.
+          # UNVERIFIED against libXray's current go.mod requirement — if
+          # this step's Go version resolution fails, that IS useful signal,
+          # check libXray's go.mod for the actual minimum first.
+          go-version: '1.21.6'
+
+      - name: Set up Android NDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install NDK side-by-side package
+        run: |
+          set -x
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager --install "ndk;26.1.10909125"
+          echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/26.1.10909125" >> "$GITHUB_ENV"
+
+      - name: Clone libXray
+        run: git clone --depth 1 https://github.com/XTLS/libXray.git
+
+      - name: Install gomobile
+        working-directory: libXray
+        run: |
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+
+      - name: Attempt Android AAR build (feasibility only)
+        id: build_attempt
+        continue-on-error: true
+        working-directory: libXray
+        run: |
+          set -o pipefail
+          python3 build/main.py android 2>&1 | tee ../libxray-build.log
+
+      - name: Report result to step summary
+        run: |
+          {
+            echo "### libXray Android PoC — roadmap langkah 2"
+            if [ "${{ steps.build_attempt.outcome }}" = "success" ]; then
+              echo "✅ BUILD SUKSES — AAR ada, cek artifact 'libxray-poc-log'."
+              find libXray -name "*.aar" -exec echo "  - {}" \;
+            else
+              echo "❌ Build gagal (diharapkan mungkin di percobaan pertama)."
+              echo "Lihat artifact 'libxray-poc-log' → libxray-build.log,"
+              echo "laporkan isinya ke sesi Claude berikutnya untuk iterasi"
+              echo "(JANGAN diklaim 'sudah fix' tanpa log ini hijau)."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload PoC log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: libxray-poc-log
+          path: |
+            libxray-build.log
+            libXray/**/*.aar
+          if-no-files-found: warn
+          retention-days: 14

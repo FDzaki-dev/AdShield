@@ -1,5 +1,67 @@
 # Changelog
 
+## v3.29.0 — Roadmap langkah 1+2: keputusan basis native + CI feasibility PoC (2026-08-07)
+
+> v3.28.0 build hijau di device (CI dikonfirmasi). Lanjut roadmap fix
+> native reserved-bytes (bukan langsung nulis kode Go/JNI blind — lihat
+> alasan di v3.28.0).
+
+**Langkah 1 — riset lisensi/basis, KEPUTUSAN: Xray-core via `XTLS/libXray`**
+(bukan bepass-sdk, bukan fork wireguard-go sendiri). Dicek 3 opsi:
+- `bepass-sdk`/Oblivion: CC BY-NC-SA (NonCommercial) — risiko: CC license
+  didesain utk karya kreatif bukan kode, ShareAlike bisa "menular" ke
+  keputusan lisensi AdShield ke depan, & proyeknya niche/kontributor
+  sedikit. **Tidak dipilih.**
+- Fork wireguard-go sendiri: kontrol penuh, tapi AdShield jadi harus
+  maintain implementasi protokol WireGuard selamanya sendirian — beban
+  jangka panjang tertinggi utk tim 1 orang. **Tidak dipilih.**
+- **Xray-core (dipilih)**: MIT (dikonfirmasi via listing F-Droid resmi
+  utk `SaeedDev94/Xray`, client Android Xray nyata yg sudah shipping).
+  Wireguard outbound-nya native dukung `"reserved": [...]`. Wrapper
+  mobile resminya, `XTLS/libXray` (juga MIT, aktif dipelihara XTLS org
+  sendiri, bukan pihak ke-3), sudah py-script build siap pakai utk
+  Android (`build/main.py android`), pin ke tag rilis Xray-core (`v26.7.
+  28` per dokumentasinya — reproducible, bukan `latest` yg bisa berubah
+  diam-diam), dan punya `SetDNS`/socket-protect API yang RELEVAN LANGSUNG
+  ke masalah kita sendiri (app jalan di dalam VPN service sendiri, sama
+  persis kelas masalah yg pernah bikin krisis DNS v3.9-v3.11 dulu).
+  Bonus: kalau kelak Shadowsocks/MASQUE beneran mau diimplementasi
+  (bukan cuma "benefit"-nya kayak v3.27.0), Xray-core sudah dukung
+  keduanya native di bawah 1 dependency yang sama.
+
+**Langkah 2 — CI feasibility PoC (job baru `libxray-poc` di
+`.github/workflows/build.yml`):**
+- Job **terpisah total** dari job `build` (tidak ada `needs:`,
+  `continue-on-error: true` di level job) — TIDAK BISA menunda atau
+  memblokir build APK utama maupun publish GitHub Release. Kalau job ini
+  merah, itu bukan berarti AdShield rusak.
+- Isinya: setup Go 1.21.6 (versi yg didokumentasikan `SaeedDev94/Xray`,
+  referensi shipping app terdekat yg ketemu — **belum diverifikasi**
+  cocok dgn `go.mod` libXray versi terkini) + Android NDK 26.1.10909125
+  + clone `XTLS/libXray` + `gomobile` + jalankan
+  `python3 build/main.py android` apa adanya, log lengkap di-upload
+  sebagai artifact `libxray-poc-log` (build log + .aar kalau sukses).
+- **Ini PoC, bukan integrasi.** Belum ada 1 baris pun kode
+  `WarpTunnelManager`/`WarpAccount`/`WarpRegistrationClient` yang
+  disentuh — jalur WARP yang sekarang jalan (v3.28.0, "bukan WARP resmi"
+  tapi tunnel-nya sehat) **tidak berubah sama sekali**, 0 risiko regresi.
+
+**Yang HARUS dicek sebelum lanjut ke langkah 3 (integrasi):**
+1. Buka run Actions v3.29.0 → cek job `libxray-poc` (terpisah dari
+   `build`) → hijau atau merah?
+2. Kalau merah: download artifact `libxray-poc-log`, salin isi
+   `libxray-build.log` (terutama error paling akhir) ke sesi
+   berikutnya — JANGAN skip log-nya, itu satu-satunya cara tahu Go
+   version/NDK version yang benar butuh diganti apa.
+3. Kalau hijau: cek artifact ada file `.aar`-nya — itu baru "toolchain
+   kepasang", belum berarti WARP+reserved-bytes bakal jalan; integrasi
+   ke `WarpTunnelManager` (roadmap langkah 3-4) baru mulai setelah ini.
+
+**Verifikasi statis:** YAML divalidasi (`yaml.safe_load` — parse sukses,
+2 job terdaftar: `build`, `libxray-poc`). **Isi step-nya SENDIRI (Go/NDK
+versi, urutan install) BELUM tervalidasi — itu justru tujuan PoC ini,
+bukan sesuatu yang sudah saya klaim benar.**
+
 ## v3.28.0 — Honest WARP labeling + roadmap jangka panjang (2026-08-07)
 
 > Tindak lanjut temuan device pertama (v3.27.0): tunnel WARP connect &
