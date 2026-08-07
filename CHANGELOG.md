@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.32.3 — Round 2 kandidat envelope: root cause round 1 ketemu, `apiVersion` harus 2 bukan 1 (2026-08-07)
+
+> User upload log run v3.32.2 (CI HIJAU total: `build` 4m32s, `libxray-poc`
+> 5m5s, `libxray-invoke-probe` 5m48s — screenshot dikonfirmasi 3/3
+> checkmark hijau) + artifact `libxray-invoke-probe-log.zip`.
+> **Probe akhirnya benar-benar jalan penuh** (2 hotfix CI shell v3.32.1/
+> v3.32.2 terbukti berhasil): `LibXray.touch() OK`, kesembilan kandidat
+> round 1 tereksekusi, hasil `PROBE SELESAI — 0 kandidat sukses dari 9
+> bentuk`. **TAPI bukan buntu** — kesembilan `CANDIDATE-MISS` balas error
+> yang PERSIS SAMA: `"unsupported apiVersion"`, termasuk kandidat #8
+> (`apiVersion+name+count`) yang eksplisit kirim `"apiVersion":1`. Itu
+> sinyal jelas: bukan field `name`/`action`/nesting yang salah, NILAI
+> `apiVersion`-nya yang salah.
+> **Riset lanjutan (web search dokumentasi resmi XTLS/libXray)
+> mengonfirmasi:** README/dokumentasi resmi menyatakan `Invoke` sekarang
+> cuma menerima `apiVersion: 2` — bukan 1. AAR yang sudah di-commit di
+> `app/libs/libXray.aar` (dibangun v3.31.0 dari `main` branch libXray
+> saat itu) rupanya sudah di versi protokol yang butuh 2. Dokumentasi
+> yang sama juga menyebut daftar nama aksi yang didukung — termasuk
+> `getFreePorts`, `runXray`, `stopXray`, `xrayVersion`, `getXrayState`,
+> dll — konsisten dengan aksi yang sudah dipakai probe ini
+> (`getFreePorts`), jadi nama aksinya kemungkinan besar sudah benar dari
+> round 1, cuma `apiVersion`-nya yang salah.
+> **Fix (1 file test, `LibXrayInvokeProbeTest.kt`):** 10 kandidat ROUND 2
+> — 9 variasi bentuk yang sama dari round 1 (name/action/method/nesting)
+> tapi semua sekarang pakai `"apiVersion":2`, + 1 kandidat baru
+> `APIVersion` PascalCase (jaga-jaga field Go tanpa tag json eksplisit,
+> walau dokumentasi menulis lowerCamel). **BELUM ADA jaminan salah satu
+> dari 10 kandidat ini yang benar** — apiVersion sekarang sudah pasti
+> benar (2, bukan tebakan), tapi bentuk `name`/`action`/nesting-nya masih
+> hipotesis round 1 yang belum terbukti terpisah dari masalah apiVersion.
+> Kalau round 2 ini JUGA 0 sukses (dengan error BEDA dari "unsupported
+> apiVersion", karena itu sudah pasti teratasi), itu baru benar-benar
+> waktunya baca source Go `github.com/XTLS/libXray` (fungsi controller/
+> invoke) langsung, bukan coba kandidat ke-11 dari tebakan lagi.
+> **BELUM DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+> berikutnya: baca `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:`. Kalau
+> ketemu, itu bentuk envelope final — baru dari situ integrasi
+> `WarpTunnelManager` (roadmap langkah 3) mulai ditulis.
+
 ## v3.32.2 — HOTFIX #2: backslash line-continuation di script emulator-runner pecah jadi task gradle literal `\` (2026-08-07)
 
 > User upload log run v3.32.1 (`logs_84738010523.zip`). **Job `build`

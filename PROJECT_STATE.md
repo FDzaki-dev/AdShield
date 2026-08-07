@@ -3,7 +3,29 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.32.2 (2026-08-07) — HOTFIX #2: backslash line-continuation di
+- **v3.32.3 (2026-08-07) — Round 2 kandidat envelope: root cause round
+  1 KETEMU, `apiVersion` harus 2 bukan 1.** User upload log run v3.32.2
+  + screenshot: **CI 3/3 job HIJAU total** (`build`/`libxray-poc`/
+  `libxray-invoke-probe`), APK `AdShield_v3.32.2.apk` (215953265 bytes)
+  ter-signed+ter-rilis normal. **Probe akhirnya jalan penuh** (2 hotfix
+  shell v3.32.1/v3.32.2 terbukti berhasil) — hasil round 1: 0/9 sukses,
+  TAPI kesembilannya balas error PERSIS SAMA: `"unsupported apiVersion"`,
+  termasuk kandidat yang eksplisit kirim `apiVersion:1`. **Riset lanjutan
+  (dokumentasi resmi XTLS/libXray) konfirmasi: `Invoke` cuma terima
+  `apiVersion: 2`**, bukan 1 — AAR yang di-commit sudah di versi
+  protokol itu. Dokumentasi yang sama juga sebut daftar aksi resmi
+  (`getFreePorts`, `runXray`, `stopXray`, `xrayVersion`, `getXrayState`,
+  dll) — konsisten dengan aksi yang sudah dipakai probe
+  (`getFreePorts`), jadi kemungkinan besar nama aksi round 1 sudah benar,
+  cuma apiVersion-nya yang salah. Fix: `LibXrayInvokeProbeTest.kt` —
+  10 kandidat ROUND 2, semua pakai `apiVersion:2` (9 variasi
+  name/action/nesting sama dari round 1 + 1 baru `APIVersion`
+  PascalCase). **BELUM ADA jaminan salah satu benar** — apiVersion sudah
+  pasti benar sekarang, tapi bentuk name/nesting masih hipotesis belum
+  terbukti terpisah. Detail lengkap CHANGELOG.md v3.32.3. **BELUM
+  DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: baca `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:`.
+- v3.32.2 (2026-08-07) — HOTFIX #2: backslash line-continuation di
   `script:` emulator-runner pecah jadi task gradle literal `\`.** User
   upload log run v3.32.1. **Kabar baik: hotfix v3.32.1 BERHASIL** — step
   sekarang sampai ke Gradle beneran (`Starting a Gradle Daemon`
@@ -2172,7 +2194,26 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.32.2 — hotfix #2, belum ada run baru):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.32.3 — round 2 kandidat, belum ada run baru):**
+1. Cek job `libxray-invoke-probe` run v3.32.3 — download
+   `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
+2. Cari `CANDIDATE-WIN:` — kalau ketemu, itu bentuk envelope FINAL.
+   Lanjut roadmap langkah 3: integrasi ke `WarpTunnelManager` (di
+   belakang flag, fallback WARP lama tetap ada) pakai bentuk itu +
+   `reserved` bytes dari `client_id` registrasi Cloudflare (field ini
+   BELUM disimpan di `WarpAccount`, perlu ditambah dulu).
+3. Kalau MASIH 0 kandidat sukses TAPI error-nya SUDAH BEDA dari
+   "unsupported apiVersion" (berarti apiVersion:2 sudah diterima, masalah
+   sekarang di field lain): itu progress nyata, laporkan pesan error
+   baru yang persis — jangan tebak kandidat ke-11 lagi, cocokkan dengan
+   pesan error spesifiknya.
+4. Kalau error MASIH "unsupported apiVersion" juga di round 2 (berarti
+   ada masalah lain di cara `apiVersion` dikirim/dibaca, bukan cuma nilai
+   1 vs 2): baca source Go `github.com/XTLS/libXray` (fungsi controller/
+   invoke, cari struct request & logic validasi apiVersion) langsung,
+   jangan tebak kandidat baru tanpa itu.
+
+**SEBELUMNYA (2026-08-07, v3.32.2 — hotfix #2, TERBUKTI berhasil, lihat v3.32.3 di atas untuk hasil probe-nya):**
 1. Cek job `libxray-invoke-probe` run v3.32.2 — apakah Gradle sekarang
    benar-benar mengeksekusi `connectedDebugAndroidTest` (bukan lagi
    `Task '\' not found`)?

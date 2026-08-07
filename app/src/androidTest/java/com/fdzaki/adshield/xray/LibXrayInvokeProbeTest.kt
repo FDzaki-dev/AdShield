@@ -7,32 +7,35 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * v3.32.0 — libXray Android PoC roadmap langkah 2.5 (di antara "AAR
- * compile sukses" v3.31.0 dan "integrasi ke WarpTunnelManager" langkah 3).
+ * v3.32.3 — ROUND 2 kandidat envelope, setelah v3.32.0 run PERTAMA yang
+ * benar-benar tereksekusi (2 hotfix CI shell sebelumnya, v3.32.1/v3.32.2,
+ * murni infrastruktur — lihat CHANGELOG.md) memberi hasil: 0/9 kandidat
+ * sukses, TAPI kesembilan-sembilannya balas error yang SAMA PERSIS:
+ * `"unsupported apiVersion"` — termasuk kandidat #8 yang eksplisit kirim
+ * `"apiVersion":1`. Itu clue nyata, bukan buntu: bukan field `name`/
+ * `action`/nesting yang salah, tapi NILAI `apiVersion`-nya. Riset lanjutan
+ * (web search, dokumentasi resmi XTLS/libXray) mengonfirmasi:
+ * **`Invoke` sekarang cuma terima `apiVersion: 2`** (bukan 1) — versi AAR
+ * yang di-commit `app/libs/libXray.aar` (dibangun v3.31.0 dari `main`
+ * branch libXray saat itu) sudah di versi yang butuh 2, bukan asumsi lama
+ * kita di v3.32.0 yang coba 1.
  *
- * Bukan test fitur — ini test EMPIRIS untuk satu pertanyaan spesifik:
- * `LibXray.invoke(String): String` adalah dispatcher tunggal (dikonfirmasi
- * lewat bytecode `classes.jar` — LibXray.class HANYA punya method
- * `invoke(String):String`, tidak ada `xrayVersion()`/`getFreePorts()`
- * terpisah), tapi bentuk JSON envelope yang dikirim ke situ (field mana
- * yang jadi "aksi apa yang mau dijalankan") TIDAK ada di README/dokumentasi
- * publik XTLS/libXray manapun yang berhasil ditemukan — lihat
- * PROJECT_STATE.md v3.32.0 untuk kronologi riset lengkap.
+ * Kandidat ROUND 2 di bawah SEMUA pakai `apiVersion: 2` (fix dari akar
+ * masalah round 1), tetap variasi bentuk `name`/`action`/nesting yang
+ * SAMA seperti round 1 (belum tentu bentuk itu juga benar, cuma
+ * apiVersion-nya yang sudah pasti diperbaiki) + 1 kandidat baru
+ * `APIVersion` PascalCase (jaga-jaga kalau field Go-nya sebenarnya tidak
+ * punya json tag eksplisit, walau dokumentasi resmi menulis "apiVersion"
+ * lowerCamel).
  *
- * Daripada menebak sekali lalu menulis WarpTunnelManager di atas tebakan
- * itu (pola yang sudah 2x bikin krisis di proyek ini — DNS v3.9-v3.11),
- * test ini coba BEBERAPA bentuk envelope kandidat terhadap 1 aksi
- * read-only tanpa efek samping (`getFreePorts`, count=1 — cuma scan port
- * bebas di localhost, tidak butuh VPN/DialerController/ProcessFinder sama
- * sekali) dan catat mentah-mentah request+response tiap kandidat ke
- * Logcat. Sesi Claude berikutnya baca artifact logcat CI job
- * `libxray-invoke-probe`, cari baris `CANDIDATE-WIN:`, dan BARU dari situ
- * WarpTunnelManager/engine baru ditulis — berdasar bukti, bukan tebakan.
+ * Bukan test fitur — ini test EMPIRIS. Sesi Claude berikutnya baca
+ * artifact logcat CI job `libxray-invoke-probe`, cari baris
+ * `CANDIDATE-WIN:`, dan BARU dari situ WarpTunnelManager/engine baru
+ * ditulis — berdasar bukti, bukan tebakan.
  *
  * Test ini SENGAJA tidak fail keras kalau semua kandidat gagal — itu tetap
- * hasil yang berguna (berarti field envelope-nya beda dari 9 kandidat di
- * bawah, bukan bug di test ini), yang penting logcat-nya lengkap dan bisa
- * dibaca sesi berikutnya tanpa perlu re-run apa pun.
+ * hasil yang berguna, yang penting logcat-nya lengkap dan bisa dibaca
+ * sesi berikutnya tanpa perlu re-run apa pun.
  */
 @RunWith(AndroidJUnit4::class)
 class LibXrayInvokeProbeTest {
@@ -41,23 +44,22 @@ class LibXrayInvokeProbeTest {
         private const val TAG = "LibXrayInvokeProbe"
     }
 
-    // Setiap kandidat = 1 hipotesis bentuk envelope yang masuk akal dari
-    // API permukaan yang KONFIRMED lewat bytecode (LibXrayInvokeRequest
-    // cuma punya field APIVersion; GetFreePortsRequest cuma punya field
-    // Count — getter/setter Java-nya getCount()/setCount(J), jadi nama
-    // field Go-nya "Count", json tag-nya BELUM diketahui pasti apakah
-    // "count" (lowerCamel, konvensi Go json standar) atau "Count"
-    // (PascalCase, kalau strukturnya tidak punya tag json eksplisit).
+    // ROUND 2 (v3.32.3) — semua kandidat sekarang pakai "apiVersion":2,
+    // fix dari root cause round 1 (README resmi: "Invoke currently
+    // accepts only apiVersion: 2"). Variasi name/action/nesting field
+    // dipertahankan sama seperti round 1 (belum ada bukti baru soal itu),
+    // + 1 kandidat baru APIVersion PascalCase (kandidat #10) jaga-jaga.
     private val candidates: List<Pair<String, String>> = listOf(
-        "name+count(lower)" to """{"name":"getFreePorts","count":1}""",
-        "action+count(lower)" to """{"action":"getFreePorts","count":1}""",
-        "method+count(lower)" to """{"method":"getFreePorts","count":1}""",
-        "name+Count(Pascal)" to """{"name":"getFreePorts","Count":1}""",
-        "name+nested-request" to """{"name":"getFreePorts","getFreePortsRequest":{"count":1}}""",
-        "name+nested-data" to """{"name":"getFreePorts","data":{"count":1}}""",
-        "flat-nested-only" to """{"getFreePortsRequest":{"count":1}}""",
-        "apiVersion+name+count" to """{"apiVersion":1,"name":"getFreePorts","count":1}""",
-        "dotted-name+count" to """{"name":"nodep.getFreePorts","count":1}"""
+        "v2+name+count(lower)" to """{"apiVersion":2,"name":"getFreePorts","count":1}""",
+        "v2+action+count(lower)" to """{"apiVersion":2,"action":"getFreePorts","count":1}""",
+        "v2+method+count(lower)" to """{"apiVersion":2,"method":"getFreePorts","count":1}""",
+        "v2+name+Count(Pascal)" to """{"apiVersion":2,"name":"getFreePorts","Count":1}""",
+        "v2+name+nested-request" to """{"apiVersion":2,"name":"getFreePorts","getFreePortsRequest":{"count":1}}""",
+        "v2+name+nested-data" to """{"apiVersion":2,"name":"getFreePorts","data":{"count":1}}""",
+        "v2+flat-nested-only" to """{"apiVersion":2,"getFreePortsRequest":{"count":1}}""",
+        "v2+dotted-name+count" to """{"apiVersion":2,"name":"nodep.getFreePorts","count":1}""",
+        "v2+action-as-key+count" to """{"apiVersion":2,"getFreePorts":{"count":1}}""",
+        "APIVersion(Pascal)+name+count" to """{"APIVersion":2,"name":"getFreePorts","count":1}"""
     )
 
     @Test
