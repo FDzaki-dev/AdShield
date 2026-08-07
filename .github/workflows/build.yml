@@ -140,13 +140,26 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          # SaeedDev94/Xray (MIT, F-Droid-listed, real shipping Xray Android
-          # client — closest public precedent we found for this exact build)
-          # documents go1.21.6 as its working version for this toolchain.
-          # UNVERIFIED against libXray's current go.mod requirement — if
-          # this step's Go version resolution fails, that IS useful signal,
-          # check libXray's go.mod for the actual minimum first.
-          go-version: '1.21.6'
+          # v3.29.0 pinned 1.21.6 (SaeedDev94/Xray's documented version) — WRONG,
+          # see libxray-poc-log run #1: golang.org/x/mobile's current release
+          # needs go>=1.25.0, and gomobile's own `go mod tidy` bootstrap then
+          # escalated to demanding go1.26 via GOTOOLCHAIN auto-download, which
+          # failed ("toolchain not available") rather than actually needing
+          # 1.26 to exist — see GOTOOLCHAIN=local below, which stops that
+          # escalation instead of chasing it version-by-version blind.
+          go-version: '1.25'
+
+      - name: Pin Go toolchain (no further auto-download)
+        # v3.30.0: without this, `go mod tidy` (run internally by gomobile
+        # init/bind) reads GOTOOLCHAIN=auto (Go's default since 1.21) and, on
+        # hitting ANY transitive dependency whose go.mod declares a newer
+        # `toolchain` line, tries to silently download that exact version —
+        # which is what failed last run (go1.26 "not available" on this
+        # runner/network). Forcing `local` makes Go use ONLY the 1.25.x just
+        # installed above and fail with a clear "go.mod requires go >= X"
+        # message if that's still not enough — a real, actionable next data
+        # point instead of an opaque download error.
+        run: echo "GOTOOLCHAIN=local" >> "$GITHUB_ENV"
 
       - name: Set up Android NDK
         uses: android-actions/setup-android@v3

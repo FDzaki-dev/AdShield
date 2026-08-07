@@ -1,5 +1,41 @@
 # Changelog
 
+## v3.30.0 — libXray PoC iterasi 2: fix versi Go (2026-08-07)
+
+> Hasil run v3.29.0 (`libxray-poc-log`, dikirim user): job GAGAL di step
+> "Attempt Android AAR build". Log baris 74-78 — root cause JELAS, bukan
+> tebakan:
+> ```
+> go: upgraded golang.org/x/mobile ... => v0.0.0-20260803200217-...
+> go: golang.org/x/mobile@... requires go >= 1.25.0; switching to go1.25.12
+> gomobile: go mod tidy failed: exit status 1
+> go: downloading go1.26 (linux/amd64)
+> go: download go1.26 for linux/amd64: toolchain not available
+> ```
+> `go-version: '1.21.6'` yang saya pasang v3.29.0 (dari referensi
+> `SaeedDev94/Xray` yang ternyata sudah usang) jauh lebih lama dari yang
+> `golang.org/x/mobile` versi sekarang butuh. Go otomatis coba upgrade
+> sendiri (GOTOOLCHAIN=auto, default sejak Go 1.21) — berhasil naik ke
+> 1.25.12, tapi lanjut mau naik lagi ke 1.26 yang gagal di-download di
+> runner ini (bukan berarti 1.26 belum rilis — bisa juga isu proxy/allow-
+> list, tidak diverifikasi, karena fix di bawah bikin ini gak relevan lagi
+> kalau 1.25 sudah cukup).
+
+**Fix (2 baris, `.github/workflows/build.yml`, job `libxray-poc` saja —
+job `build` tetap tidak disentuh):**
+- `go-version: '1.21.6'` → `'1.25'` (langsung penuhi syarat minimum
+  `golang.org/x/mobile`, gak nunggu auto-upgrade dari versi kuno).
+- Tambah `GOTOOLCHAIN=local` — supaya kalau MASIH kurang, errornya jelas
+  ("go.mod requires go >= X"), bukan "toolchain not available" yang
+  ambigu (bisa network, bisa versi belum rilis, gak actionable).
+
+**Ini iterasi ke-2, bukan klaim fix final.** Kalau masih merah, kemungkinan
+besar errornya sekarang JAUH lebih jelas (persis versi Go yang beneran
+dibutuhkan, bukan chain-download yang gagal) — kirim log barunya lagi.
+
+**Verifikasi statis:** YAML re-validated (`yaml.safe_load`) — 2 job tetap
+terdaftar, tidak ada job baru/hilang. 0 file app disentuh.
+
 ## v3.29.0 — Roadmap langkah 1+2: keputusan basis native + CI feasibility PoC (2026-08-07)
 
 > v3.28.0 build hijau di device (CI dikonfirmasi). Lanjut roadmap fix

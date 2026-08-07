@@ -3,6 +3,16 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.30.0 (2026-08-07) — libXray PoC iterasi 2, fix versi Go.** Log
+  run v3.29.0 dibaca (bukan ditebak): `golang.org/x/mobile` butuh
+  go>=1.25, Go auto-upgrade sempat ke 1.25.12 lalu coba naik lagi ke
+  1.26 yang gagal didownload runner. Fix: `go-version: '1.21.6'` →
+  `'1.25'` + `GOTOOLCHAIN=local` (biar kalau masih kurang, error-nya
+  jelas bukan ambigu). **Iterasi ke-2, belum tentu final** — job `build`
+  (APK utama) tetap tidak disentuh sama sekali.
+  **WAJIB dicek**: job `libxray-poc` run v3.30.0 hijau/merah? Kalau
+  masih merah, kirim `libxray-build.log` lagi (errornya harusnya sudah
+  jauh lebih spesifik sekarang).
 - **v3.29.0 (2026-08-07) — Roadmap native fix langkah 1+2 (BUKAN
   integrasi).** Langkah 1: keputusan basis = **Xray-core via
   `XTLS/libXray`** (MIT, wrapper mobile resmi, native dukung `reserved`
@@ -2090,7 +2100,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.29.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.30.0 — belum dicek apa pun):**
+1. Cek job `libxray-poc` run v3.30.0 — hijau atau merah?
+2. Kalau masih merah: kirim `libxray-build.log` baru (dari artifact
+   `libxray-poc-log`) — errornya seharusnya sudah spesifik ("go.mod
+   requires go >= X"), tinggal naikkan `go-version` lagi ke versi yang
+   diminta persis.
+3. Kalau hijau + ada `.aar`: baru lanjut roadmap langkah 3 (integrasi
+   ke `WarpTunnelManager`, di belakang flag, fallback ke jalur lama
+   tetap ada) — TIDAK sebelum ini.
+
+**SEBELUMNYA (2026-08-07, v3.29.0):**
 1. **Cek job `libxray-poc` di Actions run v3.29.0 dulu, TERPISAH dari
    job `build`** — build APK utama harusnya tetap hijau seperti biasa
    (0 kode app disentuh), tapi job PoC yang baru ini kemungkinan BESAR
