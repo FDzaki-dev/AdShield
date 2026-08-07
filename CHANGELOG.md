@@ -1,5 +1,59 @@
 # Changelog
 
+## v3.25.0 — Krisis DNS/DoH: diagnosability + connection-reuse fix (2026-08-07)
+
+User minta kerjakan "Krisis DoH/DNS custom resolver (v3.9–v3.11) yang
+ditinggalkan tanpa resolusi pasti" sampai matang. Root cause asli TIDAK
+bisa dipastikan tanpa device (tetap dicatat di PROJECT_STATE), tapi 2 gap
+konkret yang menghalangi diagnosis dan performa DIPERBAIKI di sesi ini:
+
+**Gap #1 — nol visibilitas kegagalan (alasan asli krisis lama tidak
+pernah root-caused):** `DohClient.resolve()`/`UpstreamForwarder` menelan
+SEMUA exception via `catch (_: Exception)` kosong — tidak ada cara tahu
+apakah gagalnya di TLS handshake, `protect()`, timeout, HTTP error, atau
+endpoint unreachable. Fix: `vpn/DohHealthMonitor.kt` (file baru, in-memory
+`StateFlow`, tidak dipersist) mencatat endpoint sukses/gagal terakhir +
+reason (exception class + message) + hitungan fallback-ke-UDP-polos
+beruntun. Diwire ke `MainViewModel.dohHealth` → `DiagnosticsScreen`
+(section "Ad-Block DNS", tampil hanya kalau ada data — tidak mengganggu
+fresh install). Sekarang device-test berikutnya bisa langsung baca
+alasan gagal yang SPESIFIK, bukan cuma "internet gak jalan".
+
+**Gap #2 — connection reuse dimatikan paksa (perf, bukan cuma
+kosmetik):** `DohClient.queryOne()` memanggil `conn.disconnect()` di
+`finally` SETELAH SETIAP query — per dokumentasi `HttpURLConnection`,
+`disconnect()` mencegah koneksi dipakai ulang lewat keep-alive pool
+bawaan JVM. Efeknya: SETIAP lookup DNS (bisa puluhan/ratusan per sesi
+browsing) bayar TLS handshake penuh dari nol, bukan reuse koneksi yang
+sudah ada — overhead besar yang bisa terasa seperti "DoH lambat/gak
+reliable" padahal cuma soal reuse. Fix: hapus `disconnect()`, tetap aman
+karena stream sudah selalu dibaca+ditutup penuh lewat `.use {}` (syarat
+sebenarnya supaya koneksi eligible untuk reuse). 0 perubahan ke urutan
+fallback DoH→UDP-polos.
+
+**Soal WARP registration (API tak resmi Cloudflare) — diaudit ulang,
+sudah cukup matang, TIDAK diubah:** `WarpTunnelManager.ensureRegistered()`
+sudah punya retry+exponential-backoff (v3.16.5), `WarpAccountRepository`
+sudah register-once-lalu-persist (EncryptedSharedPreferences, jadi
+existing user TIDAK re-register tiap connect), `WarpRegistrationClient`
+sudah punya pesan error actionable (arahkan cek `API_VERSION`) dan
+`warpLastError` sudah live di Diagnostics. Satu-satunya risiko tersisa
+(Cloudflare mengubah format API tak resmi kapan pun) memang inheren ke
+sifat API tak resmi — TIDAK ada perbaikan kode yang bisa menghilangkan
+risiko itu sepenuhnya, cuma bisa dideteksi cepat (sudah, lewat pesan
+error yang ada) bukan dicegah.
+
+**Verifikasi statis:** brace/paren balance + duplicate-import check ke
+seluruh 4 file (1 baru: `DohHealthMonitor.kt`, 3 diubah: `DohClient.kt`,
+`MainViewModel.kt`, `DiagnosticsScreen.kt`) — 0 masalah.
+
+**BELUM DIKONFIRMASI CI maupun device.** Titik uji device paling penting:
+nyalakan DNS Ad-Block, buka Diagnostik — field "DoH sukses terakhir"
+harus terisi endpoint (bukan "-") kalau DoH jalan; kalau masih gagal,
+field "DoH gagal terakhir" sekarang HARUS berisi reason spesifik (bukan
+kosong) — reason itulah yang menentukan langkah investigasi berikutnya
+(lihat kdoc `DohClient.resolve()` poin (d) lama di PROJECT_STATE).
+
 ## v3.24.0 — Apple-Style batch 5/N: toggle-row fix diperluas ke IPv6 route switch (2026-08-07)
 
 CI v3.23.0 dikonfirmasi HIJAU (user). Sapuan terakhir pola toggle-row:

@@ -45,11 +45,23 @@ object DohClient {
         for (endpoint in com.fdzaki.adshield.util.Constants.DOH_ENDPOINTS) {
             try {
                 val result = queryOne(vpnService, endpoint, dnsMessage)
-                if (result != null) return result
-            } catch (_: Exception) {
+                if (result != null) {
+                    DohHealthMonitor.recordSuccess(endpoint)
+                    return result
+                }
+                // Reached only on non-exceptional non-200 responses (see queryOne) —
+                // still a failure, just one that didn't throw.
+                DohHealthMonitor.recordEndpointFailure(endpoint, "HTTP non-200 response")
+            } catch (e: Exception) {
+                // v3.25.0 (see PROJECT_STATE.md "Krisis DNS/DoH"): this used to be a
+                // bare swallow with zero diagnostic trail — the exact reason this
+                // crisis was never root-caused. Now recorded with the real exception
+                // type + message so DiagnosticsScreen can show it after the fact.
+                DohHealthMonitor.recordEndpointFailure(endpoint, "${e.javaClass.simpleName}: ${e.message}")
                 // try next endpoint
             }
         }
+        DohHealthMonitor.recordFullFallback()
         return null
     }
 
@@ -63,13 +75,22 @@ object DohClient {
         conn.readTimeout = com.fdzaki.adshield.util.Constants.DOH_TIMEOUT_MS
         conn.setRequestProperty("Content-Type", "application/dns-message")
         conn.setRequestProperty("Accept", "application/dns-message")
-        try {
-            conn.outputStream.use { it.write(dnsMessage) }
-            if (conn.responseCode != 200) return null
-            return conn.inputStream.use { it.readBytes() }
-        } finally {
-            conn.disconnect()
-        }
+        // v3.25.0 — reliability/perf fix (see PROJECT_STATE.md "Krisis DNS/DoH"):
+        // this used to call conn.disconnect() in a `finally` after EVERY single
+        // query. Per java.net.HttpURLConnection docs, disconnect() signals the
+        // underlying socket should NOT be kept alive for reuse — so on a DNS
+        // Ad-Block session doing dozens/hundreds of lookups, every single one paid
+        // a full fresh TLS handshake instead of reusing the JVM's built-in
+        // keep-alive connection pool (the same pool that already makes ordinary
+        // HTTPS browsing fast). Removing it is safe: both streams are still fully
+        // read and closed via `.use {}` below (the actual requirement for a
+        // connection to become eligible for reuse) — disconnect() was pure
+        // overhead, not a correctness requirement. No behavior change to the
+        // DoH-then-plain-UDP fallback logic in UpstreamForwarder, only latency
+        // improves after the first successful query per endpoint.
+        conn.outputStream.use { it.write(dnsMessage) }
+        if (conn.responseCode != 200) return null
+        return conn.inputStream.use { it.readBytes() }
     }
 
     /**

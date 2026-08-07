@@ -175,6 +175,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      *  for why this exists (previously DNS failures were silent). */
     val dnsLastError: StateFlow<String?> = AdBlockVpnService.lastError
 
+    /** DoH resolver diagnostic snapshot (v3.25.0 — see PROJECT_STATE.md "Krisis
+     *  DNS/DoH"). Read by DiagnosticsScreen so a failed DoH attempt on a real
+     *  device is diagnosable (exact exception/reason) instead of a silent
+     *  "internet doesn't work" like the original 2026-08 crisis. */
+    val dohHealth: StateFlow<com.fdzaki.adshield.vpn.DohHealthMonitor.Snapshot> =
+        com.fdzaki.adshield.vpn.DohHealthMonitor.state
+
     private val _installedApps = MutableStateFlow<List<InstalledApp>>(emptyList())
     val installedApps: StateFlow<List<InstalledApp>> = _installedApps
 

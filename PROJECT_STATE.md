@@ -3,6 +3,47 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.25.0 (2026-08-07) — Krisis DNS/DoH: diagnosability + connection-
+  reuse fix.** User eksplisit minta kerjakan krisis lama (v3.9–v3.11,
+  ditinggalkan tanpa resolusi) sampai matang. Root cause ASLI (kenapa
+  plain UDP:53 gagal total di jaringan user 2026-08-05) tetap TIDAK bisa
+  dipastikan tanpa device — itu fakta, bukan sesuatu yang bisa
+  "diselesaikan" lewat kode semata. Yang DIPERBAIKI: (1) `DohClient`/
+  `UpstreamForwarder` dulu menelan semua exception tanpa jejak — file
+  baru `vpn/DohHealthMonitor.kt` (in-memory StateFlow, tidak dipersist)
+  sekarang catat endpoint sukses/gagal terakhir + reason spesifik
+  (exception class+message), diwire ke `MainViewModel.dohHealth` →
+  `DiagnosticsScreen` section "Ad-Block DNS". (2) `DohClient.queryOne()`
+  dulu `conn.disconnect()` tiap query (mematikan keep-alive reuse JVM →
+  full TLS handshake tiap lookup DNS) — dihapus, aman karena stream
+  sudah `.use{}` (syarat reuse sebenarnya). WARP registration diaudit
+  ulang terpisah: SUDAH matang (retry+backoff v3.16.5, register-once-
+  persist, pesan error actionable, live di Diagnostics) — TIDAK diubah,
+  risiko tersisa (Cloudflare ubah API tak resmi) inheren, cuma bisa
+  dideteksi cepat bukan dicegah lewat kode. Detail lengkap CHANGELOG.md
+  v3.25.0. Verifikasi statis 4 file (1 baru, 3 diubah) — 0 masalah.
+  **BELUM DIKONFIRMASI CI maupun device** — titik uji device: nyalakan
+  DNS Ad-Block, buka Diagnostik, cek field "DoH sukses/gagal terakhir"
+  terisi (bukan "-") — reason spesifiknya itu yang jadi bukti nyata
+  untuk investigasi krisis ini pertama kalinya sejak v3.11.1.
+- **CONFIRMED (2026-08-07, screenshot Actions run list):** CI v3.24.0
+  HIJAU — run #67 "feat: apply toggleable-row pattern to..." commit
+  `cf028cf`, 4m13s, sukses, branch main. **Koreksi catatan sebelumnya:**
+  anomali "Full Changelog" dobel di release notes v3.23.0 BUKAN karena
+  duplicate workflow run — run list confirm cuma ADA 1 run untuk tag
+  v3.23.0 (#66, commit `d7b0fc9`, 4m22s, sukses). Jadi baris dobel itu
+  murni quirk rendering GitHub `generate_release_notes` (kosmetik,
+  bukan bug workflow) — TIDAK perlu dikejar lagi.
+- **Accessibility content-description audit (2026-08-07): CLEAN (0
+  fix).** Kandidat lama dari v3.22.0 ("TalkBack/accessibility label pass
+  menyeluruh (belum diaudit eksplisit)") dikerjakan: scan 9 titik
+  `contentDescription = null` di seluruh `ui/screens/` — semua legit
+  dekoratif (icon search di leadingIcon TextField berlabel, icon di
+  dalam Row yang sudah tergabung 1 node lewat `toggleable`/`clickable`
+  dgn Text di sampingnya, app-icon bitmap di Whitelist yang sudah
+  disertai nama app sebagai Text terpisah). Tidak ada icon standalone
+  tanpa label yang butuh `contentDescription` eksplisit. **0 file
+  diubah — tidak perlu ZIP baru untuk item ini.**
 - **v3.24.0 (2026-08-07) — Apple-Style batch 5/N: toggle-row fix
   diperluas ke IPv6 route switch (HomeScreen).** CI v3.23.0 confirmed
   hijau (user, "Hijau sudah dari lama"). Satu-satunya Switch di app yang

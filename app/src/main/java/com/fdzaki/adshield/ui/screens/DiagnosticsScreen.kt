@@ -51,6 +51,7 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     val activeMode by viewModel.activeMode.collectAsState()
     val vpnActive by viewModel.vpnActive.collectAsState()
     val dnsLastError by viewModel.dnsLastError.collectAsState()
+    val dohHealth by viewModel.dohHealth.collectAsState()
     val warpState by viewModel.warpState.collectAsState()
     val warpConnecting by viewModel.warpConnecting.collectAsState()
     val warpLastError by viewModel.warpLastError.collectAsState()
@@ -114,7 +115,7 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
     }
 
     val diagnosticText = remember(
-        activeMode, vpnActive, dnsLastError, warpState, warpConnecting,
+        activeMode, vpnActive, dnsLastError, dohHealth, warpState, warpConnecting,
         warpLastError, warpQuality, blockedCount, allowedCount, loggingEnabled,
         autoStartOnBoot, batteryExempt, resourceSnapshot
     ) {
@@ -135,6 +136,9 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             appendLine("Log domain aktif: ${if (loggingEnabled) "Ya" else "Tidak"}")
             appendLine("Diblokir: $blockedCount, Diizinkan: $allowedCount")
             appendLine("Error terakhir: ${dnsLastError ?: "-"}")
+            appendLine("DoH sukses terakhir: ${dohHealth.lastSuccessEndpoint ?: "-"}")
+            appendLine("DoH gagal terakhir: ${dohHealth.lastFailureEndpoint ?: "-"} (${dohHealth.lastFailureReason ?: "-"})")
+            appendLine("DoH fallback ke UDP polos: ${if (dohHealth.lastFellBackToPlainUdp) "Ya (${dohHealth.consecutiveFullFailures}x beruntun)" else "Tidak"}")
             appendLine()
             appendLine("--- VPN Tunnel (WARP) ---")
             appendLine("Status: $warpStateLabel")
@@ -240,6 +244,30 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 DiagnosticRow("Log domain aktif", if (loggingEnabled) "Ya" else "Tidak")
                 if (dnsLastError != null) {
                     DiagnosticRow("Error terakhir", dnsLastError ?: "-", valueColor = ShieldDanger)
+                }
+                // v3.25.0 — DoH resolver diagnostic (Krisis DNS/DoH, PROJECT_STATE.md):
+                // only rendered once there's something to show, so a fresh install
+                // with 0 DNS queries yet doesn't show a confusing empty state.
+                if (dohHealth.lastSuccessAt != null || dohHealth.lastFailureAt != null) {
+                    DiagnosticRow(
+                        "DoH sukses terakhir",
+                        dohHealth.lastSuccessEndpoint ?: "-",
+                        valueColor = if (dohHealth.lastSuccessEndpoint != null) ShieldGreen else ShieldTextMuted
+                    )
+                    if (dohHealth.lastFailureReason != null) {
+                        DiagnosticRow(
+                            "DoH gagal terakhir",
+                            "${dohHealth.lastFailureEndpoint} — ${dohHealth.lastFailureReason}",
+                            valueColor = ShieldDanger
+                        )
+                    }
+                    if (dohHealth.lastFellBackToPlainUdp) {
+                        DiagnosticRow(
+                            "Fallback ke UDP polos",
+                            "Ya (${dohHealth.consecutiveFullFailures}x beruntun)",
+                            valueColor = ShieldDanger
+                        )
+                    }
                 }
             }
 
