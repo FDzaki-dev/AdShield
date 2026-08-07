@@ -3,7 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.32.1 (2026-08-07) — HOTFIX: job `libxray-invoke-probe` gagal
+- **v3.32.2 (2026-08-07) — HOTFIX #2: backslash line-continuation di
+  `script:` emulator-runner pecah jadi task gradle literal `\`.** User
+  upload log run v3.32.1. **Kabar baik: hotfix v3.32.1 BERHASIL** — step
+  sekarang sampai ke Gradle beneran (`Starting a Gradle Daemon`
+  muncul), beda total dari v3.32.0 yang mati sebelum Gradle sempat
+  jalan. Job `build` HIJAU (2x `BUILD SUCCESSFUL`), `libxray-poc` TETAP
+  HIJAU — v3.32.1 tidak merusak keduanya. **TAPI** Gradle langsung
+  `FAILURE: Task '\' not found` — command gradle 3-baris pakai
+  backslash line-continuation (pola normal di step `run:` biasa/bash)
+  TERNYATA tidak dipertahankan sebagai penyambung baris oleh mekanisme
+  eksekusi `script:` action `reactivecircus/android-emulator-runner@v2`
+  — backslash literal ikut lolos jadi argumen terpisah, dibaca Gradle
+  sebagai nama task. Fix: gabung command gradle jadi SATU baris penuh
+  (0 backslash sama sekali) — sisa struktur (redirect log, `$?`,
+  `exit $GRADLE_EXIT`) dari v3.32.1 dipertahankan, itu sudah benar. 1
+  file (`.github/workflows/build.yml`, edit parsial job
+  `libxray-invoke-probe` saja) + version bump. Detail lengkap
+  CHANGELOG.md v3.32.2. **BELUM DIKONFIRMASI run baru** — WAJIB dicek
+  PALING PERTAMA di sesi berikutnya: apakah Gradle sekarang benar-benar
+  mengeksekusi `connectedDebugAndroidTest` (bukan lagi "Task not
+  found"), BARU baca `invoke-probe-logcat.log` untuk `CANDIDATE-WIN`
+  (pertanyaan asli v3.32.0, masih belum terjawab sampai sekarang — 2
+  hotfix berturut-turut ini murni infrastruktur CI, belum menyentuh
+  pertanyaan envelope sama sekali).
+- v3.32.1 (2026-08-07) — HOTFIX: job `libxray-invoke-probe` gagal
   SEBELUM gradle sempat jalan sama sekali.** User upload log run
   v3.32.0 (`logs_84727506606.zip`). Root cause: `script:` di action
   `reactivecircus/android-emulator-runner@v2` dieksekusi via `/bin/sh`
@@ -2148,7 +2172,19 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.32.1 — hotfix shell, belum ada run baru):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.32.2 — hotfix #2, belum ada run baru):**
+1. Cek job `libxray-invoke-probe` run v3.32.2 — apakah Gradle sekarang
+   benar-benar mengeksekusi `connectedDebugAndroidTest` (bukan lagi
+   `Task '\' not found`)?
+2. Kalau ya: download `libxray-invoke-probe-log`, buka
+   `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:` — ini pertanyaan
+   ASLI v3.32.0 yang baru sekarang bisa benar-benar dijawab.
+3. Kalau masih gagal dengan error BEDA (bukan lagi soal shell/line-
+   continuation): baca `invoke-probe-gradle.log` dari artifact — sudah
+   pasti ter-upload (`if: always()`) berisi output gradle lengkap
+   (bukan cuma exit code), kirim isinya untuk diagnosis lanjut.
+
+**SEBELUMNYA (2026-08-07, v3.32.1 — hotfix shell, TERBUKTI jalan tapi kena bug baru, lihat v3.32.2 di atas):**
 1. Cek job `libxray-invoke-probe` run v3.32.1 — apakah step "Run
    instrumented probe test on emulator" sekarang sampai ke baris
    `gradle connectedDebugAndroidTest` (bukan mati di `sh`/pipefail lagi)?

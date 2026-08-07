@@ -1,5 +1,48 @@
 # Changelog
 
+## v3.32.2 — HOTFIX #2: backslash line-continuation di script emulator-runner pecah jadi task gradle literal `\` (2026-08-07)
+
+> User upload log run v3.32.1 (`logs_84738010523.zip`). **Job `build`
+> HIJAU (2x `BUILD SUCCESSFUL`, APK ter-signed+ter-rilis normal), job
+> `libxray-poc` TETAP HIJAU** (`build_attempt.outcome = success`) — fix
+> v3.32.1 tidak merusak keduanya, sesuai perkiraan. **Job
+> `libxray-invoke-probe`: emulator boot sukses (25.8 detik), hotfix
+> v3.32.1 BERHASIL — step sekarang benar-benar sampai ke Gradle** (bukti:
+> log `Starting a Gradle Daemon`, `Welcome to Gradle 9.6.1!` muncul,
+> beda total dari v3.32.0 yang mati sebelum baris itu). TAPI Gradle
+> langsung `FAILURE: Selection failed — Task '\' not found in root
+> project 'AdShield'`. **Root cause baru:** command gradle di script
+> ditulis 3-baris pakai backslash line-continuation (`gradle ... \` lalu
+> lanjut baris berikut) — pola yang normal di step `run:` biasa (bash),
+> TAPI action `reactivecircus/android-emulator-runner@v2` mengeksekusi
+> `script:`-nya lewat mekanisme yang TIDAK mempertahankan backslash-
+> newline sebagai penyambung baris (walau interpreter akhirnya `sh`,
+> bukan soal dash vs bash lagi — beda kelas bug dari v3.32.1) — backslash
+> literal ikut lolos sebagai token/argumen terpisah ke Gradle, dibaca
+> sebagai nama task literal `\`.
+> **Fix (1 file, `.github/workflows/build.yml`, edit parsial job
+> `libxray-invoke-probe` saja):** command gradle digabung jadi SATU
+> baris penuh (flag `-Pandroid...` dan `--no-daemon` di baris yang sama
+> dengan `gradle connectedDebugAndroidTest`, tanpa backslash sama
+> sekali) — menghilangkan ketergantungan pada line-continuation apa pun
+> di dalam `script:` action ini, portable terlepas dari mekanisme
+> eksekusi persisnya. Sisa struktur (redirect `> log 2>&1`, simpan
+> `$?`, `cat log`, logcat, `exit $GRADLE_EXIT`) TIDAK berubah dari
+> v3.32.1 — itu bagian yang sudah terbukti benar. Job `build`/
+> `libxray-poc` (step `run:` biasa, line-continuation di situ TERBUKTI
+> jalan normal dari log ini — 2x `BUILD SUCCESSFUL`) TIDAK disentuh.
+> **Pelajaran:** pola line-continuation backslash yang valid di step
+> `run:` (bash) TIDAK otomatis valid di `script:` action pihak ketiga
+> manapun — dua step berbeda, dua mekanisme eksekusi berbeda, walau
+> sama-sama "berakhir di /bin/sh" secara permukaan. Verifikasi ke depan
+> untuk action pihak ketiga dengan input `script:`: cek dulu apakah ada
+> testcase/dokumentasi resmi yang menunjukkan multi-baris dengan
+> continuation, jangan asumsikan sama dengan `run:` step biasa.
+> **BELUM DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+> berikutnya: apakah `gradle connectedDebugAndroidTest` sekarang benar-
+> benar mengeksekusi test (bukan lagi "Task not found"), BARU baca
+> `invoke-probe-logcat.log` untuk `CANDIDATE-WIN`.
+
 ## v3.32.1 — HOTFIX: job `libxray-invoke-probe` gagal SEBELUM gradle sempat jalan (2026-08-07)
 
 > User upload log run v3.32.0 (`logs_84727506606.zip`, 3 job: `build`,
