@@ -3,6 +3,29 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.26.0 (2026-08-07) — ROOT CAUSE FIX Krisis DNS/DoH, ditemukan
+  lewat log Diagnostik device asli.** User kirim screenshot Diagnostik
+  device (`DoH gagal terakhir: dns.google — UnknownHostException: Unable
+  to resolve host "dns.google"`, fallback UDP 24x beruntun) — bukti
+  pertama sejak v3.11.1. **Root cause:** `AdBlockVpnService` TIDAK PERNAH
+  `addDisallowedApplication(packageName)` — app tidak exclude diri
+  sendiri dari VPN buatannya sendiri. `DohClient` resolve endpoint lewat
+  HOSTNAME, `protect()` cuma proteksi socket data (bukan resolusi
+  hostname sistem yang terjadi lebih dulu) → resolusi hostname DoH milik
+  app sendiri ikut nyasar ke `addDnsServer(10.111.222.1)` = tun app
+  sendiri → self-referential loop. Fix: 1 baris
+  `builder.addDisallowedApplication(packageName)` + try-catch di
+  `AdBlockVpnService.kt`. **Kemungkinan besar JUGA menjelaskan sebagian
+  krisis lama v3.9.0–v3.11.1** meski plain-UDP forward pakai IP literal
+  (tidak kena bug spesifik ini) — dicatat sebagai teori, bukan
+  dikonfirmasi 100%. Detail CHANGELOG.md v3.26.0. Verifikasi statis 1
+  file — 0 masalah. **BELUM DIKONFIRMASI CI/device — INI FIX PALING
+  PENTING dari seluruh riwayat krisis DoH, prioritas #1 mutlak buat
+  divalidasi di sesi berikutnya sebelum apa pun lain.** Titik uji: nyala
+  DNS Ad-Block di jaringan yang SAMA persis dengan log di atas → cek
+  Diagnostik → "DoH sukses terakhir" harus terisi, fallback UDP harus
+  turun drastis dari 24x. Kalau gagal dengan reason SAMA PERSIS, teori
+  di atas salah — reason baru itu yang jadi petunjuk berikutnya.
 - **v3.25.0 (2026-08-07) — Krisis DNS/DoH: diagnosability + connection-
   reuse fix.** User eksplisit minta kerjakan krisis lama (v3.9–v3.11,
   ditinggalkan tanpa resolusi) sampai matang. Root cause ASLI (kenapa

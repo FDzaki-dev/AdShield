@@ -1,5 +1,56 @@
 # Changelog
 
+## v3.26.0 — ROOT CAUSE FIX Krisis DNS/DoH: app tidak exclude diri sendiri dari VPN-nya sendiri (2026-08-07)
+
+**Ditemukan lewat log Diagnostik device asli** (fitur v3.25.0 baru
+kepakai persis untuk ini): `DoH gagal terakhir: https://dns.google/dns-query
+(UnknownHostException: Unable to resolve host "dns.google": No address
+associated with hostname)`, `DoH fallback ke UDP polos: Ya (24x
+beruntun)`.
+
+**Root cause:** `AdBlockVpnService.startVpn()` membuat VPN builder dengan
+`addDnsServer(10.111.222.1)` + `addRoute(10.111.222.1, 32)` TANPA PERNAH
+memanggil `addDisallowedApplication(packageName)` — app ini tidak pernah
+mengecualikan dirinya sendiri dari VPN buatannya sendiri. `DohClient`
+resolve endpoint DoH lewat HOSTNAME (`cloudflare-dns.com`/`dns.google`),
+dan `VpnService.protect()` di dalamnya cuma melindungi SOCKET data —
+BUKAN langkah resolusi hostname sistem yang terjadi sebelum socket itu
+ada. Akibatnya resolusi hostname milik proses app sendiri ikut diarahkan
+ke DNS palsu (10.111.222.1) = app itu sendiri → nyasar balik ke packet-
+loop ad-block-nya sendiri (self-referential) → gagal resolve → persis
+gejala di Diagnostik.
+
+**Ini kemungkinan besar JUGA menjelaskan sebagian krisis lama
+v3.9.0–v3.11.1** (plain-UDP:53 "gagal total" 2026-08-05) — meski plain-UDP
+forward pakai IP literal (bukan hostname, jadi TIDAK kena bug spesifik
+ini), pola dasarnya sama: app tidak pernah exclude diri sendiri dari VPN
+buatannya, jadi kalau ADA jalur mana pun di app yang butuh resolusi
+hostname sistem, jalur itu otomatis kena loop ini.
+
+**Fix — `AdBlockVpnService.kt`:**
+- `builder.addDisallowedApplication(packageName)` ditambah setelah
+  builder dikonfigurasi, sebelum `establish()` — pola standar SETIAP app
+  VPN Android untuk menghindari self-loop ini. Dibungkus try-catch
+  `PackageManager.NameNotFoundException` (secara teknis tidak realistis
+  gagal untuk package sendiri, tapi kalau toh gagal, VPN tetap
+  dilanjutkan dibuat tanpa exclude daripada gagal total — `protect()`
+  yang sudah ada tetap jadi lapis kedua untuk socket data walau tidak
+  menutup celah resolusi hostname).
+- **0 file lain diubah** — WARP (`WarpForegroundService`, VPN terpisah
+  lewat backend WireGuard) tidak terdampak/tidak disentuh, murni Builder
+  milik `AdBlockVpnService`.
+
+**Verifikasi statis:** brace/paren balance `{=32 }=32 (=140 )=140` +
+duplicate-import check — 0 masalah.
+
+**BELUM DIKONFIRMASI CI maupun device — ini fix PALING PENTING untuk
+divalidasi dari semua yang pernah dikerjakan soal krisis DoH.** Titik uji
+device: nyalakan DNS Ad-Block di jaringan yang SAMA yang menghasilkan log
+di atas → buka Diagnostik → "DoH sukses terakhir" HARUS terisi endpoint
+(bukan "-") dan "DoH fallback ke UDP polos" harus balik ke "Tidak" atau
+jauh berkurang dari 24x. Kalau MASIH gagal dengan reason yang SAMA
+persis, root cause di atas salah/tidak cukup — lapor reason barunya.
+
 ## v3.25.0 — Krisis DNS/DoH: diagnosability + connection-reuse fix (2026-08-07)
 
 User minta kerjakan "Krisis DoH/DNS custom resolver (v3.9–v3.11) yang

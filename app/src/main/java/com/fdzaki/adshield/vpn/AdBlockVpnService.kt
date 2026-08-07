@@ -1,6 +1,7 @@
 package com.fdzaki.adshield.vpn
 
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.VpnService
 import android.os.Build
 import android.os.ParcelFileDescriptor
@@ -136,6 +137,37 @@ class AdBlockVpnService : VpnService() {
             .addRoute(Constants.VPN_ROUTE, 32) // ONLY DNS traffic is routed into the tun
             .setMtu(Constants.VPN_MTU)
             .setBlocking(false)
+
+        // v3.26.0 — ROOT CAUSE FIX untuk "Krisis DNS/DoH" (lihat PROJECT_STATE.md,
+        // dibuktikan lewat log Diagnostik device asli 2026-08-07): app ini TIDAK
+        // PERNAH mengecualikan dirinya sendiri dari VPN yang dibuatnya sendiri.
+        // addDnsServer(VPN_ADDRESS) + addRoute(VPN_ADDRESS, 32) di atas membuat
+        // SEMUA resolusi hostname sistem (termasuk milik proses app ini sendiri)
+        // ikut diarahkan ke DNS server palsu (10.111.222.1) itu. DohClient
+        // (protocol/DohClient.kt) resolve endpoint-nya lewat HOSTNAME
+        // ("cloudflare-dns.com"/"dns.google") — `VpnService.protect()` di dalamnya
+        // cuma melindungi SOCKET data, BUKAN langkah resolusi hostname sistem yang
+        // terjadi SEBELUM socket itu ada. Akibatnya: proses resolve hostname DoH
+        // milik app sendiri ikut masuk tun, nyasar balik ke packet-loop ad-block
+        // app sendiri (self-referential), dan gagal dengan persis gejala yang
+        // dilaporkan Diagnostik: "UnknownHostException: Unable to resolve host
+        // dns.google: No address associated with hostname", 24x fallback beruntun.
+        // Fix: kecualikan package sendiri dari VPN ini via
+        // addDisallowedApplication — pola standar SETIAP app VPN Android untuk
+        // menghindari persis masalah ini (traffic/DNS milik app sendiri lewat
+        // jalur network asli, bukan tun buatannya sendiri). WARP
+        // (WarpForegroundService, VPN terpisah lewat backend WireGuard) TIDAK
+        // terdampak/tidak diubah — ini murni Builder milik AdBlockVpnService.
+        try {
+            builder.addDisallowedApplication(packageName)
+        } catch (e: PackageManager.NameNotFoundException) {
+            // Tidak realistis terjadi (package sendiri selalu ada) — kalau toh
+            // gagal, lanjutkan tanpa exclude daripada gagal total membuat VPN;
+            // DoH/UDP forwarder masih punya protect() sebagai lapis proteksi
+            // kedua untuk socket data (walau tidak menutup celah resolusi
+            // hostname yang jadi root cause di atas).
+            _lastError.value = "Peringatan: gagal mengecualikan app sendiri dari VPN (${e.message})"
+        }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             builder.setMetered(false)
