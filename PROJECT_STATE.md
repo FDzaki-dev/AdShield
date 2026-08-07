@@ -3,7 +3,27 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.32.0 (2026-08-07) — libXray invoke() envelope probe, roadmap
+- **v3.32.1 (2026-08-07) — HOTFIX: job `libxray-invoke-probe` gagal
+  SEBELUM gradle sempat jalan sama sekali.** User upload log run
+  v3.32.0 (`logs_84727506606.zip`). Root cause: `script:` di action
+  `reactivecircus/android-emulator-runner@v2` dieksekusi via `/bin/sh`
+  (dash), bukan bash — `set -o pipefail` (bash-only) bikin step mati di
+  baris pertama dengan `Illegal option -o pipefail`, SEBELUM baris
+  `gradle connectedDebugAndroidTest` manapun sempat jalan. **9 kandidat
+  envelope v3.32.0 NOL PERNAH DICOBA** — beda dari "0 kandidat sukses"
+  (hasil valid yang sudah diantisipasi). Job `build`/`libxray-poc` TIDAK
+  terdampak (keduanya pakai `run:` step biasa = bash, bukan `script:`
+  action emulator-runner). Fix: hapus `set -o pipefail`, ganti ke
+  `gradle ... > log 2>&1` + `$?` + `exit $GRADLE_EXIT` (POSIX-portable,
+  exit code gradle asli tetap terjaga tanpa butuh bash). 1 file
+  (`.github/workflows/build.yml`, edit parsial job `libxray-invoke-probe`
+  saja) + version bump. Detail lengkap CHANGELOG.md v3.32.1. **BELUM
+  DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: apakah job sekarang benar-benar sampai ke `gradle
+  connectedDebugAndroidTest`. BARU setelah itu baca
+  `invoke-probe-logcat.log` untuk `CANDIDATE-WIN` (pertanyaan asli
+  v3.32.0, belum terjawab sama sekali sampai sekarang).
+- v3.32.0 (2026-08-07) — libXray invoke() envelope probe, roadmap
   langkah 2.5.** User konfirmasi `libxray-poc` v3.31.0 HIJAU, upload
   artifact (`libXray.aar` 96.7MB + log 0 error) — diverifikasi statis lewat
   parser bytecode `.class` custom (bukan asumsi): AAR asli, 4 ABI, API
@@ -2128,7 +2148,20 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.32.0 — belum dicek apa pun):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.32.1 — hotfix shell, belum ada run baru):**
+1. Cek job `libxray-invoke-probe` run v3.32.1 — apakah step "Run
+   instrumented probe test on emulator" sekarang sampai ke baris
+   `gradle connectedDebugAndroidTest` (bukan mati di `sh`/pipefail lagi)?
+2. Kalau ya (step selesai, apapun hasil gradle-nya): lanjut ke langkah
+   v3.32.0 di bawah — download `libxray-invoke-probe-log`, cari
+   `CANDIDATE-WIN` di `invoke-probe-logcat.log`.
+3. Kalau step MASIH mati sebelum gradle jalan (error baru, bukan
+   pipefail lagi): baca `invoke-probe-gradle.log` dari artifact — itu
+   sekarang selalu ter-upload (step "Upload probe logs" pakai
+   `if: always()`) meski gradle gagal total, beda dengan sebelumnya yang
+   kosong karena mati di shell.
+
+**SEBELUMNYA (2026-08-07, v3.32.0 — TERNYATA belum pernah benar-benar tercoba, lihat hotfix v3.32.1 di atas):**
 1. Cek job **`libxray-invoke-probe`** (job BARU, terpisah dari `build` dan
    `libxray-poc`) — download artifact `libxray-invoke-probe-log`, buka
    `invoke-probe-logcat.log`.

@@ -1,5 +1,44 @@
 # Changelog
 
+## v3.32.1 — HOTFIX: job `libxray-invoke-probe` gagal SEBELUM gradle sempat jalan (2026-08-07)
+
+> User upload log run v3.32.0 (`logs_84727506606.zip`, 3 job: `build`,
+> `libxray-poc`, `libxray-invoke-probe`). **Root cause ditemukan di
+> `libxray-invoke-probe/5_Run instrumented probe test on emulator.txt`:**
+> emulator boot SUKSES (`sys.boot_completed=1`, animasi didisable OK),
+> tapi step gagal SEBELUM baris `gradle connectedDebugAndroidTest`
+> manapun sempat dieksekusi — error persis `/usr/bin/sh: 1: set: Illegal
+> option -o pipefail` diikuti `##[error]The process '/usr/bin/sh' failed
+> with exit code 2`. **Penyebab:** input `script:` milik action
+> `reactivecircus/android-emulator-runner@v2` dieksekusi lewat
+> `/usr/bin/sh -c ...` (dash di Ubuntu runner ini), BUKAN bash seperti
+> step `run:` biasa di GitHub Actions — dash tidak punya opsi
+> `-o pipefail` (itu bash-only). Baris pertama script langsung mati,
+> jadi **9 kandidat envelope `LibXrayInvokeProbeTest` di v3.32.0 NOL
+> PERNAH DICOBA sama sekali** — bukan "0 kandidat sukses" (hasil valid
+> yang sudah diantisipasi step "Report result to step summary"), tapi
+> test-nya sendiri tidak pernah start. Job `build` (APK utama, run
+> `set -o pipefail` di dalam `run:` step biasa = bash) dan `libxray-poc`
+> (sama, `run:` step biasa) TIDAK terdampak bug ini — keduanya pakai
+> shell yang benar, cuma job `libxray-invoke-probe` yang levat action
+> emulator-runner yang kena.
+> **Fix (1 file, `.github/workflows/build.yml`, edit parsial job
+> `libxray-invoke-probe` saja):** hapus `set -o pipefail` (sintaks
+> bash-only), ganti pola `2>&1 | tee log` (butuh pipefail utk exit-code
+> gradle yang benar) jadi POSIX-portable: `gradle ... > log 2>&1`,
+> simpan `$?` gradle ke variabel, `cat log` (biar tetap tampil di
+> Actions run output persis seperti `tee` sebelumnya), baru `exit
+> $GRADLE_EXIT` di akhir — exit code step sekarang mencerminkan hasil
+> gradle yang sebenarnya (bukan exit code `tee`/`sh` builtin), tanpa
+> butuh bash sama sekali. Job `build`/`libxray-poc` (step `run:` biasa,
+> bash valid) TIDAK diubah — `set -o pipefail` di situ tetap benar &
+> tetap dipertahankan.
+> **BELUM DIKONFIRMASI run baru** — WAJIB jadi hal pertama dicek di sesi
+> berikutnya: apakah job `libxray-invoke-probe` v3.32.1 sekarang benar-
+> benar sampai ke baris `gradle connectedDebugAndroidTest`, BARU dari
+> situ baca `invoke-probe-logcat.log` utk `CANDIDATE-WIN` (pertanyaan
+> asli v3.32.0 yang sekarang baru bisa benar-benar dijawab).
+
 ## v3.32.0 — libXray invoke() envelope probe, roadmap langkah 2.5 (2026-08-07)
 
 > User konfirmasi job `libxray-poc` run v3.31.0 HIJAU, upload artifact

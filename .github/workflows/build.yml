@@ -262,11 +262,13 @@ jobs:
           # ada di libXray.aar (armeabi-v7a/arm64-v8a/x86/x86_64) — lihat
           # PROJECT_STATE.md, AAR sudah diverifikasi statis punya keempatnya.
           script: |
-            set -o pipefail
             gradle connectedDebugAndroidTest \
               -Pandroid.testInstrumentationRunnerArguments.class=com.fdzaki.adshield.xray.LibXrayInvokeProbeTest \
-              --no-daemon 2>&1 | tee invoke-probe-gradle.log
+              --no-daemon > invoke-probe-gradle.log 2>&1
+            GRADLE_EXIT=$?
+            cat invoke-probe-gradle.log
             adb logcat -d -s LibXrayInvokeProbe:* > invoke-probe-logcat.log || true
+            exit $GRADLE_EXIT
 
       - name: Report result to step summary
         run: |
