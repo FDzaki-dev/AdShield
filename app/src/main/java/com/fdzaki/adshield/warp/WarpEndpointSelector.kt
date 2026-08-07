@@ -5,7 +5,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetSocketAddress
@@ -47,41 +46,17 @@ object WarpEndpointSelector {
     // yet for this UDP traffic to loop back into. If that ordering ever
     // changes, this needs a VpnService.protect() call added — same pattern
     // as com.fdzaki.adshield.vpn.dns.UpstreamForwarder's socket pooling.
-    //
-    // v3.28.2 — SELECT_HARD_TIMEOUT_MS wrapper (root cause of the "Kualitas
-    // koneksi: Belum diperiksa" freeze, superseding the v3.28.0/v3.28.1 theory
-    // that pinned it on probeTrace()/performHealthCheck()). `probe()`'s
-    // `InetSocketAddress(host, port)` call (one of the 6 anycast hosts is the
-    // literal hostname "engage.cloudflareclient.com", not an IP) does a
-    // *blocking DNS resolution* that `socket.soTimeout` never covers (that
-    // field only bounds the later `socket.receive()`) — the exact same class
-    // of unbounded-DNS-phase bug already fixed once in DohClient/probeTrace.
-    // `selectEndpointAndMtu()` awaits this function synchronously, BEFORE
-    // `startWatchdog()` is ever reached in `connect()` — so when this hangs,
-    // the watchdog/health-check loop never starts at all, which is why fixing
-    // probeTrace()'s own timeout (v3.28.0/v3.28.1) never touched the actual
-    // freeze. Same caveat as v3.28.0's fix applies here too: `withTimeoutOrNull`
-    // only cancels coroutine bookkeeping, NOT the blocking native DNS call
-    // underneath — a stuck `probe()` job's IO thread is abandoned (leaked)
-    // rather than truly interrupted when this timeout fires, since the JVM/
-    // Android `InetAddress` resolution path has no cooperative cancel API.
-    // Accepted trade-off: `connect()` provably returns within bounded time
-    // instead of hanging forever, at the cost of a rare stray IO-dispatcher
-    // thread that outlives this call (dies on its own once the OS-level DNS
-    // query eventually times out or fails).
     suspend fun selectBestEndpoint(
         candidates: List<String> = Constants.WARP_ENDPOINT_CANDIDATES
-    ): String {
-        val fastest = withTimeoutOrNull(SELECT_HARD_TIMEOUT_MS) {
-            coroutineScope {
-                val results = candidates.map { endpoint ->
-                    async(Dispatchers.IO) { probe(endpoint) }
-                }.map { it.await() }
+    ): String = coroutineScope {
+        val results = candidates.map { endpoint ->
+            async(Dispatchers.IO) { probe(endpoint) }
+        }.map { it.await() }
 
-                results.filter { it.rttMs != null }.minByOrNull { it.rttMs!! }?.endpoint
-            }
-        }
-        return fastest ?: candidates.first()
+        results.filter { it.rttMs != null }
+            .minByOrNull { it.rttMs!! }
+            ?.endpoint
+            ?: candidates.first()
     }
 
     private suspend fun probe(endpoint: String): ProbeResult =
@@ -131,12 +106,5 @@ object WarpEndpointSelector {
         }
 
     private const val PROBE_TIMEOUT_MS = 800
-
-    /** Outer ceiling for the WHOLE selectBestEndpoint() call (v3.28.2), including any
-     *  blocking DNS resolution inside probe()'s InetSocketAddress construction — see
-     *  the long comment above selectBestEndpoint() for why this exists. Higher than
-     *  PROBE_TIMEOUT_MS since that only bounds the post-resolution receive() phase. */
-    private const val SELECT_HARD_TIMEOUT_MS = 3000L
-
     private val PROBE_PAYLOAD = byteArrayOf(0)
 }

@@ -532,6 +532,11 @@ private fun WarpQualityRow(quality: WarpConnectionQuality) {
         WarpConnectionQuality.Level.UNKNOWN -> ShieldTextMuted to "Memeriksa kualitas jalur…"
         WarpConnectionQuality.Level.GOOD -> ShieldGreen to "${quality.latencyMs} ms · jalur baik$lossSuffix"
         WarpConnectionQuality.Level.DEGRADED -> ShieldWarning to "${quality.latencyMs} ms · agak lambat$lossSuffix"
+        // v3.28.0: split out of BAD/UNKNOWN — tunnel healthy (0 failures, 0 reconnects),
+        // just not real WARP per the library limitation (WarpConnectionQuality.Level kdoc).
+        // ShieldWarning (not Danger): nothing is actually failing here.
+        WarpConnectionQuality.Level.NOT_CONFIRMED ->
+            ShieldWarning to "${quality.latencyMs?.let { "$it ms · " } ?: ""}tersambung, bukan WARP resmi$lossSuffix"
         WarpConnectionQuality.Level.BAD ->
             if (quality.reconnectAttempts > 0) {
                 ShieldDanger to "Menyambung ulang… (percobaan ke-${quality.reconnectAttempts})"

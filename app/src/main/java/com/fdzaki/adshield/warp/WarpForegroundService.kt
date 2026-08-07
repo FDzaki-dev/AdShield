@@ -160,7 +160,10 @@ class WarpForegroundService : Service() {
             quality == null || quality.lastCheckedAt == 0L -> "Terhubung — memeriksa kualitas jalur…"
             quality.reconnectAttempts > 0 -> "Menyambung ulang (percobaan ke-${quality.reconnectAttempts})…"
             quality.trafficConfirmed -> "Aktif • ${quality.latencyMs} ms lewat Cloudflare WARP"
-            else -> "Terhubung, tapi trafik belum terkonfirmasi lewat WARP"
+            // v3.28.0: was "Terhubung, tapi trafik belum terkonfirmasi lewat WARP" — implied
+            // "still checking, wait a bit". It doesn't resolve itself: this is the honest
+            // steady-state given the library limitation (see WarpConnectionQuality.Level kdoc).
+            else -> "Tersambung ke Cloudflare — bukan WARP resmi (lihat Diagnostik)"
         }
         return NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
             .setContentTitle("VPN Tunnel (WARP) aktif")

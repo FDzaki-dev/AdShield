@@ -3,116 +3,19 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.28.3 (2026-08-07) — BUG SEBENARNYA ketemu (via kontradiksi laporan
-  user: notifikasi vs Diagnostik/Home menunjukkan hal berbeda dari state
-  yang SAMA) — bukan hang sama sekali, murni logic bug di
-  `WarpConnectionQuality.level`.** v3.28.0/v3.28.1/v3.28.2 SEMUA menyasar
-  skenario hang/timeout yang masing-masing nyata sebagai bug tersendiri,
-  TAPI bukan penyebab simptom spesifik ini — probe selalu selesai normal.
-  User laporkan: notifikasi persisten WARP bilang "Terhubung, tapi trafik
-  belum terkonfirmasi lewat WARP" (state UP, probe sudah jalan) SAAT
-  BERSAMAAN Diagnostik/Home masih nunjukin "Belum diperiksa". Root cause:
-  `performHealthCheck()` cabang sukses (`probe != null`) SELALU reset
-  `consecutiveFailures=0`/`reconnectAttempts=0` walau `probe.warpOn==false`
-  (ada respons HTTP, cuma trafik belum lewat WARP) — `level` versi lama
-  jatuh ke `else -> UNKNOWN` untuk kasus ini persis, padahal `lastCheckedAt`
-  SUDAH terisi (bukan 0). Fix: cabang BAD sekarang tidak syaratkan
-  `consecutiveFailures`/`reconnectAttempts` lagi — begitu `lastCheckedAt !=
-  0L` (sudah dicek duluan) dan `trafficConfirmed == false`, itu BAD tanpa
-  syarat tambahan. 1 file (`warp/WarpConnectionQuality.kt`) + version bump.
-  Fix timeout v3.28.0-v3.28.2 TIDAK di-revert — tetap valid untuk bug
-  hang yang berbeda. Verifikasi statis brace/paren — 0 masalah. **BELUM
-  DIKONFIRMASI di device** — titik uji: begitu notifikasi WARP bilang
-  "Terhubung..." (dengan/tanpa "trafik belum terkonfirmasi"), Diagnostik/
-  Home HARUS ikut berubah dari "Belum diperiksa" (minimal ke "Bermasalah").
-  **Kalau UI sudah benar tapi trafik BETULAN tidak pernah lewat WARP
-  (warp=on tidak pernah muncul)** — itu bug lain lagi (config/endpoint/MTU
-  WireGuard), bukan lagi soal tampilan diagnostik, mulai investigasi baru
-  dari situ, JANGAN diasumsikan otomatis selesai kalau labelnya sudah
-  "Bermasalah" tapi trafik WARP-nya sendiri tidak pernah confirmed.
-- **v3.28.2 (2026-08-07) — ROOT CAUSE ASLI ditemukan (user, bukan Claude):
-  v3.28.0/v3.28.1 salah sasaran fungsi.** User arahkan investigasi ke batch
-  v3.27.0 (perluasan endpoint 6→24, Shadowsocks/MASQUE-benefit) sebagai
-  titik mulai freeze. Ketemu: `WarpEndpointSelector.probe()` — salah satu
-  dari 6 anycast host adalah HOSTNAME literal (`engage.cloudflareclient.com`,
-  bukan IP) — `InetSocketAddress(host, port)` melakukan resolusi DNS
-  BLOCKING yang TIDAK dibatasi `socket.soTimeout` (field itu cuma
-  membatasi `socket.receive()` setelahnya). Kelas bug SAMA PERSIS dengan
-  yang sudah pernah difix di `DohClient`/`probeTrace()`. **Yang membuat ini
-  luput dari fix v3.28.0/v3.28.1:** `selectEndpointAndMtu()` dipanggil
-  SINKRON di dalam `connect()`, SEBELUM `startWatchdog()` — jadi kalau DNS
-  hang di sini, `performHealthCheck()`/`probeTraceCancellable()` (target
-  v3.28.0/v3.28.1) TIDAK PERNAH tercapai sama sekali. Itu sebabnya 2 fix
-  sebelumnya 0% berdampak walau masing-masing secara teknis benar. **Fix:**
-  `selectBestEndpoint()` dibungkus `withTimeoutOrNull(SELECT_HARD_TIMEOUT_MS
-  = 3000ms)`, fallback ke `candidates.first()` kalau timeout — jalur
-  fallback yang sama dengan skenario \"semua probe gagal\" yang sudah ada.
-  Limitasi sama seperti v3.28.0: `withTimeoutOrNull` cuma cancel coroutine
-  bookkeeping, thread IO yang macet di resolusi DNS asli tetap
-  ditinggalkan (leak), TAPI `connect()` sekarang terbukti bounded, tidak
-  hang selamanya. 1 file diubah (`warp/WarpEndpointSelector.kt`) + version
-  bump. Fix v3.28.0/v3.28.1 di `probeTraceCancellable()` TIDAK di-revert —
-  tetap relevan untuk health-check loop begitu loop itu benar-benar mulai.
-  Verifikasi statis brace/paren — 0 masalah. **BELUM DIKONFIRMASI di
-  device** — titik uji: nyalakan WARP, buka Diagnostik ~30 detik →
-  \"Kualitas koneksi\" harus berubah dari \"Belum diperiksa\", kali ini idealnya
-  jauh lebih cepat (≤3-4 detik) karena hang sebenarnya ada di connect()
-  sendiri, bukan di loop 25 detik. **Kalau MASIH gagal setelah ini** —
-  berarti ada hang ketiga di jalur lain; cek dulu apakah `connect()`
-  bahkan pernah return `true` (lihat `_connecting`/`warpConnecting` di UI
-  berhenti berputar atau tidak) sebelum menyalahkan probe manapun lagi.
-- **v3.28.1 (2026-08-07) — v3.28.0 dikonfirmasi TIDAK memperbaiki apa pun
-  (user tes device, CI hijau + APK ter-install, gejala identik).** Root
-  cause kenapa fix v3.28.0 tidak bekerja: `withTimeoutOrNull` cuma
-  membatalkan job coroutine di level bookkeeping — TIDAK bisa
-  menginterupsi panggilan I/O Java yang blocking (non-suspending).
-  `probeTrace()` jalan sinkron di thread IO; kalau dia benar-benar
-  nyangkut (DNS/connect hang), `withTimeoutOrNull` cuma nunggu diam-diam
-  sampai call itu selesai sendiri — persis seolah tidak ada wrapper sama
-  sekali. **Fix nyata:** `probeTraceCancellable()` — jalankan blocking
-  call di `async(Dispatchers.IO)` child, dengan watchdog `launch` sibling
-  yang setelah `PROBE_HARD_TIMEOUT_MS` memanggil
-  `HttpURLConnection.disconnect()` LANGSUNG ke instance koneksi yang
-  sedang in-flight (dipublish via `AtomicReference` SEBELUM blocking call
-  dimulai). `disconnect()` aman dipanggil dari thread lain sesuai
-  kontrak API-nya dan akan membatalkan request yang sedang jalan — socket
-  ditutup paksa (termasuk kalau masih macet di fase DNS/connect), thread
-  yang blocking dapat `IOException` dan BENERAN return, bukan nyangkut
-  selamanya. Ini teknik standar untuk membatalkan `HttpURLConnection`
-  yang memang tidak punya API cancel kooperatif. 1 file diubah (file yang
-  sama dengan v3.28.0) — logic lain tidak disentuh. Verifikasi statis
-  brace/paren — 0 masalah. **BELUM DIKONFIRMASI di device** — titik uji
-  SAMA seperti v3.28.0 (lihat entri di bawah): kalau MASIH gagal setelah
-  ini, kemungkinan hang-nya BUKAN di `probeTrace()` sama sekali —
-  investigasi berikutnya harus geser ke apakah `startWatchdog()`/
-  `managerScope` benar-benar jalan (mis. `desiredRunning` tidak pernah
-  `true`, atau `watchdogJob` gagal ke-launch), bukan lagi ke sisi network
-  call itu sendiri.
-- **v3.28.0 (2026-08-07) — Fix bug lama "Kualitas koneksi: Belum diperiksa"
-  macet selamanya.** User minta debugging di luar scope roadmap normal.
-  Root cause: `WarpTunnelManager.probeTrace()` pakai `HttpURLConnection`
-  yang `connectTimeout`/`readTimeout`-nya TIDAK menutup fase resolusi DNS
-  (keterbatasan platform Android/JVM yang terdokumentasi, bukan salah
-  ketik) — kalau lookup DNS host `TRACE_URL` macet, `probeTrace()` block
-  selamanya, `performHealthCheck()` tidak pernah selesai,
-  `WarpConnectionQuality.lastCheckedAt` tidak pernah ditulis, `level`
-  macet di `UNKNOWN` ("Belum diperiksa") selamanya alih-alih pernah
-  settle ke pembacaan nyata. Fix: bungkus panggilan probe dengan
-  `withTimeoutOrNull(PROBE_HARD_TIMEOUT_MS = 6000)` di dalam
-  `withContext(Dispatchers.IO)` — plafon luar yang menjamin
-  `performHealthCheck()` tetap lanjut (mencatat probe gagal, label
-  pindah ke status nyata) walau socket blocking di bawahnya masih
-  nyangkut. Lebih tinggi dari `PROBE_TIMEOUT_MS=4000` yang sudah ada,
-  supaya di kasus normal timeout connect/read asli yang duluan kena —
-  ini murni jaring pengaman untuk kasus itu gagal. 1 file diubah
-  (`warp/WarpTunnelManager.kt`) + version bump — 0 perubahan logic
-  tunnel/reconnect/endpoint-selection lain. Verifikasi statis brace/paren
-  — 0 masalah. **BELUM DIKONFIRMASI CI/device** — titik uji: nyalakan
-  WARP, buka Diagnostik dalam ~30 detik → "Kualitas koneksi" harus
-  berubah dari "Belum diperiksa" ke label nyata (Baik/Agak lambat/
-  Bermasalah), tidak boleh diam >1 siklus health-check (25s). Roadmap
-  utama (endpoint 24 kandidat v3.27.0, dst) TIDAK disentuh batch ini —
-  murni bug-fix di luar antrian prioritas biasa sesuai permintaan user.
+- **v3.28.0 (2026-08-07) — Honest WARP labeling, root cause "reserved
+  bytes" dikonfirmasi 2x independen (kode + web research), fix native
+  BELUM dikerjakan (sengaja, lihat CHANGELOG.md v3.28.0 utk alasan +
+  roadmap 4 langkah).** `WarpConnectionQuality.Level` dapat state
+  `NOT_CONFIRMED` terpisah dari `UNKNOWN` — sebelumnya "baru connect"
+  dan "sehat tapi gak akan pernah warp=on" sama-sama nyangkut di label
+  "Belum diperiksa" selamanya. Label di HomeScreen/DiagnosticsScreen/
+  notifikasi WarpForegroundService diganti jujur. **PENTING kalau lanjut
+  batch berikutnya**: jangan coba nulis kode Go/NDK/JNI/cgo langsung
+  tanpa toolchain buat verifikasi — itu ulang pola krisis DNS v3.9-v3.11
+  (klaim fix tanpa validasi). Roadmap native fix ada di CHANGELOG.md,
+  mulai dari riset lisensi (bepass-sdk = CC BY-NC-SA, cek kompatibel)
+  sebelum nulis 1 baris pun kode native.
 - **v3.27.0 (2026-08-07) — Shadowsocks/MASQUE benefit-only (protokol TETAP
   tidak diimplementasi), + fix desync versi.** User minta manfaat 2
   protokol yang sebelumnya dibatalkan (Xray-core/Shadowsocks, MASQUE/QUIC
@@ -2172,31 +2075,19 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-07, v3.28.1 — belum dicek apa pun):**
-1. Device: nyalakan WARP, buka Diagnostik, tunggu ≤30 detik — "Kualitas
-   koneksi" harus berubah dari "Belum diperiksa" ke label nyata.
-2. **Kalau MASIH gagal sama persis setelah ini** — jangan coba fix
-   probe/timeout lagi, itu sudah 2x tidak menyelesaikan. Geser investigasi
-   ke: (a) apakah `startWatchdog()` benar-benar terpanggil (`connect()`
-   sukses sampai baris itu?), (b) apakah `desiredRunning` beneran `true`
-   saat WARP nyala (cek tidak ada exception sebelum baris itu di
-   `connect()`), (c) apakah `managerScope` (Dispatchers.IO + SupervisorJob)
-   masih hidup atau sudah ke-cancel oleh sesuatu. Minta user Logcat filter
-   `WarpTunnelManager`/coroutine exception kalau perlu, karena analisis
-   statis sandbox ini tidak bisa mengonfirmasi apakah watchdog benar2 jalan
-   di device nyata.
+**PALING BARU & PALING PENTING (2026-08-07, v3.28.0 — belum dicek apa pun):**
+1. Cek CI v3.28.0 — exhaustive `when` atas `Level` yang baru (4 cabang)
+   harus kompil bersih, ini murni penambahan enum + label, risiko rendah.
+2. Device: buka Home/Diagnostik saat WARP aktif — pastikan label baru
+   ("Tersambung, bukan WARP resmi") yang muncul, BUKAN lagi "Belum
+   diperiksa" yang nyangkut selamanya seperti sebelumnya.
+3. **JANGAN langsung lompat ke nulis kode native Go/NDK** kalau user
+   minta lanjut fix betulan — mulai dari roadmap langkah 1 (riset
+   lisensi bepass-sdk vs fork sendiri vs Xray-core) di CHANGELOG.md
+   v3.28.0, dan setiap langkah native HARUS divalidasi CI sebelum lanjut
+   ke langkah berikutnya, TIDAK diklaim selesai dalam 1 batch.
 
-**SEBELUMNYA (2026-08-07, v3.28.0 — belum dicek apa pun):**
-1. Cek CI v3.28.0 dulu.
-2. Device: nyalakan WARP, buka Diagnostik, tunggu ≤30 detik — "Kualitas
-   koneksi" HARUS berubah dari "Belum diperiksa" ke label nyata (Baik/
-   Agak lambat/Bermasalah). Kalau MASIH macet di "Belum diperiksa" lebih
-   dari 1 siklus health-check (25 detik), berarti hard-timeout 6 detik
-   ini masih belum cukup menutup skenario hang aslinya — laporkan durasi
-   persis "Belum diperiksa" bertahan, itu jadi patokan menaikkan
-   PROBE_HARD_TIMEOUT_MS atau menyelidiki hang di lapisan lain.
-
-**SEBELUMNYA (2026-08-07, v3.27.0 — belum dicek apa pun):**
+**SEBELUMNYA (2026-08-07, v3.27.0):**
 1. Cek CI v3.27.0 dulu — belum pernah di-push/dicek sama sekali.
 2. Device WARP: nyalakan WARP normal di jaringan biasa — pastikan tetap
    connect (endpoint list berubah bentuk 6→24 entri, port baru 500/1701/

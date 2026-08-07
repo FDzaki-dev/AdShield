@@ -34,26 +34,32 @@ data class WarpConnectionQuality(
      *  out of the last few attempted, refreshed each health-check tick (v3.7.0). */
     val packetLossPercent: Int = 0
 ) {
-    /** Simple 3-level summary for UI (dot color etc.) — not stored, derived on demand. */
-    enum class Level { GOOD, DEGRADED, BAD, UNKNOWN }
+    /** Simple summary for UI (dot color etc.) — not stored, derived on demand.
+     *
+     * v3.28.0 — added [NOT_CONFIRMED], split out of what used to be lumped into
+     * [UNKNOWN]. Root-caused (see PROJECT_STATE.md v3.28.0 / CHANGELOG.md): the
+     * official `com.wireguard.android:tunnel` library has NO API for WireGuard's
+     * "reserved" 3 bytes — Cloudflare's edge requires that field to be set to the
+     * per-account client ID (confirmed independently against wgcf/warp-plus output
+     * AND the library's own javadoc, which lists no such field) to tag a connection
+     * `warp=on`. Without it the tunnel still comes up and carries traffic — hence
+     * 0% packet loss and a real HTTP response from every trace probe — Cloudflare
+     * just never applies WARP identity/policy to it, so `trafficConfirmed` stays
+     * false FOREVER, not just "not yet". The old code had no state for that: probe
+     * succeeding-but-unconfirmed and probe-never-run both collapsed to the same
+     * [UNKNOWN] / "Belum diperiksa" label, which reads as "still waiting" and sent
+     * users into an infinite, pointless wait. [NOT_CONFIRMED] is the honest label
+     * for "checked, tunnel healthy, but this is a plain encrypted pipe to
+     * Cloudflare — not real WARP" until a native fix (tracked in PROJECT_STATE.md)
+     * lands. */
+    enum class Level { GOOD, DEGRADED, BAD, NOT_CONFIRMED, UNKNOWN }
 
-    // v3.28.3 — fixed a real bug, not a timeout/hang: this getter used to fall through to
-    // UNKNOWN whenever a health-check probe completed successfully (HTTP response received,
-    // so consecutiveFailures/reconnectAttempts both reset to 0 by performHealthCheck()) but
-    // Cloudflare's trace body didn't confirm `warp=on` — e.g. tunnel interface UP, but the
-    // WireGuard config's endpoint/MTU isn't actually routing traffic through the WARP edge.
-    // lastCheckedAt IS non-zero in that case (a real check happened), so this is NOT "never
-    // checked" — it's a genuine bad/unconfirmed result and must show as such, matching what
-    // WarpForegroundService.buildNotification() already independently branches on ("Terhubung,
-    // tapi trafik belum terkonfirmasi lewat WARP") but this getter never mirrored. JANGAN
-    // tambahkan consecutiveFailures/reconnectAttempts kembali sebagai syarat sebelum BAD di
-    // sini — begitu lastCheckedAt != 0L dan trafficConfirmed == false, itu SUDAH cukup untuk
-    // BAD terlepas dari counter lain, itu persis yang bikin bug ini terlewat sebelumnya.
     val level: Level
         get() = when {
             lastCheckedAt == 0L -> Level.UNKNOWN
             trafficConfirmed && (latencyMs ?: Long.MAX_VALUE) <= 200 -> Level.GOOD
             trafficConfirmed -> Level.DEGRADED
-            else -> Level.BAD
+            consecutiveFailures > 0 || reconnectAttempts > 0 -> Level.BAD
+            else -> Level.NOT_CONFIRMED
         }
 }

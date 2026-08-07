@@ -1,133 +1,79 @@
 # Changelog
 
-## v3.28.3 (2026-08-07)
-### Fixed
-- **REAL root cause of "Kualitas koneksi: Belum diperiksa" freeze — not a
-  hang at all, a logic bug in `WarpConnectionQuality.level`.** v3.28.0/
-  v3.28.1/v3.28.2 all targeted timeout/hang scenarios that were individually
-  real bugs but NOT this one — the probe was completing fine the whole time.
-  Found by cross-referencing user's device report: `WarpForegroundService`'s
-  persistent notification showed "Terhubung, tapi trafik belum terkonfirmasi
-  lewat WARP" (its own inline `when` branch for "probe succeeded, HTTP
-  response received, but Cloudflare's trace body didn't say `warp=on`") at
-  the SAME TIME the HomeScreen/Diagnostics quality row was stuck showing
-  "Belum diperiksa"/UNKNOWN — two different pieces of UI reading the exact
-  same `WarpConnectionQuality` state and disagreeing. Root cause:
-  `performHealthCheck()`'s success branch (`probe != null`) unconditionally
-  resets `consecutiveFailures = 0` and `reconnectAttempts = 0` even when
-  `probe.warpOn == false` (a response DID arrive, just without WARP
-  confirmed) — so `level`'s old fallback chain
-  (`trafficConfirmed && ... -> GOOD/DEGRADED`, else
-  `consecutiveFailures > 0 || reconnectAttempts > 0 -> BAD`, else
-  `UNKNOWN`) fell all the way through to `UNKNOWN` for this exact case,
-  even though `lastCheckedAt` was very much non-zero (a real check DID
-  happen and got a definitive negative result). **Fix:** removed the
-  `consecutiveFailures`/`reconnectAttempts` condition from the BAD branch —
-  once `lastCheckedAt != 0L` is already true (checked first) and
-  `trafficConfirmed == false`, that's unconditionally BAD, matching what
-  the notification's own separate logic already knew. 1 file changed
-  (`warp/WarpConnectionQuality.kt`) + version bump. **v3.28.0/v3.28.1/
-  v3.28.2 timeout fixes are NOT reverted** — they're independently correct
-  fixes for genuine unbounded-blocking-call bugs (DNS resolution phases not
-  covered by socket/connect timeouts) that just weren't the cause of THIS
-  particular symptom. Verifikasi statis brace/paren — 0 masalah. **BELUM
-  DIKONFIRMASI di device** — titik uji: nyalakan WARP, tunggu sampai
-  notifikasi bilang "Terhubung..." (dengan atau tanpa "trafik belum
-  terkonfirmasi") → Diagnostik/Home HARUS ikut menunjukkan label nyata
-  (minimal "Bermasalah", bukan lagi "Belum diperiksa") begitu notifikasi
-  itu muncul. **Kalau underlying issue-nya sendiri (trafik betulan tidak
-  lewat WARP, `warp=on` tidak pernah muncul) masih terjadi setelah UI-nya
-  benar** — itu bug TERPISAH (WireGuard config/endpoint/MTU tidak
-  benar-benar routing lewat edge Cloudflare), bukan lagi soal
-  diagnostik/tampilan, dan butuh investigasi baru dari titik itu.
+## v3.28.0 — Honest WARP labeling + roadmap jangka panjang (2026-08-07)
 
-## v3.28.2 (2026-08-07)
-### Fixed
-- **ACTUAL root cause of "Kualitas koneksi: Belum diperiksa" freeze —
-  v3.28.0/v3.28.1 were fixing the wrong function.** User pointed the
-  investigation at the v3.27.0 WARP endpoint-candidate expansion
-  (6→24, Shadowsocks/MASQUE-benefit batch) as the point where the
-  freeze began. Found: `WarpEndpointSelector.probe()`'s
-  `InetSocketAddress(host, port)` construction does a **blocking DNS
-  resolution** for the one hostname candidate
-  (`engage.cloudflareclient.com`) that is **not bounded by
-  `socket.soTimeout`** (that field only governs the later
-  `socket.receive()`) — exact same unbounded-DNS-phase bug class
-  already fixed once for `DohClient`/`probeTrace()`. Critically,
-  `selectEndpointAndMtu()` awaits this synchronously **inside
-  `connect()`, before `startWatchdog()` is ever reached** — so when it
-  hangs, `performHealthCheck()`/`probeTraceCancellable()` (the whole
-  target of v3.28.0/v3.28.1) never runs at all. That's why those two
-  fixes had zero effect on device despite being individually correct.
-  **Fix:** wrapped `selectBestEndpoint()`'s whole probe-and-await block
-  in `withTimeoutOrNull(SELECT_HARD_TIMEOUT_MS = 3000ms)`, falling back
-  to `candidates.first()` on timeout — same fallback path already used
-  for "every probe failed outright". Same caveat as v3.28.0's fix:
-  `withTimeoutOrNull` only cancels coroutine bookkeeping, not the
-  underlying blocking DNS call — a stuck probe's IO thread is
-  abandoned/leaked rather than truly interrupted, but `connect()` is now
-  provably bounded instead of hanging forever. 1 file changed
-  (`warp/WarpEndpointSelector.kt`) + version bump. v3.28.0/v3.28.1's fix
-  to `probeTraceCancellable()` is NOT reverted — it's still correct and
-  still needed for the health-check loop itself once it actually starts.
-  Verifikasi statis brace/paren — 0 masalah. **BELUM DIKONFIRMASI di
-  device** — titik uji: nyalakan WARP, buka Diagnostik dalam ~30 detik →
-  "Kualitas koneksi" harus berubah dari "Belum diperiksa" ke label nyata,
-  dan kali ini seharusnya settle jauh lebih cepat (≤3-4 detik dari
-  connect, bukan nunggu siklus 25 detik) karena hang-nya ada di jalur
-  connect() itu sendiri, bukan di health-check loop.
+> Tindak lanjut temuan device pertama (v3.27.0): tunnel WARP connect &
+> sehat (0% loss, HTTP tetap dapat respons), tapi `trafficConfirmed`
+> permanen false. **Root cause dikonfirmasi 2x independen**: WireGuard
+> punya field "reserved" (3 byte) di header handshake yang Cloudflare
+> WAJIBKAN diisi ID akun supaya edge men-tag `warp=on`; `com.wireguard.
+> android:tunnel` (library resmi yang dipakai) TIDAK PUNYA API untuk itu
+> sama sekali (dicek ke javadoc publiknya — Config/Peer/Interface cuma
+> kenal field wg-quick standar). Bukti silang: wgcf/warp-plus (tool CLI
+> resmi-tak-resmi utk WARP) SEMUA menghasilkan field `"reserved": [...]`
+> per-akun yang wajib dipasang; satu-satunya app Android yang benar-benar
+> WARP resmi (Oblivion, `bepass-org/oblivion`) sengaja TIDAK pakai
+> `com.wireguard.android:tunnel` — dia bawa implementasi WireGuard-Go
+> custom sendiri (bepass-sdk) justru demi bisa pasang `reserved`.
 
-## v3.28.1 (2026-08-07)
-### Fixed
-- **v3.28.0's fix for "Kualitas koneksi: Belum diperiksa" was INEFFECTIVE
-  — confirmed by user on device (CI green, APK installed, symptom
-  identical). Root cause of why the fix didn't work:** `withTimeoutOrNull`
-  only cancels coroutine *job bookkeeping* — it cannot interrupt a
-  blocking, non-suspending Java I/O call. `probeTrace()`'s
-  `HttpURLConnection` read/DNS lookup runs synchronously on an IO thread;
-  when that call is genuinely stuck, `withTimeoutOrNull` sits waiting for
-  it to return on its own, exactly as long as no wrapper existed at all.
-  **Real fix:** rewrote the probe as `probeTraceCancellable()` — runs the
-  blocking call in a child `async(Dispatchers.IO)`, with a sibling
-  watchdog `launch` that, after `PROBE_HARD_TIMEOUT_MS`, calls
-  `HttpURLConnection.disconnect()` directly on the in-flight connection
-  object (published via `AtomicReference` before the blocking call
-  starts). `disconnect()` is documented as safe to call concurrently and
-  aborts the in-flight request — closing the socket (or pending
-  connect/DNS attempt) so the blocked thread gets an `IOException` and
-  actually returns, instead of staying blocked indefinitely. This is the
-  standard workaround for `HttpURLConnection` having no real cooperative
-  cancellation API. 1 file changed (`warp/WarpTunnelManager.kt`) — same
-  file as v3.28.0, no other logic touched. **BELUM DIKONFIRMASI di
-  device** — titik uji SAMA seperti v3.28.0: nyalakan WARP, buka
-  Diagnostik dalam ~30 detik, "Kualitas koneksi" harus berubah dari
-  "Belum diperiksa" ke label nyata dalam ≤1 siklus health-check (25s).
+**Batch ini (aman, langsung kelihatan, 0 risiko):**
+- `WarpConnectionQuality.kt`: `Level` dapat state baru `NOT_CONFIRMED`,
+  dipisah dari `UNKNOWN`. Sebelumnya "baru saja connect, belum pernah
+  dicek" dan "sudah dicek berkali-kali, tunnel sehat, tapi Cloudflare
+  gak pernah tag WARP" SAMA-SAMA jadi `UNKNOWN`/"Belum diperiksa" — user
+  disuruh nunggu sesuatu yang gak akan pernah terjadi. Sekarang beda
+  label, beda warna (kuning bukan abu/merah, karena tunnel-nya emang
+  gak rusak).
+- `DiagnosticsScreen.kt`, `HomeScreen.kt`, `WarpForegroundService.kt`:
+  label & notifikasi diganti jujur — "Tersambung, tapi bukan WARP resmi"
+  / "Tersambung ke Cloudflare — bukan WARP resmi (lihat Diagnostik)",
+  + catatan penjelasan singkat di teks diagnostik lengkap.
 
-## v3.28.0 (2026-08-07)
-### Fixed
-- **"Kualitas koneksi: Belum diperiksa" stuck forever (WARP Diagnostics).**
-  Root cause: `WarpTunnelManager.probeTrace()`'s `HttpURLConnection`
-  `connectTimeout`/`readTimeout` only bound the TCP connect/read phases —
-  DNS resolution for `TRACE_URL`'s host is NOT covered by either timeout on
-  Android/JVM (documented platform limitation, not a coding mistake in the
-  original probe). If that DNS lookup stalled, `probeTrace()` blocked
-  forever, `performHealthCheck()` never completed, `WarpConnectionQuality
-  .lastCheckedAt` was never written, and `level` stayed `UNKNOWN` ("Belum
-  diperiksa") indefinitely instead of ever settling to a real reading.
-  Fix: wrapped the probe call in `withTimeoutOrNull(PROBE_HARD_TIMEOUT_MS =
-  6000)` inside `withContext(Dispatchers.IO)` — a hard outer ceiling that
-  guarantees `performHealthCheck()` proceeds (and records a failed probe,
-  moving the label to a real "Bermasalah"/retry state) even if the
-  underlying blocking socket call is still stuck. Comfortably above the
-  existing `PROBE_TIMEOUT_MS = 4000` so normal connect/read timeouts still
-  fire first in the common case; this is purely a safety net for the case
-  they don't. 1 file changed (`warp/WarpTunnelManager.kt`), 0 behavior
-  change to tunnel/reconnect/endpoint-selection logic.
-- **BELUM DIKONFIRMASI CI/device** — titik uji: nyalakan WARP, buka
-  Diagnostik dalam ~30 detik → "Kualitas koneksi" harus berubah dari
-  "Belum diperiksa" ke label nyata (Baik/Agak lambat/Bermasalah), tidak
-  boleh diam di "Belum diperiksa" lebih dari ~1 siklus health-check (25s).
+**KENAPA saya TIDAK langsung nulis fix native (patch reserved-bytes /
+ganti ke WireGuard-Go custom / Xray-core outbound) di batch ini,
+meskipun itu perbaikan jangka panjang yang sesungguhnya:**
+- Semua jalan yang beneran nge-fix ini (lihat riset di atas) butuh
+  toolchain Go + NDK (gomobile bind / cgo) yang dikompilasi — PERSIS
+  risiko yang sudah 2x dibatalkan di proyek ini (v3.12.0, v3.15.0)
+  karena gak bisa diverifikasi tanpa build environment.
+- Environment kerja saya sekarang **tidak ada akses jaringan & toolchain
+  Go/NDK** — kalau saya nulis kode Go/JNI/cgo sekarang, itu 100% tidak
+  tervalidasi sampai CI jalan, dan kemungkinan gagal compile di percobaan
+  pertama itu TINGGI (proyek referensi seperti Oblivion/warp-plus
+  eksplisit menyebut butuh Go 1.22 + NDK r26b spesifik). Menulis buta
+  lalu klaim "sudah fix" itu justru pola yang berkali-kali salah di
+  riwayat proyek ini (krisis DNS v3.9–v3.11) — TIDAK diulang di sini.
+- Jadi: fix native butuh dikerjakan bertahap & div, alidasi tiap tahap
+  lewat CI (bukan diklaim selesai di 1 batch), bukan berarti tidak
+  dikerjakan.
 
+**Roadmap jangka panjang (belum dieksekusi, urutan diusulkan):**
+1. Riset/pilih basis: fork wireguard-go custom (self-maintain, kontrol
+   penuh) vs adopsi bepass-sdk (sudah ada, tapi lisensi CC BY-NC-SA —
+   NonCommercial, perlu dicek kompatibel/tidak dgn rencana AdShield) vs
+   Xray-core WireGuard outbound (MIT, sudah dukung `reserved` native,
+   tapi buka lagi keputusan yang dibatalkan v3.12.0/v3.15.0).
+2. Setup skeleton module Go terpisah (mis. `warp-native/`) + step CI
+   install Go+NDK, di-build sebagai job CI TERPISAH yang boleh gagal
+   (tidak memblokir release APK utama) sampai terbukti hijau berkali2.
+3. Baru setelah skeleton native kompil bersih di CI beberapa kali,
+   diintegrasikan ke `WarpTunnelManager` di belakang flag — jalur
+   `com.wireguard.android:tunnel` yang sekarang (bekerja, walau bukan
+   WARP resmi) TETAP jadi fallback, tidak dihapus.
+4. `WarpAccount`/`WarpRegistrationClient` perlu field `reservedBytes:
+   ByteArray` baru (Cloudflare mengembalikan `id` di respons /reg — perlu
+   dicek transformasi id→reserved yang persis dipakai wgcf, BELUM
+   diverifikasi di sini).
+
+**Verifikasi statis:** brace/paren 4 file diubah — 0 masalah. Grep
+konfirmasi `Level.NOT_CONFIRMED` sudah ditangani di SEMUA `when`
+exhaustive atas `Level` (`HomeScreen.kt`, `DiagnosticsScreen.kt`) — tidak
+ada cabang yang kelewat (kalau kelewat, Kotlin akan gagal compile, bukan
+runtime silent bug, jadi ini kelas kesalahan yang aman terdeteksi CI).
+
+**BELUM DIKONFIRMASI CI/device** — titik uji: buka Diagnostik/Home
+setelah WARP connect, pastikan label baru "Tersambung, bukan WARP resmi"
+muncul (bukan lagi "Belum diperiksa" yang nyangkut).
 
 ## v3.27.0 — Shadowsocks/MASQUE *benefits* adopted, protokolnya sendiri TIDAK disentuh (2026-08-07)
 

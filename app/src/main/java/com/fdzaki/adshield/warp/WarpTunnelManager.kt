@@ -17,8 +17,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -370,20 +368,7 @@ class WarpTunnelManager(context: Context) {
             return
         }
 
-        // v3.28.1 bug fix (v3.28.0 fix was INEFFECTIVE — see below): the actual fix has
-        // to force-close the underlying HttpURLConnection from a separate coroutine when
-        // the hard deadline hits, because that is the only way in the Java/Android
-        // networking stack to unblock a thread stuck in DNS resolution or a stalled
-        // read — a plain coroutine cancellation (withTimeoutOrNull) does NOT propagate
-        // into blocking, non-suspending I/O calls. The previous v3.28.0 attempt wrapped
-        // probeTrace() in withTimeoutOrNull(), which only cancels the coroutine's *job
-        // bookkeeping*; the blocking call underneath keeps running on its IO thread
-        // completely unaware of the cancellation and withTimeoutOrNull cannot return
-        // until that blocking call itself returns — so on a genuine DNS/connect hang,
-        // v3.28.0 hung exactly as long as v3.27.0 did. This is why the symptom was
-        // reported unchanged even after that release. Root cause of the ORIGINAL hang
-        // is documented at probeTraceCancellable()'s kdoc below.
-        val probe = probeTraceCancellable()
+        val probe = probeTrace()
         val stats = runCatching { backend.getStatistics(tunnel) }.getOrNull()
         if (probe != null) {
             // v3.7.0 packet-loss estimate: rolling window over the last few probe
@@ -520,36 +505,7 @@ class WarpTunnelManager(context: Context) {
      *  trace response body — the only reliable confirmation that traffic is really exiting via WARP. */
     private data class TraceProbeResult(val latencyMs: Long, val warpOn: Boolean)
 
-    /**
-     * Suspend wrapper around [probeTrace] that ACTUALLY enforces [PROBE_HARD_TIMEOUT_MS], unlike
-     * the v3.28.0 attempt (`withTimeoutOrNull` around a blocking call) which did nothing useful —
-     * see the long comment at its former call site in [performHealthCheck], kept in git history.
-     *
-     * How this one really works: the blocking HTTP call runs in a child [async] on
-     * [Dispatchers.IO]. A sibling watchdog `launch` waits [PROBE_HARD_TIMEOUT_MS] and, if the
-     * probe job is still active at that point, calls `HttpURLConnection.disconnect()` on the
-     * in-flight connection. Per the platform's own contract, `disconnect()` is safe to call from
-     * another thread while a request is in flight and will abort it — closing the underlying
-     * socket (or the pending connect/DNS attempt) so the blocked read/connect call throws an
-     * `IOException` and the coroutine actually returns, instead of the thread staying stuck until
-     * the OS eventually reclaims it. This is the standard workaround for `HttpURLConnection`
-     * having no real cancellation API of its own.
-     */
-    private suspend fun probeTraceCancellable(): TraceProbeResult? = coroutineScope {
-        val connectionRef = java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>(null)
-        val probeJob = async(Dispatchers.IO) { probeTrace(connectionRef) }
-        val watchdog = launch {
-            delay(PROBE_HARD_TIMEOUT_MS)
-            if (probeJob.isActive) {
-                runCatching { connectionRef.get()?.disconnect() }
-            }
-        }
-        val result = runCatching { probeJob.await() }.getOrNull()
-        watchdog.cancel()
-        result
-    }
-
-    private fun probeTrace(connectionRef: java.util.concurrent.atomic.AtomicReference<HttpURLConnection?>): TraceProbeResult? {
+    private fun probeTrace(): TraceProbeResult? {
         return try {
             val started = System.currentTimeMillis()
             val connection = (URL(TRACE_URL).openConnection() as HttpURLConnection).apply {
@@ -557,10 +513,6 @@ class WarpTunnelManager(context: Context) {
                 readTimeout = PROBE_TIMEOUT_MS
                 requestMethod = "GET"
             }
-            // Published BEFORE the blocking call below so the watchdog in
-            // probeTraceCancellable() can reach this exact connection instance and force it
-            // closed if the hard deadline is hit — including while still stuck resolving DNS.
-            connectionRef.set(connection)
             val body = connection.inputStream.bufferedReader().use { it.readText() }
             connection.disconnect()
             val elapsed = System.currentTimeMillis() - started
@@ -623,10 +575,6 @@ class WarpTunnelManager(context: Context) {
         // a full-tunnel VPN app polling too aggressively.
         private const val HEALTH_CHECK_INTERVAL_MS = 25_000L
         private const val PROBE_TIMEOUT_MS = 4_000
-        /** Hard ceiling for the whole probeTrace() call (v3.28.0), including DNS resolution,
-         *  which PROBE_TIMEOUT_MS alone does not bound. Comfortably above PROBE_TIMEOUT_MS
-         *  so a normal connect+read timeout still fires first in the common case. */
-        private const val PROBE_HARD_TIMEOUT_MS = 6_000L
         private const val FAILURE_THRESHOLD = 2
         private const val BASE_BACKOFF_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L

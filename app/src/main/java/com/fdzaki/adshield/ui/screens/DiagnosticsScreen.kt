@@ -107,6 +107,11 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         WarpConnectionQuality.Level.UNKNOWN -> "Belum diperiksa"
         WarpConnectionQuality.Level.GOOD -> "Baik (${warpQuality.latencyMs} ms)"
         WarpConnectionQuality.Level.DEGRADED -> "Agak lambat (${warpQuality.latencyMs} ms)"
+        // v3.28.0: was folded into UNKNOWN ("Belum diperiksa"), which told users
+        // stuck in this state to just keep waiting — they were not, the tunnel is
+        // healthy but Cloudflare never tags it WARP (library limitation, see
+        // WarpConnectionQuality.Level kdoc + PROJECT_STATE.md v3.28.0).
+        WarpConnectionQuality.Level.NOT_CONFIRMED -> "Tersambung, tapi bukan WARP resmi"
         WarpConnectionQuality.Level.BAD -> "Bermasalah"
     }
 
@@ -148,6 +153,9 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             appendLine("Endpoint dipakai: ${warpQuality.endpointUsed.ifBlank { "-" }}")
             appendLine("Percobaan reconnect: ${warpQuality.reconnectAttempts}")
             appendLine("Error terakhir: ${warpLastError ?: "-"}")
+            if (warpQuality.level == WarpConnectionQuality.Level.NOT_CONFIRMED) {
+                appendLine("Catatan: tunnel sehat & terenkripsi ke Cloudflare, tapi library WireGuard yang dipakai belum bisa kirim 'reserved bytes' (ID akun) yang Cloudflare wajibkan supaya trafik ditandai WARP resmi. Lihat PROJECT_STATE.md v3.28.0.")
+            }
             appendLine()
             appendLine("--- Resource (Memori & Baterai) ---")
             appendLine(
