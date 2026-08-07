@@ -45,6 +45,7 @@ app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DohClient.kt
+app/src/main/java/com/fdzaki/adshield/vpn/DohHealthMonitor.kt
 app/src/main/java/com/fdzaki/adshield/vpn/VpnNotificationFactory.kt
 app/src/main/java/com/fdzaki/adshield/vpn/VpnWatchdog.kt
 app/src/main/java/com/fdzaki/adshield/vpn/dns/AppUidWhitelistChecker.kt

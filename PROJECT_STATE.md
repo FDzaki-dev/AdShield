@@ -3,6 +3,29 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.27.0 (2026-08-07) — Shadowsocks/MASQUE benefit-only (protokol TETAP
+  tidak diimplementasi), + fix desync versi.** User minta manfaat 2
+  protokol yang sebelumnya dibatalkan (Xray-core/Shadowsocks, MASQUE/QUIC
+  — lihat keputusan v3.12.0/v3.15.0, TETAP berlaku, JANGAN diangkat lagi
+  jadi implementasi protokol sungguhan tanpa user eksplisit minta &
+  terima konsekuensi toolchain Go/gomobile atau QUIC stack). 2 batch:
+  (1) `WARP_ENDPOINT_CANDIDATES` diperluas 6→24 (tiap anycast host × 4
+  port resmi Cloudflare: 2408/500/1701/4500, diverifikasi web search ke
+  dok resmi — port 443 SENGAJA tidak ditambah, tidak terdokumentasi utk
+  WARP) — manfaat "menyamar dari DPI/port-block" ala Shadowsocks didapat
+  gratis dari logic pilih-tercepat `WarpEndpointSelector` yang sudah ada,
+  0 baris logic file itu berubah. (2) `WarpTunnelManager` network-switch
+  debounce 700ms (`networkSwitchDebounceJob`) — coalesce burst
+  `onAvailable()` saat jaringan flapping jadi 1 reconnect, analog
+  toleransi path-change MASQUE/QUIC connection migration, TANPA QUIC/
+  MASQUE sungguhan. **Sekalian fix blocker rilis dari review sebelumnya**:
+  `build.gradle.kts` `versionCode`/`versionName` yang nyangkut di
+  `61/3.23.0` padahal kode sudah v3.26.0, sekarang `65/3.27.0` (sinkron).
+  Verifikasi statis brace/paren 3 file — 0 masalah. **BELUM DIKONFIRMASI
+  CI/device** — titik uji: WARP tetap connect normal dgn endpoint list
+  baru; toggle WiFi cepat berturut saat WARP aktif → cuma 1 reconnect
+  akhir yang terjadi, bukan reconnect per-blip. Detail CHANGELOG.md
+  v3.27.0.
 - **v3.26.0 (2026-08-07) — ROOT CAUSE FIX Krisis DNS/DoH, ditemukan
   lewat log Diagnostik device asli.** User kirim screenshot Diagnostik
   device (`DoH gagal terakhir: dns.google — UnknownHostException: Unable
@@ -2039,7 +2062,21 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.23.0 — batch 4/N, BELUM dicek CI):**
+**PALING BARU & PALING PENTING (2026-08-07, v3.27.0 — belum dicek apa pun):**
+1. Cek CI v3.27.0 dulu — belum pernah di-push/dicek sama sekali.
+2. Device WARP: nyalakan WARP normal di jaringan biasa — pastikan tetap
+   connect (endpoint list berubah bentuk 6→24 entri, port baru 500/1701/
+   4500 ditambah di atas 2408 lama).
+3. Device: WARP aktif, toggle WiFi off→on 2-3x cepat berturut-turut (atau
+   pindah WiFi↔data cepat) — pastikan cuma 1 reconnect yang akhirnya
+   terjadi (bukan 1 reconnect per toggle), dan switch tunggal/stabil
+   tetap terasa cepat (~1 detik).
+4. Kalau ada laporan WARP makin lambat connect di jaringan yang sebelumnya
+   normal: kemungkinan salah satu dari 24 kandidat baru "menang" probe
+   padahal port itu diblokir parsial di jaringan itu — cek field endpoint
+   di Diagnostics, laporkan port mana yang kepilih.
+
+**SEBELUMNYA (2026-08-06, v3.23.0 — batch 4/N, BELUM dicek CI):**
 1. Cek CI v3.23.0 dulu sebelum apa pun lagi.
 2. Device WAJIB (titik risiko paling konkret batch ini): buka HomeScreen,
    tap TEPAT di kotak Switch kartu WARP — pastikan toggle SEKALI, bukan

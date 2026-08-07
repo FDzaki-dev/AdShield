@@ -17,13 +17,21 @@ import java.net.SocketException
  *
  * WireGuard is UDP, so there's no TCP-connect or ICMP ping to time cheaply
  * without root. Instead this sends a single undersized UDP datagram to each
- * candidate's port 2408 and times how long the *kernel* takes to hand back
+ * candidate host:port and times how long the *kernel* takes to hand back
  * an ICMP port-unreachable / or simply how long connect() + send() takes
  * before any error — this measures reachability + first-hop RTT to that
  * anycast IP without needing a real WireGuard handshake (which needs a
  * valid key exchange we don't want to spend on every candidate). This is a
  * coarse RTT estimate, not a precise one, but it's enough to rank a handful
  * of anycast IPs against each other, which is all endpoint selection needs.
+ *
+ * v3.27.0: candidates now cover 4 ports per anycast IP (2408 + Cloudflare's
+ * documented fallback ports 500/1701/4500 — see Constants.WARP_FALLBACK_PORTS),
+ * not just 2408. All still probed concurrently below, so covering more ports
+ * costs zero extra wall-clock time (bounded by the same PROBE_TIMEOUT_MS),
+ * and the ranking naturally rewards whichever port+IP combo is actually
+ * unblocked on the current network — the port-camouflage benefit falls out
+ * of the existing "pick the fastest reachable one" logic for free.
  */
 object WarpEndpointSelector {
 

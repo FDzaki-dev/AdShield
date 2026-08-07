@@ -100,6 +100,23 @@ class WarpTunnelManager(context: Context) {
     private var networkCallback: ConnectivityManager.NetworkCallback? = null
     @Volatile private var lastKnownNetwork: Network? = null
 
+    // v3.27.0 — connection-migration debounce (MASQUE-inspired benefit,
+    // WITHOUT implementing MASQUE/QUIC). Real MASQUE tolerates a flaky path
+    // change by validating the new path before fully migrating the session,
+    // instead of tearing down on every single network blip. Android's
+    // NetworkCallback can fire onAvailable() several times in quick
+    // succession during a genuinely flappy handover (weak WiFi at the edge
+    // of range, cellular tower reselection) — before this, EVERY one of
+    // those fired a full attemptReconnect(immediate = true) (endpoint
+    // re-probe + MTU probe + WireGuard reconfigure), which is wasted work
+    // and wasted reconnect-attempt budget if the network settles a few
+    // hundred ms later anyway. Now only the LAST network seen within a
+    // short settle window actually triggers a reconnect — coalescing a
+    // burst of flapping into a single attempt targeting wherever things
+    // actually landed, same spirit as MASQUE not committing to a migration
+    // until the new path proves out.
+    private var networkSwitchDebounceJob: Job? = null
+
     // v3.16.7 — Reliability audit: captive portal detection. Before this, a captive-portal
     // network (airport/cafe WiFi login page) looked identical to "internet benar-benar mati"
     // to the watchdog — probeTrace() just times out either way since the portal blocks all
@@ -196,6 +213,8 @@ class WarpTunnelManager(context: Context) {
         desiredRunning = false
         watchdogJob?.cancel()
         watchdogJob = null
+        networkSwitchDebounceJob?.cancel()
+        networkSwitchDebounceJob = null
         unregisterNetworkWatcher()
         try {
             backend.setState(tunnel, Tunnel.State.DOWN, null)
@@ -271,7 +290,20 @@ class WarpTunnelManager(context: Context) {
                 val previous = lastKnownNetwork
                 lastKnownNetwork = network
                 if (previous != null && previous != network && desiredRunning) {
-                    managerScope.launch { attemptReconnect(immediate = true) }
+                    // v3.27.0: debounce instead of reconnecting immediately on every
+                    // onAvailable — see field kdoc on networkSwitchDebounceJob above.
+                    // Cancelling any in-flight debounce and starting a fresh one means
+                    // only the LAST network within NETWORK_SWITCH_DEBOUNCE_MS actually
+                    // triggers attemptReconnect(); a settled single switch still reacts
+                    // within essentially the same ~1s the old code did (debounce delay
+                    // is short relative to HEALTH_CHECK_INTERVAL_MS's 25s).
+                    networkSwitchDebounceJob?.cancel()
+                    networkSwitchDebounceJob = managerScope.launch {
+                        delay(NETWORK_SWITCH_DEBOUNCE_MS)
+                        if (desiredRunning && lastKnownNetwork == network) {
+                            attemptReconnect(immediate = true)
+                        }
+                    }
                 }
             }
 
@@ -547,6 +579,12 @@ class WarpTunnelManager(context: Context) {
         private const val BASE_BACKOFF_MS = 5_000L
         private const val MAX_BACKOFF_MS = 60_000L
         private const val MAX_RECONNECT_ATTEMPTS = 5
+        // v3.27.0 — connection-migration debounce (see networkSwitchDebounceJob kdoc).
+        // Short enough that a genuine single WiFi<->cellular handover still reconnects
+        // fast (imperceptible next to HEALTH_CHECK_INTERVAL_MS's 25s), long enough to
+        // coalesce a burst of onAvailable() calls from a flapping/unstable network into
+        // one reconnect instead of one per blip.
+        private const val NETWORK_SWITCH_DEBOUNCE_MS = 700L
         // Registration retry (v3.16.5) — separate, smaller budget than reconnect: this runs
         // synchronously inside connect() while the user is waiting for the toggle to flip, so
         // it needs to fail within a few seconds, not minutes.

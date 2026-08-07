@@ -1,5 +1,68 @@
 # Changelog
 
+## v3.27.0 — Shadowsocks/MASQUE *benefits* adopted, protokolnya sendiri TIDAK disentuh (2026-08-07)
+
+> User eksplisit minta manfaat dari Shadowsocks & MASQUE tanpa implementasi
+> protokolnya (Xray-core/QUIC tetap DIBATALKAN, lihat v3.15.0/v3.12.0) — 2
+> batch terpisah, masing-masing 1 file kode inti.
+
+**Batch 1 (Shadowsocks-inspired) — port camouflage untuk endpoint WARP:**
+- **Fix desync versi juga ketutup di batch ini**: `app/build.gradle.kts`
+  sebelumnya masih `61/3.23.0` padahal kode sudah berisi v3.24.0–v3.26.0
+  (menutup salah satu blocker rilis dari review sebelumnya).
+- `util/Constants.kt`: `WARP_ENDPOINT_CANDIDATES` (dulu 6 entri, semua port
+  2408) sekarang generate 24 entri = 6 anycast host × 4 port
+  (`WARP_FALLBACK_PORTS = [2408, 4500, 1701, 500]`). Port 500/1701/4500
+  BUKAN karangan — diverifikasi ke dokumentasi firewall resmi Cloudflare
+  (`developers.cloudflare.com/cloudflare-one/.../deployment/firewall/`):
+  itu memang fallback port resmi WARP. **Tidak ditambah port 443** —
+  dicek eksplisit lewat web search, Cloudflare TIDAK mendokumentasikan
+  WARP jalan di 443 (beda dari MASQUE mode mereka yang memang QUIC/443,
+  tapi itu protokol terpisah yang sengaja tidak disentuh).
+- **Manfaat yang didapat** (Shadowsocks-style: nyamarin dari DPI/port-block)
+  tanpa 1 baris pun kode WireGuard/handshake berubah: 2408 gampang
+  di-fingerprint (jarang dipakai protokol lain); 500 (ISAKMP)/1701
+  (L2TP)/4500 (IPsec NAT-T) menyamar sebagai trafik VPN korporat umum yang
+  kebanyakan firewall sudah izinkan. `WarpEndpointSelector` (0 baris
+  logic diubah, cuma kdoc) sudah probe SEMUA kandidat paralel & pilih
+  RTT tercepat — manfaat port-camouflage otomatis didapat gratis dari
+  logic "pilih yang reachable+tercepat" yang sudah ada sejak v3.7.0.
+- Elemen pertama list TETAP `engage.cloudflareclient.com:2408` (fallback
+  aman kalau semua probe gagal) — urutan `flatMap` host-major/port-minor
+  menjamin ini, tidak berubah dari sebelumnya.
+
+**Batch 2 (MASQUE-inspired) — debounce migrasi jaringan:**
+- `warp/WarpTunnelManager.kt`: `onAvailable()` di `NetworkCallback`
+  sebelumnya trigger `attemptReconnect(immediate=true)` (full endpoint
+  re-probe + MTU probe + WireGuard reconfigure) untuk SETIAP event
+  network-switch, termasuk saat WiFi lagi flapping (sinyal lemah,
+  reselection tower seluler) yang bisa fire onAvailable() beruntun dalam
+  hitungan ratus-ms. Sekarang: `networkSwitchDebounceJob` — event baru
+  cancel debounce lama, cuma network TERAKHIR dalam jendela
+  `NETWORK_SWITCH_DEBOUNCE_MS=700ms` yang benar-benar trigger reconnect.
+  Analog manfaat MASQUE (QUIC connection migration mentoleransi path
+  berubah-ubah sesaat sebelum commit migrasi) — **QUIC/HTTP3/MASQUE itu
+  sendiri TIDAK diimplementasikan**, ini murni debounce di level
+  `ConnectivityManager.NetworkCallback` yang sudah ada sejak v3.7.0.
+- `disconnect()`: `networkSwitchDebounceJob?.cancel()` ditambah supaya
+  toggle off manual tidak menyisakan reconnect debounce yang nembak
+  setelah user sudah matikan WARP.
+- Reconnect tunggal (kasus normal, bukan flapping) tetap terasa cepat —
+  700ms nyaris tak terasa dibanding `HEALTH_CHECK_INTERVAL_MS` 25 detik
+  yang jadi pembanding lama.
+
+**Verifikasi statis:** brace/paren balance ke 3 file diubah
+(`Constants.kt`, `WarpEndpointSelector.kt`, `WarpTunnelManager.kt`) — 0
+masalah. Grep dikonfirmasi tidak ada file lain yang mengasumsikan bentuk/
+jumlah lama `WARP_ENDPOINT_CANDIDATES`.
+
+**BELUM DIKONFIRMASI CI maupun device** — titik uji device paling
+relevan: (a) WARP tetap bisa connect normal (endpoint list berubah bentuk,
+pastikan tidak ada endpoint yang malah gagal total), (b) matikan-nyalakan
+WiFi cepat berturut-turut saat WARP aktif — pastikan cuma 1 reconnect
+yang akhirnya terjadi (bukan langsung 1 reconnect kelihatan segera tapi
+juga bukan macet lebih dari ~1 detik untuk switch tunggal yang stabil).
+
 ## v3.26.0 — ROOT CAUSE FIX Krisis DNS/DoH: app tidak exclude diri sendiri dari VPN-nya sendiri (2026-08-07)
 
 **Ditemukan lewat log Diagnostik device asli** (fitur v3.25.0 baru

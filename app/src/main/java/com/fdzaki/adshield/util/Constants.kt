@@ -75,14 +75,31 @@ object Constants {
     // app itself rotates through); engage.cloudflareclient.com:2408 stays
     // first as the documented default / safest fallback if latency probing
     // itself fails for every candidate.
-    val WARP_ENDPOINT_CANDIDATES = listOf(
-        "engage.cloudflareclient.com:2408",
-        "162.159.192.1:2408",
-        "162.159.193.10:2408",
-        "162.159.195.10:2408",
-        "188.114.96.1:2408",
-        "188.114.97.1:2408"
+    //
+    // v3.27.0 — port camouflage (Shadowsocks-inspired benefit, WITHOUT
+    // implementing Shadowsocks): each anycast IP is now probed on 2408 AND
+    // on Cloudflare's own documented WARP fallback ports 500 (ISAKMP/IKE),
+    // 1701 (L2TP) and 4500 (IPsec NAT-T) — verified against Cloudflare's
+    // official firewall docs (developers.cloudflare.com/cloudflare-one/
+    // .../deployment/firewall/), NOT guessed. 2408 is a distinctive,
+    // easily-fingerprinted port; 500/1701/4500 blend in with ordinary
+    // IPsec/L2TP VPN traffic that most firewalls already pass, giving a
+    // real shot at getting through DPI/port-blocking that targets 2408
+    // specifically — same *goal* Shadowsocks solves (blend in / evade
+    // blocking), reached here purely via endpoint-list config, zero new
+    // protocol/dependency, zero change to how WireGuard itself is spoken.
+    val WARP_FALLBACK_PORTS = listOf(2408, 4500, 1701, 500)
+    private val WARP_ANYCAST_HOSTS = listOf(
+        "engage.cloudflareclient.com",
+        "162.159.192.1",
+        "162.159.193.10",
+        "162.159.195.10",
+        "188.114.96.1",
+        "188.114.97.1"
     )
+    val WARP_ENDPOINT_CANDIDATES = WARP_ANYCAST_HOSTS.flatMap { host ->
+        WARP_FALLBACK_PORTS.map { port -> "$host:$port" }
+    }
 
     // Auto MTU tuning range (v3.7.0). Cloudflare's own Android client ships
     // 1280 as the safe default; we only ever probe UP from there since going
