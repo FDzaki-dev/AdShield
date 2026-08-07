@@ -21,10 +21,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldSurface
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
+import com.fdzaki.adshield.ui.theme.ShieldWhite
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.wireguard.android.backend.Tunnel
@@ -168,6 +170,16 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Diagnostik") },
+                // Apple-style pass: bar blends into the page instead of
+                // showing as a distinct colored band (Material3 default
+                // containerColor = colorScheme.surface, which now differs
+                // visibly from the pure-black page background).
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = ShieldBgDark,
+                    titleContentColor = ShieldWhite,
+                    navigationIconContentColor = ShieldWhite,
+                    actionIconContentColor = ShieldWhite
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")

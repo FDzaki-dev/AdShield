@@ -1,8 +1,11 @@
 package com.fdzaki.adshield.ui.screens
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
@@ -15,13 +18,19 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
+import com.fdzaki.adshield.ui.theme.ShieldSurface2
+import com.fdzaki.adshield.ui.theme.ShieldSurface3
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
+import com.fdzaki.adshield.ui.theme.ShieldWhite
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -50,6 +59,12 @@ fun RulesScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Aturan Kustom") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = ShieldBgDark,
+                    titleContentColor = ShieldWhite,
+                    navigationIconContentColor = ShieldWhite,
+                    actionIconContentColor = ShieldWhite
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
@@ -63,10 +78,16 @@ fun RulesScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 
             HorizontalDivider()
 
-            TabRow(selectedTabIndex = tab) {
-                Tab(selected = tab == 0, onClick = { tab = 0 }, text = { Text("Blokir (${blocked.size})") })
-                Tab(selected = tab == 1, onClick = { tab = 1 }, text = { Text("Izinkan (${allowed.size})") })
-            }
+            // Apple-style pass: iOS-like pill segmented control instead of
+            // Material's underline TabRow — plain foundation primitives only
+            // (Box/Row/clip/background/clickable), no Material3 experimental
+            // SegmentedButton API, to keep this a near-zero-risk visual swap.
+            // `tab` state and its onClick wiring are 100% unchanged.
+            SegmentedTabs(
+                options = listOf("Blokir (${blocked.size})", "Izinkan (${allowed.size})"),
+                selectedIndex = tab,
+                onSelect = { tab = it }
+            )
 
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Row(verticalAlignment = Alignment.Top) {
@@ -283,6 +304,49 @@ private fun BlocklistUrlSection(viewModel: MainViewModel) {
                     )
                 }
                 Spacer(Modifier.height(8.dp))
+            }
+        }
+    }
+}
+
+/**
+ * iOS-style pill segmented control — rounded outer pill, a smaller filled
+ * pill for the selected option, equal-width segments. Pure `Row`/`Box` +
+ * `clip`/`background`/`clickable`; deliberately avoids the Material3
+ * `SegmentedButton` experimental API so this reuses only primitives already
+ * proven elsewhere in this codebase.
+ */
+@Composable
+private fun SegmentedTabs(
+    options: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clip(RoundedCornerShape(10.dp))
+            .background(ShieldSurface2)
+            .padding(3.dp)
+    ) {
+        options.forEachIndexed { index, label ->
+            val selected = index == selectedIndex
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (selected) ShieldSurface3 else Color.Transparent)
+                    .clickable { onSelect(index) }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    label,
+                    fontSize = 13.sp,
+                    fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                    color = if (selected) ShieldWhite else ShieldTextMuted
+                )
             }
         }
     }

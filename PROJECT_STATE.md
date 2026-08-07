@@ -3,7 +3,28 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.20.1 (2026-08-06) — HOTFIX build CI gagal dari push v3.20.0.**
+- **v3.21.0 (2026-08-06) — Apple-Style redesign batch 1/N.** User
+  serahkan arah proyek sepenuhnya ke saya ("kamu putuskan sendiri...
+  fokus Polish ala Apple-Style, debugging, eksekusi sampai matang") —
+  keputusan saya: prioritas presentation-layer-only changes dulu (0 risiko
+  struktural ke logic/state), verifikasi ketat tiap file (brace/paren +
+  duplicate-import + constant-name diff, semua 0 masalah), TIDAK pakai API
+  Material3 eksperimental yang saya tak bisa verifikasi 100% tanpa
+  compiler (`SegmentedButton`) — pilih custom composable dari primitif
+  terbukti sebagai gantinya. `Color.kt` retint total ke Apple System
+  Colors dark-mode ASLI (bukan reka-reka — systemBackground/systemGray/
+  systemGreen/systemRed/systemOrange + label-opacity technique), 15/15
+  nama konstanta dipertahankan (0 call-site berubah). `RulesScreen.kt`
+  dapat segmented-control ala iOS. 4 screen (`Diagnostics`/`Logs`/`Rules`/
+  `Whitelist`) TopAppBar diratakan (flat edge-to-edge, blend ke background
+  hitam). Detail lengkap + alasan tiap angka warna: CHANGELOG.md v3.21.0.
+  **SENGAJA TIDAK disentuh:** `Shape.kt`/`Type.kt` (sudah dekat konvensi
+  Apple, tidak ada celah konkret ditemukan), `HomeScreen.kt` (kandidat
+  batch 2 — press-scale animation ProtectionRing, ditunda sampai batch ini
+  lolos CI+device test dulu, supaya kalau ada bug lebih gampang diisolasi
+  batch mana penyebabnya). **BELUM DIKONFIRMASI build CI** — WAJIB jadi
+  hal pertama dicek di sesi berikutnya, SEBELUM lanjut batch 2/N apa pun.
+- v3.20.1 (2026-08-06) — HOTFIX build CI gagal dari push v3.20.0.**
   User upload log CI — `compileDebugKotlin FAILED`, `HomeScreen.kt:174:41`
   + `:180:41` "Type mismatch: inferred type is Long but Int was expected".
   Root cause: helper baru `formatStatCount(count: Int)` (v3.20.0) ditulis
@@ -1912,7 +1933,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.20.1 — HOTFIX build CI v3.20.0):**
+**PALING BARU & PALING PENTING (2026-08-06, v3.21.0 — Apple-Style batch 1/N):**
+1. Cek CI v3.21.0 dulu — belum pernah dicek sejak push, JANGAN mulai
+   batch 2/N (HomeScreen press-scale, dst) sebelum ini hijau.
+2. Device: buka tiap screen (Home/Rules/Logs/Whitelist/Diagnostics),
+   pastikan TopAppBar menyatu visual dengan background (bukan pita warna
+   terpisah), segmented control di RulesScreen ganti tab dengan benar.
+3. Kalau hijau & device oke → lanjut batch 2/N sesuai catatan v3.21.0 di
+   atas (HomeScreen polish), atau balik ke roadmap audit eksternal lama
+   kalau dirasa UI sudah cukup matang.
+
+**SEBELUMNYA (2026-08-06, v3.20.1 — HOTFIX build CI v3.20.0):**
 1. Cek run CI v3.20.1 SEBELUM apa pun lain — belum di-push ulang/
    dikonfirmasi hijau sama sekali sejak fix type-mismatch ini.
 2. Kalau hijau, lanjut checklist device v3.20.0 di bawah (spinner+haptic).

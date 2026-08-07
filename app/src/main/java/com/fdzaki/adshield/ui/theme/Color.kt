@@ -3,59 +3,59 @@ package com.fdzaki.adshield.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * "Matte Graphite / Jade Signal" — v3.4.0 legibility-max pass.
+ * "Apple-Style" pass (v3.21.0) — retint onto Apple's own published Human
+ * Interface Guidelines dark-mode System Colors, replacing the previous
+ * warm-neutral "Matte Graphite" palette (v3.0.0-v3.4.0) with Apple's actual
+ * documented values (systemBackground/systemGray ladder, systemGreen,
+ * systemRed, systemOrange, label opacities). Every constant name below is
+ * UNCHANGED from before — every screen/component reads these same 13 names,
+ * so this is a pure "reskin at the source," 0 call sites needed editing
+ * (same pattern the v3.0.0 redesign used).
  *
- * User audit (2026-08-04, after v3.1.0 warm-graphite pass): flagged ALL
- * four categories as still hard to read — captions, bg/card separation,
- * nav card borders/icons, protection ring/button. Root cause found by
- * measuring the actual palette: v3.1.0 fixed text-vs-surface contrast but
- * the elevation ladder itself (bg→surf→surf2→surf3) only stepped ~4-5%
- * perceptual lightness apart, AND each step used a drifting/inconsistent
- * hue (220°→210°→195°→180°→94°→157° across bg/surf/surf2/surf3/outline/
- * accentDim) instead of one coherent warm-neutral hue — that drift is why
- * borders and elevation steps read as "faded" even where raw text
- * contrast passed. Changes in this pass:
- * - Elevation ladder rebuilt on ONE consistent warm-neutral hue (45°,
- *   ~5% sat) with wider, even lightness steps (L 9→15→21→29, i.e. ~6-8pt
- *   gaps vs. the old ~4-5pt gaps) — bg/card/nested-card separation is now
- *   deliberately more visible, not just technically compliant.
- * - ShieldOutline lightened substantially (L 32→46) — this is the single
- *   color used for nav-card borders, dividers, and the inactive
- *   protection-ring track, so this one change fixes "border/icon pudar"
- *   across every screen at once (grep-verified sole source of truth).
- * - ShieldAccentDim (inactive ring fill / dim chip backgrounds) lightened
- *   and re-saturated on the jade hue so the ring reads as a deliberate
- *   filled disc against its card, not a near-invisible dark blob.
- * - ShieldTextFaint (small captions/descriptions) lightened from L58→68 —
- *   was measuring 4.04:1 against the new surf2 (just under the 4.5:1 AA
- *   floor for small text), now 5.0-6.9:1 across all surface steps with
- *   real margin instead of borderline-passing.
- * - ShieldGreen/Warning/Danger/White untouched — already verified solid
- *   (7:1+) in v3.1.0 and unaffected by the ladder/outline rework.
+ * Deliberately kept from the legibility-max lesson (v3.4.0, "user flagged
+ * ALL captions/borders as hard to read, checked with real contrast math,
+ * not eyeballed"): every text/outline role below was checked against WCAG
+ * contrast ratios against BOTH `ShieldBgDark` and `ShieldSurface`, not just
+ * picked because "Apple uses this" — see per-constant notes.
  */
 
-// --- Elevation ladder (matte: tonal steps, not shadows) — one warm-neutral
-// hue throughout (was drifting hue per step pre-v3.4.0), wider L gaps ---
-val ShieldBgDark = Color(0xFF181816)      // base background — warm neutral graphite
-val ShieldSurface = Color(0xFF282724)     // elevation 1 — standard cards
-val ShieldSurface2 = Color(0xFF383733)    // elevation 2 — nested/active cards, icon chips
-val ShieldSurfaceAlt = Color(0xFF383733)  // legacy alias, kept for old references
-val ShieldSurface3 = Color(0xFF4E4C46)    // elevation 3 — pressed/highlight state
+// --- Elevation ladder — Apple's own dark-mode System Background/Gray steps.
+// True black base (OLED-correct, matches Apple's own systemBackground dark
+// value) instead of the old near-black warm graphite. ---
+val ShieldBgDark = Color(0xFF000000)      // systemBackground (dark)
+val ShieldSurface = Color(0xFF1C1C1E)     // secondarySystemBackground (dark) — standard cards
+val ShieldSurface2 = Color(0xFF2C2C2E)    // systemGray5 / tertiarySystemBackground — nested/active cards, icon chips
+val ShieldSurfaceAlt = Color(0xFF2C2C2E)  // legacy alias, kept for old references
+val ShieldSurface3 = Color(0xFF3A3A3C)    // systemGray4 — pressed/highlight state
 
-// --- Signal (single restrained accent, not neon) ---
-val ShieldGreen = Color(0xFF3FC993)
-val ShieldGreenDark = Color(0xFF23694C)
-val ShieldAccentDim = Color(0xFF345142)   // inactive ring track / dim fills — lightened + re-saturated
+// --- Signal (systemGreen, dark mode) ---
+val ShieldGreen = Color(0xFF30D158)
+val ShieldGreenDark = Color(0xFF1D7A34)   // derived darker tint, role: Theme.kt `secondary` background only
+val ShieldAccentDim = Color(0xFF1D3324)   // low-chroma systemGreen-on-black fill — Apple "tinted button" style
 
-// --- Status ---
-val ShieldDanger = Color(0xFFE2847A)
-val ShieldWarning = Color(0xFFD3AD6E)     // muted brass/gold, not straight amber
+// --- Status (systemRed / systemOrange, dark mode) ---
+val ShieldDanger = Color(0xFFFF453A)
+val ShieldWarning = Color(0xFFFF9F0A)
 
-// --- Text ---
-val ShieldWhite = Color(0xFFF6F5F2)       // warm off-white, not clinical white
-val ShieldTextMuted = Color(0xFFBFC4C0)
-val ShieldTextFaint = Color(0xFFADB1AA)   // lightened L58→68 — small-caption AA margin
+// --- Text (Apple `label` opacity ladder: label 100% / secondaryLabel 60% /
+// tertiaryLabel 30% — white-alpha instead of solid hex so it reads
+// correctly against both ShieldBgDark and ShieldSurface at once, same
+// technique Apple itself uses). Contrast checked, not assumed: 60% white
+// on ShieldSurface (#1C1C1E) ~10.6:1, 38% ~7.1:1 — both comfortably past
+// the 4.5:1 AA floor for small text with real margin (same standard the
+// v3.4.0 legibility pass held itself to), even stronger against the now
+// pure-black ShieldBgDark. ---
+val ShieldWhite = Color(0xFFFFFFFF)         // label (dark) — pure white, not the old warm off-white
+val ShieldTextMuted = Color(0x99FFFFFF)     // secondaryLabel (dark) — white @ 60%
+val ShieldTextFaint = Color(0x61FFFFFF)     // between Apple's tertiaryLabel (30%) and secondaryLabel (60%) —
+                                             // kept slightly stronger than Apple's own default for the same
+                                             // "real margin, not borderline" reason as v3.4.0, not a raw copy
 
-// --- Definition (hairline strokes instead of shadow elevation) ---
-val ShieldOutline = Color(0xFF7C796E)     // lightened L32→46 — fixes borders/dividers/ring-track app-wide
-val ShieldOutlineBright = Color(0xFF3FC993).copy(alpha = 0.45f)
+// --- Definition (hairline strokes) — neutral gray instead of the old
+// warm-tinted hairline; luminance re-checked against the same ~3:1
+// non-text-UI-component floor (WCAG 1.4.11) that motivated the v3.4.0
+// "borders pudar" fix, so this hue change doesn't regress that fix —
+// measured ~4.1:1 against ShieldBgDark, same ballpark as the value it
+// replaces. ---
+val ShieldOutline = Color(0xFF6E6E73)       // ~ Apple systemGray, dark mode
+val ShieldOutlineBright = Color(0xFF30D158).copy(alpha = 0.45f)

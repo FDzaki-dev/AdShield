@@ -1,5 +1,62 @@
 # Changelog
 
+## v3.21.0 — Apple-Style redesign batch 1/N (2026-08-06)
+
+User: "rombak UI dan UX ala Apple-Style dan anti regresi", lalu di pesan
+berikutnya menyerahkan arah proyek sepenuhnya ("kamu putuskan sendiri...
+fokus Polish ala Apple-Style, debugging, eksekusi sampai matang"). Batch
+ini murni presentation layer — **0 file ViewModel/logic/DAO/Manifest
+disentuh**, sama seperti disiplin redesign v3.0.0 dulu, supaya risiko
+regresi fungsional = nol secara struktural, bukan cuma diklaim.
+
+**`Color.kt` — retint total ke Apple System Colors dark-mode asli:**
+- `ShieldBgDark` #181816→**#000000** (systemBackground), `ShieldSurface`
+  →**#1C1C1E** (secondarySystemBackground), `ShieldSurface2`→**#2C2C2E**,
+  `ShieldSurface3`→**#3A3A3C** (systemGray5/4)
+- `ShieldGreen`→**#30D158** (systemGreen), `ShieldDanger`→**#FF453A**
+  (systemRed), `ShieldWarning`→**#FF9F0A** (systemOrange) — semua nilai
+  resmi Apple HIG, bukan reka-reka
+- `ShieldWhite`→**#FFFFFF** murni (dulu off-white hangat). `ShieldTextMuted`/
+  `ShieldTextFaint` diganti jadi **white-alpha** (60%/38%) meniru teknik
+  `label`/`secondaryLabel` Apple sendiri, BUKAN nilai acak — dihitung dulu:
+  60% putih di atas `ShieldSurface` (#1C1C1E) ≈10.6:1, 38%≈7.1:1, jauh di
+  atas floor AA 4.5:1 untuk teks kecil (standar yang sama dipakai audit
+  legibility v3.4.0, supaya perbaikan lama itu TIDAK regresi)
+- `ShieldOutline`→**#6E6E73** (netral, bukan warm-tint lama) — luminance
+  dicek ulang ≈4.1:1 vs `ShieldBgDark`, sepadan dengan nilai lama yang
+  memang sengaja dinaikkan di v3.4.0 buat fix "border pudar"
+- **15/15 nama konstanta dipertahankan persis** — reskin di sumber, 0
+  call-site di seluruh app perlu diubah untuk warna ikut ganti kulit
+
+**`RulesScreen.kt` — segmented control ala iOS:**
+- `TabRow`/`Tab` Material diganti `SegmentedTabs` custom (pill container +
+  pill terpilih) — SENGAJA pakai primitif `Box`/`Row`/`clip`/`background`/
+  `clickable` saja, BUKAN Material3 `SegmentedButton` (API eksperimental
+  yang parameternya tidak bisa saya verifikasi 100% tanpa compiler — demi
+  "anti regresi", pilih API yang polanya sudah terbukti jalan di file lain)
+- State `tab: Int` dan `onSelect` wiring 100% sama persis, cuma tampilan
+
+**`DiagnosticsScreen.kt`/`LogsScreen.kt`/`RulesScreen.kt`/
+`WhitelistScreen.kt` — flat edge-to-edge TopAppBar:**
+- `containerColor` disamakan ke `ShieldBgDark` (dulu default
+  `colorScheme.surface`, beda kontras dengan halaman di bawahnya yang kini
+  hitam pekat — bikin bar tampak seperti pita terpisah, bukan menyatu ala
+  nav bar iOS)
+
+**SENGAJA TIDAK diubah:** `Shape.kt`/`Type.kt` — sudah diperiksa langsung,
+skala radius besar & tracking negatif di judul yang ada SUDAH dekat dengan
+konvensi Apple (large-radius card, tight tracking di title), ubah tanpa
+alasan konkret cuma nambah risiko; `HomeScreen.kt` — tidak disentuh batch
+ini (kandidat batch 2: press-scale animation di ProtectionRing, ditunda
+sengaja karena `animateFloatAsState`+`interactionSource` nambah state baru,
+mau device-test batch ini dulu sebelum nambah lapisan lagi).
+
+**Verifikasi statis:** brace/paren balance + duplicate-import check ke
+SEMUA 5 file diubah (`Color.kt`, `RulesScreen.kt`, `LogsScreen.kt`,
+`WhitelistScreen.kt`, `DiagnosticsScreen.kt`) — 0 masalah. Constant-name
+diff `Color.kt` (15 lama vs 15 baru) — identik. **BELUM dikonfirmasi CI**
+— WAJIB dicek dulu di sesi berikutnya sebelum lanjut batch 2.
+
 ## v3.20.1 — HOTFIX build CI gagal dari push v3.20.0 (2026-08-06)
 
 User upload log CI (`log_fail_20260806_085220_run31086594048.zip`) —

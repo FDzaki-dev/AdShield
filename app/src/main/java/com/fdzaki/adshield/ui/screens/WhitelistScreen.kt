@@ -17,7 +17,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
+import com.fdzaki.adshield.ui.theme.ShieldWhite
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -35,6 +37,12 @@ fun WhitelistScreen(viewModel: MainViewModel, onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Whitelist per Aplikasi") },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = ShieldBgDark,
+                    titleContentColor = ShieldWhite,
+                    navigationIconContentColor = ShieldWhite,
+                    actionIconContentColor = ShieldWhite
+                ),
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Filled.ArrowBack, contentDescription = "Kembali")
