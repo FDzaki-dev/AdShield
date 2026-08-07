@@ -1,5 +1,35 @@
 # Changelog
 
+## v3.23.0 — Apple-Style batch 4/N: toggle-row fix diperluas ke HomeScreen (2026-08-06)
+
+CI v3.22.0 dikonfirmasi HIJAU (user). Batch ini menyelesaikan item yang
+SENGAJA ditunda di v3.22.0: toggle-row accessibility fix sekarang juga
+diterapkan ke `WarpModeCard`/`IkeV2ModeCard` — bisa dikerjakan sekarang
+karena polanya sudah terbukti aman lolos CI 2x berturut (Logs, Whitelist).
+
+**`HomeScreen.kt`:**
+- `Row` icon+judul+subtitle+Switch di kedua card sekarang
+  `Modifier.toggleable(role = Role.Switch)`, PERSIS pola yang sama dengan
+  `enabled`/`onValueChange` yang SEBELUMNYA sudah ada di `Switch` masing-
+  masing — bukan aturan baru, cuma dipindah ke level Row:
+  - WarpModeCard: `enabled = !connecting` (sama persis)
+  - IkeV2ModeCard: `enabled = !connecting && hasProfile` (sama persis)
+- Haptic (`performHapticFeedback`) + `onToggle(it)` dipindah ke
+  `onValueChange` toggleable — TIDAK diduplikasi, `Switch` di bawahnya
+  `onCheckedChange = null`.
+- `TextButton` "Ubah/Isi profil server" di IkeV2ModeCard TIDAK
+  disentuh — dia di luar Row yang di-toggle, tetap kontrol terpisah.
+- `ProtectionRing` punya kontrol tap-nya sendiri (`clickable` +
+  press-scale dari v3.21.1) — BUKAN Switch, tidak relevan dengan pola
+  `toggleable` batch ini, tidak disentuh.
+
+**Verifikasi statis:** brace/paren balance + duplicate-import check
+`HomeScreen.kt` — 0 masalah.
+
+**Titik uji paling penting di device:** tap TEPAT di kotak Switch WARP/
+IKEv2 — harus toggle SEKALI (bukan dobel/balik sendiri), DAN tap di area
+judul/subtitle kartu (bukan di kotak Switch) juga harus ikut men-toggle.
+
 ## v3.22.0 — Apple-Style batch 3/N: accessibility toggle-row fix + Onboarding polish (2026-08-06)
 
 CI v3.21.0 & v3.21.1 dikonfirmasi HIJAU + screenshot device HomeScreen

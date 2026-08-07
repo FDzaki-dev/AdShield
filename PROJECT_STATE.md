@@ -3,23 +3,20 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.22.0 (2026-08-06) — Apple-Style batch 3/N: accessibility toggle-row
-  fix + Onboarding polish.** CI v3.21.0/v3.21.1 dikonfirmasi hijau +
-  screenshot device oke (user). `LogsScreen`/`WhitelistScreen`: baris
-  Switch (log toggle, app whitelist row) dulu Switch-nya announce
-  "On/Off" doang di TalkBack tanpa konteks — sekarang `Modifier.toggleable
-  (role = Role.Switch)` di Row-nya, 1 accessible node gabungan + seluruh
-  baris jadi tappable (pola toggle-row iOS Settings). `Switch` di-
-  `onCheckedChange = null` biar gak double-fire. **SENGAJA TIDAK
-  diterapkan ke HomeScreen** (WarpModeCard/IkeV2ModeCard) — ada
-  enabled/haptic logic yang lebih rumit di situ, risiko regresi kalau
-  digabung tanpa compiler. `OnboardingScreen`: icon bg disatukan ke
-  `ShieldAccentDim` (dulu formula tint lokal terpisah), dot indikator
-  dianimasikan (dulu jump-cut instan). Detail CHANGELOG.md v3.22.0.
-  **BELUM DIKONFIRMASI CI untuk v3.22.0 ini** — cek dulu di sesi
-  berikutnya, terutama behavior toggle-row baru di device asli (tap di
-  luar kotak Switch harus tetap toggle, tap di kotak Switch jangan
-  double-toggle).
+- **v3.23.0 (2026-08-06) — Apple-Style batch 4/N: toggle-row fix
+  diperluas ke HomeScreen.** CI v3.22.0 confirmed hijau. Item yang
+  SENGAJA ditunda di v3.22.0 sekarang dikerjakan: `WarpModeCard`/
+  `IkeV2ModeCard` di `HomeScreen.kt` dapat `Modifier.toggleable(role =
+  Role.Switch)` yang sama persis polanya dengan Logs/Whitelist —
+  `enabled`/haptic/`onToggle` logic PINDAH ke Row level, bukan aturan
+  baru (nilai `enabled` sama persis dengan yang sudah ada di Switch
+  masing-masing sebelumnya). `Switch` di bawahnya `onCheckedChange =
+  null`. `TextButton` profil server & `ProtectionRing` tidak disentuh
+  (di luar scope Row yang di-toggle / bukan Switch). Detail
+  CHANGELOG.md v3.23.0. **BELUM DIKONFIRMASI CI v3.23.0** — titik uji
+  paling penting: tap tepat di kotak Switch WARP/IKEv2 harus toggle
+  sekali (bukan dobel), tap di judul/subtitle kartu juga harus ikut
+  toggle.
 - v3.21.1 — CI hijau + device confirmed (screenshot user). Release GitHub
   v3.21.1 ter-publish, APK 12.4MB ada di Assets. Screenshot HomeScreen di
   device: status bar hitam pekat
@@ -1963,19 +1960,17 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.22.0 — batch 3/N, BELUM dicek CI):**
-1. Cek CI v3.22.0 dulu sebelum batch 4 apa pun.
-2. Device WAJIB: di LogsScreen & WhitelistScreen, coba tap di AREA LUAR
-   kotak Switch (di teks/nama app) — harus tetap toggle. Lalu tap TEPAT
-   di kotak Switch — pastikan toggle SEKALI saja, bukan dobel/nge-bug
-   balik ke posisi semula. Ini titik risiko paling konkret dari batch ini.
-3. Kalau TalkBack aktif tersedia buat dicoba: fokus ke baris Switch di
-   kedua layar itu, harusnya kebaca 1 kali gabungan (bukan label lalu
-   Switch kosong terpisah).
-4. Kalau semua oke → lanjut batch 4/N: kandidat sama seperti HomeScreen
-   Switch toggle-row (WarpModeCard/IkeV2ModeCard) TAPI hati-hati (lihat
-   alasan "sengaja tidak" di CHANGELOG v3.22.0), atau tanya user arah
-   berikutnya kalau UI/UX dirasa sudah cukup matang.
+**PALING BARU & PALING PENTING (2026-08-06, v3.23.0 — batch 4/N, BELUM dicek CI):**
+1. Cek CI v3.23.0 dulu sebelum apa pun lagi.
+2. Device WAJIB (titik risiko paling konkret batch ini): buka HomeScreen,
+   tap TEPAT di kotak Switch kartu WARP — pastikan toggle SEKALI, bukan
+   dobel/balik sendiri. Ulangi buat kartu IKEv2. Lalu tap di area judul/
+   subtitle kartu (bukan kotak Switch) — juga harus ikut toggle.
+3. Kalau semua oke → UI/UX Apple-style + accessibility sudah cukup matang
+   di 4 batch (palette, segmented control, flat app bar, press-scale,
+   toggle-row accessibility merata di semua Switch app). Tanya user mau
+   lanjut ke arah lain (mis. balik ke roadmap audit eksternal lama —
+   Testing & Diagnostic — atau declare UI/UX fase ini selesai).
 
 **SEBELUMNYA (2026-08-06, v3.21.0 — Apple-Style batch 1/N):**
 1. Cek CI v3.21.0 dulu — belum pernah dicek sejak push, JANGAN mulai

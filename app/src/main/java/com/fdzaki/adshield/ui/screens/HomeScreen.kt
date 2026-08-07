@@ -10,6 +10,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +34,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -384,7 +386,25 @@ private fun WarpModeCard(
         border = BorderStroke(1.dp, if (active) ShieldGreen.copy(alpha = 0.4f) else ShieldOutline)
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // Accessibility pass (batch 4) — same toggleable-row fix
+                // already verified safe on Logs/Whitelist (v3.22.0, CI
+                // green): merges icon/title/subtitle/Switch into ONE
+                // TalkBack stop and makes the whole row tappable. Haptic +
+                // onToggle logic MOVED here unchanged (not duplicated) —
+                // the Switch below now has onCheckedChange = null so it
+                // can't double-fire when tapped directly.
+                modifier = Modifier.toggleable(
+                    value = active,
+                    enabled = !connecting,
+                    role = Role.Switch,
+                    onValueChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle(it)
+                    }
+                )
+            ) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -428,10 +448,10 @@ private fun WarpModeCard(
                 Switch(
                     checked = active,
                     enabled = !connecting,
-                    onCheckedChange = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggle(it)
-                    },
+                    // Row above owns the toggle via `toggleable` now —
+                    // null here prevents a double-fire when the user taps
+                    // directly on the Switch's own hit target.
+                    onCheckedChange = null,
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = ShieldGreen,
                         checkedThumbColor = ShieldSurface
@@ -540,7 +560,21 @@ private fun IkeV2ModeCard(
         border = BorderStroke(1.dp, if (active) ShieldGreen.copy(alpha = 0.4f) else ShieldOutline)
     ) {
         Column(Modifier.padding(18.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // Same accessibility fix as WarpModeCard above — includes
+                // `hasProfile` in `enabled` too, matching the Switch's own
+                // existing enabled condition exactly (not a new rule).
+                modifier = Modifier.toggleable(
+                    value = active,
+                    enabled = !connecting && hasProfile,
+                    role = Role.Switch,
+                    onValueChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggle(it)
+                    }
+                )
+            ) {
                 Box(
                     modifier = Modifier
                         .size(36.dp)
@@ -582,10 +616,7 @@ private fun IkeV2ModeCard(
                 Switch(
                     checked = active,
                     enabled = !connecting && hasProfile,
-                    onCheckedChange = {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onToggle(it)
-                    },
+                    onCheckedChange = null,
                     colors = SwitchDefaults.colors(
                         checkedTrackColor = ShieldGreen,
                         checkedThumbColor = ShieldSurface
