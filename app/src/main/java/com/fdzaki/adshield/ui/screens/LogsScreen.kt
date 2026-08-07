@@ -3,6 +3,7 @@ package com.fdzaki.adshield.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
@@ -13,6 +14,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -104,12 +106,27 @@ fun LogsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             Row(
                 Modifier
                     .fillMaxWidth()
+                    // Accessibility fix: label Text + Switch were separate
+                    // TalkBack focus stops before — Switch announced only
+                    // "On/Off" with no idea what it controlled. `toggleable`
+                    // merges the whole row into one stop ("Simpan log query
+                    // domain, switch, on/off") and makes the full row
+                    // tappable, not just the small Switch hit target — also
+                    // matches how iOS Settings toggle rows behave.
+                    .toggleable(
+                        value = loggingEnabled,
+                        onValueChange = { viewModel.setLoggingEnabled(it) },
+                        role = Role.Switch
+                    )
                     .padding(horizontal = 16.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text("Simpan log query domain", fontSize = 13.sp)
-                Switch(checked = loggingEnabled, onCheckedChange = { viewModel.setLoggingEnabled(it) })
+                // onCheckedChange = null: the Row above now owns the toggle
+                // action via `toggleable`. Leaving a real callback here too
+                // would double-fire when tapping directly on the Switch.
+                Switch(checked = loggingEnabled, onCheckedChange = null)
             }
 
             OutlinedTextField(

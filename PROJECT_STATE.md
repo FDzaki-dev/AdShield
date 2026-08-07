@@ -3,24 +3,37 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.21.1 (2026-08-06) — Apple-Style batch 2/N + debug sweep.** User
-  cuma bilang "Lanjut" — TIDAK ada log CI baru dikirim, saya ASUMSIKAN itu
-  artinya v3.21.0 sudah dicek dan hijau berdasarkan instruksi "Lanjut"
-  itu sendiri, TAPI ini belum verifikasi nyata, bukan fakta terkonfirmasi.
-  Kerjaan: (1) `ProtectionRing` dapat press-scale animation (0.94x, tween
-  120ms, ripple Material dimatikan sengaja diganti scale) — logic
-  onClick/haptic 100% tidak berubah. (2) Debug sweep (diminta eksplisit
-  user) nemu 1 bug NYATA yang sudah ada dari sebelum sesi ini:
-  `res/values/colors.xml` `shield_bg_dark` (dipakai di `themes.xml` untuk
-  statusBar/navBar/windowBackground — yaitu warna SEBELUM Compose sempat
-  gambar) = #0F1512, tidak pernah sinkron dengan `ShieldBgDark` versi
-  Compose manapun. Di-fix ke #000000 biar sama persis dengan Apple-style
-  hitam pekat v3.21.0. Sekalian 4 color resource lain di file yang sama
-  (`shield_primary`/`_dark`/`shield_accent`/`shield_danger`) dihapus —
-  grep confirm 100% tidak dipakai di mana pun. Detail lengkap
-  CHANGELOG.md v3.21.1. **BELUM DIKONFIRMASI CI — baik v3.21.0 MAUPUN
-  v3.21.1 ini sekarang menumpuk belum divalidasi sama sekali.**
-- v3.21.0 (2026-08-06) — Apple-Style redesign batch 1/N.** User
+- **v3.22.0 (2026-08-06) — Apple-Style batch 3/N: accessibility toggle-row
+  fix + Onboarding polish.** CI v3.21.0/v3.21.1 dikonfirmasi hijau +
+  screenshot device oke (user). `LogsScreen`/`WhitelistScreen`: baris
+  Switch (log toggle, app whitelist row) dulu Switch-nya announce
+  "On/Off" doang di TalkBack tanpa konteks — sekarang `Modifier.toggleable
+  (role = Role.Switch)` di Row-nya, 1 accessible node gabungan + seluruh
+  baris jadi tappable (pola toggle-row iOS Settings). `Switch` di-
+  `onCheckedChange = null` biar gak double-fire. **SENGAJA TIDAK
+  diterapkan ke HomeScreen** (WarpModeCard/IkeV2ModeCard) — ada
+  enabled/haptic logic yang lebih rumit di situ, risiko regresi kalau
+  digabung tanpa compiler. `OnboardingScreen`: icon bg disatukan ke
+  `ShieldAccentDim` (dulu formula tint lokal terpisah), dot indikator
+  dianimasikan (dulu jump-cut instan). Detail CHANGELOG.md v3.22.0.
+  **BELUM DIKONFIRMASI CI untuk v3.22.0 ini** — cek dulu di sesi
+  berikutnya, terutama behavior toggle-row baru di device asli (tap di
+  luar kotak Switch harus tetap toggle, tap di kotak Switch jangan
+  double-toggle).
+- v3.21.1 — CI hijau + device confirmed (screenshot user). Release GitHub
+  v3.21.1 ter-publish, APK 12.4MB ada di Assets. Screenshot HomeScreen di
+  device: status bar hitam pekat
+  menyatu dengan konten (fix drift bug v3.21.1 kerja), ProtectionRing +
+  StatCard + WarpModeCard render dengan benar, tidak ada crash/glitch
+  visual. **v3.21.0 DAN v3.21.1 sama-sama confirmed aman** — boleh lanjut
+  batch berikutnya. Ringkas kerjaan v3.21.1: (1) `ProtectionRing` dapat
+  press-scale animation (0.94x, tween 120ms, ripple Material diganti
+  scale). (2) Debug sweep nemu 1 bug lama nyata: `colors.xml
+  shield_bg_dark` (statusBar/navBar/windowBackground) = #0F1512, tidak
+  pernah sinkron ke `ShieldBgDark` Compose manapun — di-fix ke #000000,
+  sekalian 4 color resource unused dihapus. Detail lengkap CHANGELOG.md
+  v3.21.1.
+- v3.21.0 (2026-08-06) — Apple-Style redesign batch 1/N. User
   serahkan arah proyek sepenuhnya ke saya ("kamu putuskan sendiri...
   fokus Polish ala Apple-Style, debugging, eksekusi sampai matang") —
   keputusan saya: prioritas presentation-layer-only changes dulu (0 risiko
@@ -1950,16 +1963,19 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-06, v3.21.1 — Apple-Style batch 2/N + debug sweep):**
-1. Cek CI v3.21.1 **DAN v3.21.0 yang menumpuk belum pernah dicek** — dua
-   push sudah menumpuk tanpa verifikasi nyata, JANGAN tambah batch 3
-   sebelum ini beres.
-2. Device: buka app dari cold-start, perhatikan status bar/nav bar sistem
-   — harus hitam pekat menyatu, BUKAN hijau tua/beda warna dari konten.
-3. Device: tekan-tahan ProtectionRing, konfirmasi terlihat mengecil
-   sedikit (scale) tanpa ripple lingkaran Material menumpuk di atasnya.
-4. Kalau semua hijau & device oke → lanjut batch 3/N (kandidat: Onboarding
-   Apple-style, accessibility/TalkBack pass) atau tanya user mau ke mana.
+**PALING BARU & PALING PENTING (2026-08-06, v3.22.0 — batch 3/N, BELUM dicek CI):**
+1. Cek CI v3.22.0 dulu sebelum batch 4 apa pun.
+2. Device WAJIB: di LogsScreen & WhitelistScreen, coba tap di AREA LUAR
+   kotak Switch (di teks/nama app) — harus tetap toggle. Lalu tap TEPAT
+   di kotak Switch — pastikan toggle SEKALI saja, bukan dobel/nge-bug
+   balik ke posisi semula. Ini titik risiko paling konkret dari batch ini.
+3. Kalau TalkBack aktif tersedia buat dicoba: fokus ke baris Switch di
+   kedua layar itu, harusnya kebaca 1 kali gabungan (bukan label lalu
+   Switch kosong terpisah).
+4. Kalau semua oke → lanjut batch 4/N: kandidat sama seperti HomeScreen
+   Switch toggle-row (WarpModeCard/IkeV2ModeCard) TAPI hati-hati (lihat
+   alasan "sengaja tidak" di CHANGELOG v3.22.0), atau tanya user arah
+   berikutnya kalau UI/UX dirasa sudah cukup matang.
 
 **SEBELUMNYA (2026-08-06, v3.21.0 — Apple-Style batch 1/N):**
 1. Cek CI v3.21.0 dulu — belum pernah dicek sejak push, JANGAN mulai

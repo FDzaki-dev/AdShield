@@ -1,5 +1,7 @@
 package com.fdzaki.adshield.ui.screens
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -20,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fdzaki.adshield.ui.theme.ShieldAccentDim
 import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
 import kotlinx.coroutines.launch
@@ -99,14 +102,23 @@ fun OnboardingScreen(
         ) {
             repeat(pages.size) { index ->
                 val active = index == pagerState.currentPage
+                // Apple-Style pass: dot size/color now animates (was an
+                // instant jump-cut before) — same smooth grow/shrink feel
+                // as iOS's UIPageControl. Purely visual, `active`'s meaning
+                // and the pager's own state/logic are untouched.
+                val dotSize by animateDpAsState(
+                    targetValue = if (active) 10.dp else 8.dp,
+                    label = "onboardingDotSize"
+                )
+                val dotColor by animateColorAsState(
+                    targetValue = if (active) ShieldGreen else ShieldTextMuted,
+                    label = "onboardingDotColor"
+                )
                 Box(
                     modifier = Modifier
                         .padding(horizontal = 4.dp)
-                        .size(if (active) 10.dp else 8.dp)
-                        .background(
-                            color = if (active) ShieldGreen else ShieldTextMuted,
-                            shape = CircleShape
-                        )
+                        .size(dotSize)
+                        .background(color = dotColor, shape = CircleShape)
                 )
             }
         }
@@ -152,7 +164,12 @@ private fun OnboardingPageContent(page: OnboardingPage) {
         Box(
             modifier = Modifier
                 .size(96.dp)
-                .background(color = ShieldGreen.copy(alpha = 0.15f), shape = CircleShape),
+                // Apple-Style consistency pass: was an ad-hoc
+                // `ShieldGreen.copy(alpha = 0.15f)` tint computed locally —
+                // now reuses `ShieldAccentDim`, the SAME "tinted icon
+                // background" constant every other screen uses, instead of
+                // a second parallel green-tint formula existing only here.
+                .background(color = ShieldAccentDim, shape = CircleShape),
             contentAlignment = Alignment.Center
         ) {
             Icon(

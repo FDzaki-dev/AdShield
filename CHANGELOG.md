@@ -1,5 +1,45 @@
 # Changelog
 
+## v3.22.0 — Apple-Style batch 3/N: accessibility toggle-row fix + Onboarding polish (2026-08-06)
+
+CI v3.21.0 & v3.21.1 dikonfirmasi HIJAU + screenshot device HomeScreen
+normal (dikirim user). Lanjut batch 3/N sesuai otorisasi "kamu putuskan
+sendiri" — kali ini fokus ke accessibility, bukan cuma visual.
+
+**Accessibility fix nyata — `LogsScreen.kt` + `WhitelistScreen.kt`:**
+- Sebelumnya: label teks ("Simpan log query domain" / nama app) dan
+  `Switch` di sebelahnya adalah 2+ TalkBack focus stop TERPISAH — Switch
+  sendiri cuma bunyi "On/Off" tanpa konteks dia punya switch APA.
+- Fix: `Row` pembungkus dikasih `Modifier.toggleable(role = Role.Switch)`,
+  jadi 1 accessible node gabungan ("Simpan log query domain, switch, on"),
+  DAN sekalian bikin seluruh baris bisa ditap (bukan cuma kotak Switch
+  kecil) — pola yang sama dipakai baris toggle Settings iOS.
+- `Switch` sendiri di-`onCheckedChange = null` supaya toggle logic HANYA
+  dipegang `toggleable` di Row (bukan API custom — `onCheckedChange`
+  Material3 Switch memang nullable persis untuk pola ini) — mencegah
+  double-fire kalau user tap tepat di kotak Switch-nya.
+- **SENGAJA TIDAK diterapkan ke `HomeScreen.kt`** (WarpModeCard/
+  IkeV2ModeCard Switch) — sudah ada logic `enabled = !connecting` +
+  haptic per-Switch dari batch sebelumnya; menggabungkan itu dengan
+  `toggleable` di level Row butuh mikir ulang urutan panggilan
+  haptic+enabled+onValueChange sekaligus, risiko regresi nyata tanpa
+  compiler buat verifikasi. Bukan lupa — keputusan sadar.
+
+**`OnboardingScreen.kt`:**
+- Lingkaran ikon tiap halaman: dulu `ShieldGreen.copy(alpha = 0.15f)`
+  dihitung sendiri lokal di file ini — sekarang pakai `ShieldAccentDim`,
+  konstanta "tinted icon bg" yang SAMA dipakai layar lain (1 sumber
+  kebenaran, bukan 2 rumus tint hijau paralel).
+- Dot indikator halaman: dulu ganti ukuran/warna instan (jump-cut) —
+  sekarang `animateDpAsState`/`animateColorAsState`, growth/shrink halus
+  ala `UIPageControl` iOS. Murni visual, state `active`/logic pager sama
+  persis.
+
+**Verifikasi statis:** brace/paren balance + duplicate-import check ke
+SEMUA 3 file diubah — 0 masalah. `Switch(onCheckedChange = null)`
+dikonfirmasi valid — parameter itu memang nullable di Material3 API,
+bukan asumsi.
+
 ## v3.21.1 — Apple-Style batch 2/N: ProtectionRing press-scale + debug sweep hasil temuan real bug (2026-08-06)
 
 User: "Lanjut" (setelah v3.21.0 dianggap sudah build hijau — **catatan:

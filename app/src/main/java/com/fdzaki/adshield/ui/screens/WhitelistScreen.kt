@@ -3,6 +3,7 @@ package com.fdzaki.adshield.ui.screens
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Clear
@@ -13,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -135,6 +137,16 @@ private fun AppRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            // Accessibility fix: same issue/fix as LogsScreen's toggle row —
+            // app icon/name/package and the Switch used to be 3+ separate
+            // TalkBack stops with the Switch itself announcing no app name.
+            // `toggleable` merges them into one row-level stop and makes the
+            // whole row tappable (iOS Settings row convention).
+            .toggleable(
+                value = isWhitelisted,
+                onValueChange = onToggle,
+                role = Role.Switch
+            )
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -152,6 +164,8 @@ private fun AppRow(
             Text(label, fontWeight = FontWeight.Medium)
             Text(packageName, fontSize = 11.sp, color = ShieldTextMuted)
         }
-        Switch(checked = isWhitelisted, onCheckedChange = onToggle)
+        // onCheckedChange = null: the Row above owns the toggle via
+        // `toggleable` now — a live callback here too would double-fire.
+        Switch(checked = isWhitelisted, onCheckedChange = null)
     }
 }
