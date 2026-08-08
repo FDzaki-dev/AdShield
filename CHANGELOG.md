@@ -1,5 +1,20 @@
 # Changelog
 
+## v3.43.1 — Fix CI build failure: missing `getValue` import (2026-08-08)
+
+> CI run 31258449475 gagal di `:app:compileDebugKotlin` — 7 error "Type
+> 'State<T>' has no method 'getValue(...)' and thus it cannot serve as a
+> delegate" di `TactileButton.kt` (3x) dan `TactileSwitch.kt` (4x), commit
+> 782f9d1.
+
+Root cause: `by animateDpAsState(...)`/`by collectIsPressedAsState()` butuh
+`import androidx.compose.runtime.getValue` (operator extension) di file yang
+memakainya — hilang di kedua file baru itu (v3.43.0). `TactileSlider.kt`
+sudah benar karena juga pakai `setValue` untuk `var ... by remember`.
+
+Fix: tambah `import androidx.compose.runtime.getValue` ke `TactileButton.kt`
+dan `TactileSwitch.kt`. Tidak ada perubahan logic/behavior.
+
 ## v3.43.0 — Theme overhaul: AMOLED Glassmorphism Hybrid + Midnight Blue Gradient (2026-08-08)
 
 > User: uploaded `compose-skeuomorphism-lite-amoled-glass-hybrid-midnight-gradient.md`,

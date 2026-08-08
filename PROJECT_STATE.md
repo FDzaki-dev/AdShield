@@ -2805,3 +2805,13 @@ Keputusan desain:
 Belum dikerjakan (menunggu instruksi user): wiring 4 komponen Tactile* ke
 HomeScreen/RulesScreen/dll, dan histori visual QA di device fisik untuk
 kontras GlassBorder alpha 0.035 di atas background yang sangat gelap.
+
+## v3.43.1 — Fix CI compile error dari batch v3.43.0
+
+CI run 31258449475 gagal: `TactileButton.kt`/`TactileSwitch.kt` pakai
+`by animateXAsState(...)` tanpa import `androidx.compose.runtime.getValue`
+(operator delegate untuk `State<T>`). Ditambahkan di kedua file. Tidak ada
+perubahan visual/logic — pure compile fix. Pelajaran: saat menulis file baru
+dengan `by remember`/`by animate*AsState`, WAJIB cek pasangan
+`getValue`/`setValue` import-nya, jangan andalkan IDE auto-import karena
+ditulis lewat tool langsung ke file.
