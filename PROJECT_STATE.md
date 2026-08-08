@@ -3,7 +3,49 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.34.1 (2026-08-08) — HOTFIX: logcat filter ketinggalan tag R4,
+- **v3.35.0 (2026-08-08) — Round 5 (diagnostik, bukan kandidat baru):
+  data round 4 LENGKAP terbaca (run CI kedua stlh hotfix v3.34.1).
+  **2 TEMUAN TERKONFIRMASI PASTI, jangan diuji ulang tanpa alasan baru:**
+  (1) **Envelope BENAR = `{"apiVersion":2,"method":"...","payload":{...}}`,
+  field HARUS di-nest di bawah `"payload"`** — dibuktikan POSITIF:
+  `getFreePorts` payload-nested balas `data:{"ports":[41971,34425,41767]}`
+  (port ASLI beda-beda), sedangkan versi flat (repro `CANDIDATE-WIN`
+  round 2) balas `data:{}` KOSONG → `CANDIDATE-WIN` round 2 TERBUKTI
+  sukses-semu (vacuous), BUKAN envelope benar. (2) **`apiVersion` WAJIB
+  2, apiVersion:1 SELALU balas `"unsupported apiVersion"`** (dicoba lagi
+  di getFreePorts DAN testXray, gagal identik keduanya) — contoh
+  `"apiVersion":1` di README resmi cuma ilustratif generik, BUKAN nilai
+  yang diterima AAR build ini, jangan dicoba lagi.
+  **MISTERI BARU**: `testXray` TETAP gagal `"infra/conf/serial: failed to
+  read config file > EOF"` PERSIS SAMA walau sudah pakai envelope yang
+  di poin (1)+(2) di atas TERBUKTI benar. Riset laporan bug xray-core
+  lain (web search) mengonfirmasi pesan EOF ini spesifik berarti Xray-core
+  BERHASIL buka file tapi file-nya OSONG (0 byte) saat dibaca — bukan
+  "file not found", bukan field salah. `xray_wrapper.go` resmi (dibaca
+  langsung dari GitHub) konfirmasi `TestXray` pakai struct `RunXrayRequest`
+  yang sama (`DatDir`/`ConfigPath`, ada juga `MphCachePath` opsional tidak
+  dipakai) — field kita SUDAH PERSIS cocok source Go, jadi bukan salah
+  nama field.
+  File baru `LibXrayInvokeProbeRound5Test.kt`, 2 fungsi DIAGNOSTIK (bukan
+  kandidat envelope baru — envelope sudah pasti benar): (1)
+  `probeConfigFileBytesBeforeInvoke` — baca balik `file.length()`+
+  `readText()` PERSIS sebelum `invoke()`, buktikan/sangkal apakah file
+  beneran kosong di titik invoke dipanggil (isolasi bug Kotlin/timing);
+  (2) `probeTestXrayMinimalFreedomConfig` — ganti config WireGuard
+  placeholder dengan config Xray minimal (`freedom` outbound doang, tanpa
+  WireGuard) — kalau ini SUKSES, masalah ada di config WireGuard kita;
+  kalau tetap EOF sama persis, masalah ada di jalur baca file itu sendiri,
+  bukan isi config apa pun.
+  **WAJIB dicek PALING PERTAMA sesi berikutnya**: baca
+  `invoke-probe-logcat.log` run baru, tag `LibXrayInvokeProbeR5`, cari
+  baris `FILE-CHECK:` (lihat `length()` — 0 atau bukan) dan
+  `TESTXRAY-MINIMAL-WIN`/`-MISS` (config freedom-only sukses atau tidak).
+  Workflow `.github/workflows/build.yml` sudah ditambah tag
+  `LibXrayInvokeProbeR5:*` ke filter logcat SEKALIAN di round ini (belajar
+  dari hotfix v3.34.1 — proaktif, tidak nunggu ketinggalan lagi).
+  0 baris kode app produksi disentuh.
+
+- v3.34.1 (2026-08-08) — HOTFIX: logcat filter ketinggalan tag R4,
   bukan test yang gagal.** User upload log run v3.34.0: gradle log
   konfirmasi **`Starting 6 tests` / `Finished 6 tests`** (naik dari 3 —
   round 1 (1) + round 3 (2) + round 4 (3) = 6, SEMUA benar-benar

@@ -1,5 +1,18 @@
 # Changelog
 
+## v3.35.0 — Round 5 diagnostic: envelope confirmed, testXray EOF mystery isolated (2026-08-08)
+
+> Round 4 data lengkap: **envelope payload-nested + apiVersion:2
+> TERBUKTI benar** (getFreePorts balas port asli via nested, kosong via
+> flat — CANDIDATE-WIN round 2 terbukti sukses-semu; apiVersion:1 selalu
+> "unsupported apiVersion"). Tapi `testXray` tetap EOF sama persis walau
+> envelope sudah benar. File baru `LibXrayInvokeProbeRound5Test.kt`:
+> verifikasi isi file di disk PERSIS sebelum invoke() (isolasi bug
+> Kotlin/timing) + config minimal freedom-only sebagai kontrol (isolasi
+> apakah masalah di config WireGuard vs di jalur baca file). Workflow
+> logcat filter ditambah tag R5 proaktif. 0 baris kode app produksi
+> disentuh.
+
 ## v3.34.1 — HOTFIX: logcat filter missing R4 tag (2026-08-08)
 
 > Round 4 test (3 fungsi) TERBUKTI jalan (`Starting 6 tests`/`Finished 6
