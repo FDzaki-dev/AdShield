@@ -3,37 +3,94 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.37.0 (2026-08-08) — Round 6 hasil DIBACA (DEFINITIF) + Round 7:
-  apakah `runXray` produksi kena bug yang sama.** User upload log run
-  v3.36.0 (`libxray-invoke-probe-log.zip`): gradle `BUILD SUCCESSFUL`,
-  `Finished 10 tests`. Tag `LibXrayInvokeProbeR6` terbaca lengkap:
-  `probeTestXrayNonexistentPath` (configPath ke file yang DIJAMIN tidak
-  ada) dan `probeTestXrayEmptyStringPath` (configPath="" eksplisit)
-  KEDUANYA balas `"infra/conf/serial: failed to read config file > EOF"`
-  — **PERSIS SAMA** dengan error round 3-5 yang pakai file 470-byte
-  TERBUKTI berisi. **KESIMPULAN DEFINITIF (bukan lagi hipotesis)**:
-  field `configPath` di payload `testXray` TIDAK PERNAH sampai ke fungsi
-  Go — bug di dispatcher `Invoke()` AAR ini, kategori method
-  `func XXX(base64Text string) string`, BUKAN bug kode kita, TIDAK BISA
-  diperbaiki dari sisi Kotlin.
-  **Pertanyaan baru & jauh lebih penting**: `testXray` cuma dipakai utk
-  validasi — method PRODUKSI yang benar-benar menyalakan tunnel adalah
-  `runXray`. Kalau `runXray` kena bug dispatcher yang SAMA, jalur
-  Xray-core via libXray AAR ini MATI TOTAL utk WARP-native (bukan cuma
-  soal skip validasi client-side). File baru `LibXrayInvokeProbeRound7Test.kt`,
-  1 fungsi `probeRunXrayNonexistentPath` — metodologi identik round 6
-  tapi utk `runXray`, + `stopXray` di `finally` sbg cleanup best-effort.
-  Tag logcat `LibXrayInvokeProbeR7` sudah ditambahkan proaktif ke filter
-  `adb logcat` (pelajaran hotfix v3.34.1 — jangan lagi ketinggalan tag).
-  **WAJIB dicek PALING PERTAMA sesi berikutnya**: baca
-  `invoke-probe-logcat.log` run BARU, tag `LibXrayInvokeProbeR7`, baris
-  `RUNXRAY-NOFILE-WIN`/`-MISS`/`-ERROR`. Sama pola EOF → jalur Xray-core
-  MATI TOTAL, next keputusan besar (cari basis lain/batalkan). Beda pola
-  → `runXray` aman, lanjut Round 8: integrasi langsung config WireGuard-
-  outbound+reserved bytes WARP asli, skip `testXray` sepenuhnya. 0 baris
-  kode app produksi disentuh.
+- **v3.39.0 (2026-08-08) — KEPUTUSAN FINAL: roadmap Xray-core/WARP-
+  reserved-bytes DITUTUP, status quo diterima permanen.** User serahkan
+  keputusan ke Claude ("cari jalan keluarnya sendiri") atas 3 opsi yang
+  diajukan v3.38.0. **Keputusan: opsi 1 (terima status quo) — WARP tetap
+  di jalur `com.wireguard.android:tunnel` resmi, label "Tersambung,
+  bukan WARP resmi" (v3.28.0) PERMANEN, TIDAK lanjut fork wireguard-go
+  maupun re-evaluasi bepass-sdk.**
+  **Alasan (bukan keputusan sembarangan):**
+  1. **Fork wireguard-go sendiri** ditolak — biaya maintenance
+     selama-lamanya utk 1 developer solo TIDAK sepadan dengan manfaatnya
+     (cuma soal Cloudflare mau nge-tag `warp=on` atau tidak — tunnel
+     yang jalan SEKARANG sudah terenkripsi penuh, sehat, 0% packet loss
+     per data device asli v3.27.0/v3.28.0). Ini persis pola risiko yang
+     SUDAH 2x ditolak di proyek ini (OpenVPN GPL/AGPL v3.14.0, Xray-core
+     gomobile+NDK yang baru saja terbukti berujung buntu juga).
+  2. **bepass-sdk (CC BY-NC-SA)** ditolak — bukan cuma soal riset
+     lisensi lebih lanjut, tapi KOMITMEN JANGKA PANJANG yang diminta:
+     app HARUS selamanya non-komersial (tanpa iklan/pembayaran/donasi
+     berbayar apa pun) SELAMANYA begitu 1 baris kode ShareAlike itu
+     masuk — app belum punya model monetisasi final yang dikunci, jadi
+     mengunci diri ke batasan lisensi permanen demi fitur kosmetik
+     (label "resmi") adalah trade-off yang tidak sepadan.
+  3. **Dampak nyata ke user: NOL.** Mode DNS Ad-Block (fitur utama app)
+     tidak tersentuh sama sekali oleh isu ini. Mode WARP tetap
+     memberikan enkripsi penuh trafik (fungsi intinya) — yang hilang
+     HANYA badge/tag "resmi WARP" dari sisi Cloudflare, sudah
+     dikomunikasikan jujur ke user lewat label v3.28.0 sejak awal.
+  **Aksi konkret batch ini:** dokumentasi murni, 0 kode app/test
+  disentuh. Keputusan arsitektur ditambah entri #16 (WARP-reserved-bytes
+  CLOSED, won't-fix) di bawah supaya sesi depan TIDAK mengangkat lagi
+  topik ini tanpa alasan baru yang konkret (mis. AAR libXray versi baru
+  yang sudah fix bug dispatcher-nya, atau library Android
+  WireGuard+reserved-bytes resmi baru muncul). Roadmap "Yang HARUS
+  dikerjakan" dibersihkan dari entri Xray-core (7 round v3.29.0-v3.37.0 +
+  keputusan v3.38.0 SEMUA ditutup oleh entri ini).
+  **Test probe (`xray/` package, `app/libs/libXray.aar` 96.7MB, job CI
+  `libxray-invoke-probe`) DIBIARKAN di repo** — dihapus butuh izin
+  eksplisit user (Strict Delete Guard) + tidak mengganggu apa pun (job
+  terpisah, boleh gagal, tidak masuk `build` reguler) — kalau user
+  suatu saat mau bersihkan repo dari sisa investigasi ini, tanya dulu.
 
-- v3.36.0 (2026-08-08) — Round 6: uji definitif "apakah `configPath`
+- v3.38.0 (2026-08-08) — Round 7 hasil DIBACA: KONFIRMASI FINAL,
+  jalur Xray-core via libXray AAR MATI TOTAL untuk WARP-native.** User
+  upload log run v3.37.0: gradle `BUILD SUCCESSFUL`, `Finished 11
+  tests`. Tag `LibXrayInvokeProbeR7`: `probeRunXrayNonexistentPath`
+  balas `"infra/conf/serial: failed to read config file > EOF"` —
+  **PERSIS SAMA** dengan pola bug `testXray` round 6. `configPath`
+  TIDAK PERNAH sampai ke Go untuk `runXray` juga (`STOPXRAY-CLEANUP`
+  sukses normal, tidak ada proses menggantung).
+  **KESIMPULAN FINAL, bukan lagi dugaan**: SELURUH jalur `Invoke()` AAR
+  `github.com/XTLS/libXray` versi yang dipakai (dibangun dari `main`
+  branch v3.31.0, Xray-core `v26.7.28`) untuk method kategori
+  `func XXX(base64Text string) string` (`testXray` DAN `runXray`, satu-
+  satunya cara menyalakan tunnel produksi) **TIDAK BISA DIPAKAI SAMA
+  SEKALI** — bug dispatcher di level AAR, bukan di kode app manapun,
+  tidak ada workaround dari sisi Kotlin/Android. Ini menutup total
+  roadmap "Xray-core sebagai basis WARP-native" yang dimulai v3.29.0 —
+  7 round investigasi (v3.29.0–v3.37.0), root cause akhirnya ketemu
+  pasti, tapi jawabannya "AAR ini tidak bisa dipakai untuk kasus
+  pemakaian kita", bukan "field/envelope yang salah".
+  **0 kode app produksi disentuh — WARP tetap di jalur
+  `com.wireguard.android:tunnel` yang sudah jalan (v3.28.0, honest
+  labeling "Tersambung, bukan WARP resmi").** Test probe (`xray/`
+  package, `androidTest/`) DIBIARKAN di repo sebagai dokumentasi hidup
+  investigasi (bukan dihapus) — tidak pernah dijalankan CI reguler
+  (`build` job), hanya lewat job terpisah `libxray-invoke-probe` yang
+  BOLEH gagal tanpa memblokir apa pun.
+  **KEPUTUSAN BESAR BERIKUTNYA — WAJIB tanya user, JANGAN diputuskan
+  sepihak**: 3 opsi jalan ke depan (semua sudah pernah dievaluasi
+  sebagian di v3.28.0/v3.29.0):
+  1. **Terima status quo** — WARP tetap "bukan WARP resmi" (tunnel
+     sehat, iklan-blocking DNS jalan normal, cuma tidak dapat tag
+     `warp=on` dari Cloudflare). 0 kerja tambahan.
+  2. **Fork wireguard-go sendiri** (tambah `reserved` bytes manual) —
+     kontrol penuh, tapi beban maintenance jangka panjang tertinggi,
+     butuh toolchain Go+gomobile+NDK penuh (compile sendiri, bukan AAR
+     jadi) — risiko sama seperti yang bikin roadmap OpenVPN dibatalkan.
+  3. **Re-evaluasi `bepass-sdk`** (CC BY-NC-SA — NonCommercial) — sudah
+     ditolak v3.28.0 karena isu lisensi (ShareAlike bisa "menular"),
+     TAPI belum dicek ulang detail: apakah AdShield dianggap
+     "NonCommercial" (app gratis, tanpa iklan/pembayaran)? Perlu baca
+     teks lisensi CC BY-NC-SA persis + tanya user apakah AdShield akan
+     selamanya gratis tanpa monetisasi sebelum opsi ini layak dipilih.
+  **JANGAN mulai coding opsi manapun sebelum user pilih** — ini pivot
+  arsitektur besar dengan trade-off lisensi/maintenance jangka panjang,
+  bukan detail teknis yang bisa diputuskan sepihak.
+
+- v3.37.0 (2026-08-08) — Round 6: uji definitif "apakah `configPath`
   pernah sampai ke Go sama sekali".** Data round 5 (v3.35.0) LENGKAP:
   `FILE-CHECK: length()=470 readText().length=470` (file TERBUKTI ada isi
   PERSIS sebelum invoke) DAN config minimal 53-byte freedom-only (TANPA
@@ -2135,6 +2192,27 @@ Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
      ini (batch ini murni structural move, 0 test baru), cuma dicatat
      sebagai kemungkinan follow-up kalau user minta.
 
+16. **WARP `reserved` bytes / "WARP resmi" — CLOSED, won't-fix
+   (keputusan v3.39.0, JANGAN diangkat lagi tanpa alasan baru
+   konkret).** Investigasi 7 round (v3.29.0–v3.37.0) MEMBUKTIKAN
+   PASTI: AAR `github.com/XTLS/libXray` (dibangun dari `main` branch
+   v3.31.0, Xray-core `v26.7.28`) tidak bisa dipakai untuk menyalakan
+   tunnel — bug dispatcher `Invoke()` di level AAR (`configPath` tidak
+   pernah sampai ke Go untuk method kategori `func XXX(base64Text
+   string) string`, termasuk `testXray` DAN `runXray`), bukan bug kode
+   app. 2 alternatif (fork wireguard-go sendiri, bepass-sdk CC BY-NC-SA)
+   dipertimbangkan & DITOLAK — alasan lengkap di entri v3.39.0 di atas.
+   **WARP TETAP di `com.wireguard.android:tunnel` resmi PERMANEN**,
+   label "Tersambung, bukan WARP resmi" (v3.28.0) adalah state FINAL,
+   bukan sementara. Kalau topik ini diangkat lagi di masa depan, syarat
+   MINIMAL sebelum coding apa pun: (a) versi AAR libXray BARU yang
+   terverifikasi sudah fix bug dispatcher ini (bukan asumsi/coba lagi
+   pola lama), ATAU (b) library Android resmi lain yang native dukung
+   WireGuard `reserved` bytes tanpa kompilasi toolchain Go/NDK sendiri,
+   ATAU (c) user eksplisit menerima trade-off maintenance/lisensi opsi
+   2/3 di atas dengan kesadaran penuh. Test probe (`xray/` package)
+   TETAP di repo sebagai dokumentasi — TIDAK dihapus tanpa izin user.
+
 ## Riwayat insiden kronologis
 
 - **2026-08-06 (v3.17.0 CI build FAILED, fixed v3.17.1)**: `kspDebugKotlin`
@@ -2402,133 +2480,12 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-08, v3.37.0 — round 7, belum ada run baru):**
-1. Cek job `libxray-invoke-probe` run v3.37.0 — download
-   `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
-2. Cari `RUNXRAY-NOFILE-`: kalau error SAMA PERSIS pola EOF
-   (`"infra/conf/serial: failed to read config file > EOF"`) — `runXray`
-   TERBUKTI kena bug dispatcher yang sama seperti `testXray` (round 6) →
-   **jalur Xray-core via libXray AAR ini dianggap MATI TOTAL** untuk
-   WARP-native. Next: putuskan basis lain (fork wireguard-go/bepass-sdk,
-   sudah pernah ditolak — perlu re-evaluasi) atau batalkan roadmap
-   Xray-core sepenuhnya, WARP tetap di `com.wireguard.android:tunnel`
-   ("bukan WARP resmi", keputusan v3.28.0 tetap berlaku).
-3. Kalau error BEDA (mis. "no such file") atau `success:true` —
-   `runXray` AMAN dari bug ini. Lanjut Round 8: desain integrasi
-   langsung (config WireGuard-outbound + `reserved` bytes WARP asli dari
-   `client_id` registrasi Cloudflare — field ini BELUM disimpan di
-   `WarpAccount`, perlu ditambah dulu), skip `testXray` sepenuhnya,
-   tangani kegagalan config lewat observasi tunnel real-time.
-4. Cek juga `STOPXRAY-CLEANUP` — pastikan tidak ada proses/goroutine
-   Xray menggantung dari probe ini di run selanjutnya.
-
-**SEBELUMNYA (2026-08-08, v3.33.0 — round 3, belum ada run baru):**
-1. Cek job `libxray-invoke-probe` run v3.33.0 — download
-   `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
-2. Cari `NOARG-RESULT:` (2 baris — `xrayVersion`/`getXrayState`): kalau
-   `success:true`, catat versi Xray-core yang jalan (info berguna untuk
-   compatibility check `reserved` field ke depan).
-3. Cari `TESTXRAY-WIN:` — kalau ketemu, itu bentuk field payload
-   `testXray` yang BENAR. Lanjut ke probe berikutnya: config yang SAMA
-   tapi `secretKey`/`reserved` ASLI dari akun WARP (baru setelah formula
-   `reserved` diverifikasi baca source wgcf — lihat entri v3.33.0 di
-   bawah untuk alasan).
-4. Kalau `TESTXRAY-MISS`/`TESTXRAY-ERROR` semua: baca pesan error PERSIS
-   tiap kandidat — bedakan 2 kelas: (a) error soal method/field TIDAK
-   DIKENAL → nama field masih salah, perlu kandidat baru; (b) error soal
-   ISI config (parse WireGuard/key format/dst) → field-nya sudah BENAR,
-   config placeholder-nya yang ditolak (progress nyata, bukan buntu).
-5. Roadmap integrasi `WarpTunnelManager` (langkah 3) TETAP menunggu
-   sampai #3 sukses DAN formula `reserved` terverifikasi — jangan
-   loncat ke situ dari hasil round 3 ini saja.
-
-**SEBELUMNYA (2026-08-07, v3.32.2 — hotfix #2, TERBUKTI berhasil, lihat v3.32.3 di atas untuk hasil probe-nya):**
-1. Cek job `libxray-invoke-probe` run v3.32.2 — apakah Gradle sekarang
-   benar-benar mengeksekusi `connectedDebugAndroidTest` (bukan lagi
-   `Task '\' not found`)?
-2. Kalau ya: download `libxray-invoke-probe-log`, buka
-   `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:` — ini pertanyaan
-   ASLI v3.32.0 yang baru sekarang bisa benar-benar dijawab.
-3. Kalau masih gagal dengan error BEDA (bukan lagi soal shell/line-
-   continuation): baca `invoke-probe-gradle.log` dari artifact — sudah
-   pasti ter-upload (`if: always()`) berisi output gradle lengkap
-   (bukan cuma exit code), kirim isinya untuk diagnosis lanjut.
-
-**SEBELUMNYA (2026-08-07, v3.32.1 — hotfix shell, TERBUKTI jalan tapi kena bug baru, lihat v3.32.2 di atas):**
-1. Cek job `libxray-invoke-probe` run v3.32.1 — apakah step "Run
-   instrumented probe test on emulator" sekarang sampai ke baris
-   `gradle connectedDebugAndroidTest` (bukan mati di `sh`/pipefail lagi)?
-2. Kalau ya (step selesai, apapun hasil gradle-nya): lanjut ke langkah
-   v3.32.0 di bawah — download `libxray-invoke-probe-log`, cari
-   `CANDIDATE-WIN` di `invoke-probe-logcat.log`.
-3. Kalau step MASIH mati sebelum gradle jalan (error baru, bukan
-   pipefail lagi): baca `invoke-probe-gradle.log` dari artifact — itu
-   sekarang selalu ter-upload (step "Upload probe logs" pakai
-   `if: always()`) meski gradle gagal total, beda dengan sebelumnya yang
-   kosong karena mati di shell.
-
-**SEBELUMNYA (2026-08-07, v3.32.0 — TERNYATA belum pernah benar-benar tercoba, lihat hotfix v3.32.1 di atas):**
-1. Cek job **`libxray-invoke-probe`** (job BARU, terpisah dari `build` dan
-   `libxray-poc`) — download artifact `libxray-invoke-probe-log`, buka
-   `invoke-probe-logcat.log`.
-2. Cari baris `CANDIDATE-WIN:` — kalau ada, itu bentuk envelope
-   `invoke()` yang benar (request JSON persis tertulis di baris itu).
-   BARU dari situ mulai desain engine Xray sungguhan: config JSON
-   WireGuard-outbound ke peer WARP + `reserved` bytes (dari `client_id`
-   registrasi Cloudflare, BELUM disimpan di `WarpAccount` — perlu
-   ditambah dulu, lihat catatan di CHANGELOG v3.32.0/riset field
-   `config.client_id` wgcf), tun fd lewat `env.xray.tun.fd` di root
-   config (API `SetTunFd` sudah dihapus versi ini, dikonfirmasi README).
-3. Kalau 0 `CANDIDATE-WIN:` sama sekali: JANGAN tebak kandidat ke-10
-   tanpa data tambahan — baca source Go `github.com/XTLS/libXray`
-   langsung (fungsi yang handle `Invoke`/`CGoInvoke`) sebelum lanjut.
-4. Kalau bahkan `LibXray.touch()` gagal di log: native lib x86_64 tidak
-   ter-load di emulator — cek dulu apakah itu masalah AAR atau masalah
-   setup emulator/ABI mismatch sebelum simpulkan apa pun soal envelope.
-
-**SEBELUMNYA (2026-08-07, v3.31.0 — sudah dicek, CI confirmed hijau):**
-1. ~~Cek job `libxray-poc` run v3.31.0~~ — HIJAU, dikonfirmasi user,
-   AAR diverifikasi statis valid. Lanjut ke v3.32.0 di atas.
-
-**SEBELUMNYA (2026-08-07, v3.30.0):**
-1. Cek job `libxray-poc` run v3.30.0 — hijau atau merah?
-2. Kalau masih merah: kirim `libxray-build.log` baru (dari artifact
-   `libxray-poc-log`) — errornya seharusnya sudah spesifik ("go.mod
-   requires go >= X"), tinggal naikkan `go-version` lagi ke versi yang
-   diminta persis.
-3. Kalau hijau + ada `.aar`: baru lanjut roadmap langkah 3 (integrasi
-   ke `WarpTunnelManager`, di belakang flag, fallback ke jalur lama
-   tetap ada) — TIDAK sebelum ini.
-
-**SEBELUMNYA (2026-08-07, v3.29.0):**
-1. **Cek job `libxray-poc` di Actions run v3.29.0 dulu, TERPISAH dari
-   job `build`** — build APK utama harusnya tetap hijau seperti biasa
-   (0 kode app disentuh), tapi job PoC yang baru ini kemungkinan BESAR
-   merah di percobaan pertama (toolchain Go/NDK version belum
-   diverifikasi, wajar). Itu bukan darurat, itu memang tujuan PoC-nya.
-2. Kalau `libxray-poc` merah: download artifact `libxray-poc-log`,
-   salin `libxray-build.log` (fokus baris error paling akhir) ke sesi
-   Claude berikutnya utk iterasi versi Go/NDK.
-3. Kalau `libxray-poc` hijau (ada .aar): itu baru artinya toolchain-nya
-   kepasang di CI — BELUM berarti WARP+reserved-bytes langsung jalan.
-   Lanjut ke roadmap langkah 3 (integrasi ke `WarpTunnelManager` di
-   belakang flag, jalur lama tetap fallback) baru setelah ini, bukan
-   sebelumnya.
-4. **Jangan skip ke langkah 3/4 tanpa hasil PoC di tangan** — itu
-   persis pola "klaim fix tanpa validasi" yang sudah 2x bikin krisis di
-   proyek ini (DNS v3.9-v3.11).
-
-**SEBELUMNYA (2026-08-07, v3.28.0):**
-1. Cek CI v3.28.0 — exhaustive `when` atas `Level` yang baru (4 cabang)
-   harus kompil bersih, ini murni penambahan enum + label, risiko rendah.
-2. Device: buka Home/Diagnostik saat WARP aktif — pastikan label baru
-   ("Tersambung, bukan WARP resmi") yang muncul, BUKAN lagi "Belum
-   diperiksa" yang nyangkut selamanya seperti sebelumnya.
-3. **JANGAN langsung lompat ke nulis kode native Go/NDK** kalau user
-   minta lanjut fix betulan — mulai dari roadmap langkah 1 (riset
-   lisensi bepass-sdk vs fork sendiri vs Xray-core) di CHANGELOG.md
-   v3.28.0, dan setiap langkah native HARUS divalidasi CI sebelum lanjut
-   ke langkah berikutnya, TIDAK diklaim selesai dalam 1 batch.
+**PALING BARU & PALING PENTING (2026-08-08, v3.39.0) — ROADMAP XRAY-CORE DITUTUP:**
+Lihat keputusan arsitektur #16 + entri v3.39.0 di "Status terakhir" —
+WARP-reserved-bytes/"WARP resmi" CLOSED won't-fix permanen. Seluruh
+checklist round 1-7 (v3.29.0-v3.38.0) yang sebelumnya ada di sini SUDAH
+TIDAK RELEVAN (kesimpulan sudah final), dihapus dari daftar prioritas.
+JANGAN angkat lagi kecuali syarat di keputusan #16 terpenuhi.
 
 **SEBELUMNYA (2026-08-07, v3.27.0):**
 1. Cek CI v3.27.0 dulu — belum pernah di-push/dicek sama sekali.

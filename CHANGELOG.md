@@ -1,5 +1,65 @@
 # Changelog
 
+## v3.39.0 — KEPUTUSAN FINAL: roadmap Xray-core/WARP-reserved-bytes ditutup (2026-08-08)
+
+> User serahkan keputusan ("cari jalan keluarnya sendiri") atas 3 opsi
+> yang diajukan v3.38.0 setelah Round 7 membuktikan AAR `libXray` mati
+> total. **Keputusan: terima status quo, permanen.**
+
+**Alasan:**
+1. Fork wireguard-go sendiri (toolchain Go+NDK penuh) — beban
+   maintenance solo-dev tidak sepadan cuma untuk badge "resmi"
+   Cloudflare; tunnel yang jalan sekarang sudah terenkripsi penuh &
+   sehat. Pola risiko sama seperti OpenVPN (v3.14.0) & Xray-core sendiri
+   yang baru terbukti buntu.
+2. bepass-sdk (CC BY-NC-SA) — menuntut komitmen non-komersial permanen
+   yang belum bisa dijamin (app belum punya model monetisasi final
+   terkunci), demi fitur kosmetik (label semata).
+3. Dampak ke user: nol. DNS Ad-Block (fitur utama) tidak tersentuh;
+   WARP tetap enkripsi penuh, cuma tidak dapat tag `warp=on` — sudah
+   dikomunikasikan jujur sejak v3.28.0.
+
+**Aksi:** dokumentasi murni — `PROJECT_STATE.md` keputusan arsitektur
+#16 (CLOSED, won't-fix) + roadmap "Yang HARUS dikerjakan" dibersihkan
+dari seluruh entri round 1-7 Xray-core. 0 kode app/test disentuh. Test
+probe (`xray/` package + `libXray.aar`) TETAP di repo sebagai
+dokumentasi investigasi, tidak dihapus tanpa izin eksplisit user.
+
+**Syarat buka topik ini lagi (lihat keputusan #16 PROJECT_STATE.md):**
+versi AAR libXray baru yang terverifikasi fix bug dispatcher, ATAU
+library Android resmi lain yang native dukung `reserved` bytes tanpa
+toolchain Go/NDK sendiri, ATAU user eksplisit menerima trade-off opsi
+2/3 di atas dengan kesadaran penuh.
+
+## v3.38.0 — Round 7 CONFIRMED: Xray-core via libXray AAR mati total untuk WARP-native (2026-08-08)
+
+> **Hasil Round 7 (v3.37.0) DIBACA — FINAL.** `probeRunXrayNonexistentPath`
+> balas `"infra/conf/serial: failed to read config file > EOF"` — PERSIS
+> SAMA dengan bug `testXray` round 6. `stopXray` cleanup sukses normal
+> (`success:true`), tidak ada proses menggantung.
+>
+> **Kesimpulan final, menutup roadmap 7-round (v3.29.0–v3.37.0):**
+> `configPath` tidak pernah sampai ke Go baik untuk `testXray` maupun
+> `runXray` — bug dispatcher `Invoke()` di level AAR (kategori method
+> `func XXX(base64Text string) string`), bukan bug kode app, tidak ada
+> workaround dari sisi Kotlin/Android. **AAR `libXray` yang dipakai
+> (dibangun dari `main` branch v3.31.0, Xray-core `v26.7.28`) TIDAK BISA
+> dipakai sama sekali untuk menyalakan tunnel** — bukan cuma soal
+> validasi client-side yang bisa di-skip.
+>
+> **0 kode app produksi disentuh.** WARP tetap di jalur
+> `com.wireguard.android:tunnel` yang sudah berjalan sehat (v3.28.0,
+> label jujur "Tersambung, bukan WARP resmi"). File probe (`xray/`
+> package, `androidTest/`, job CI terpisah `libxray-invoke-probe`)
+> dibiarkan di repo sebagai dokumentasi investigasi — tidak pernah
+> masuk jalur build/release reguler.
+>
+> **Keputusan arah berikutnya (butuh input user, TIDAK diputuskan
+> sepihak — lihat PROJECT_STATE.md "Yang HARUS dikerjakan"):** terima
+> status quo / fork wireguard-go sendiri / re-evaluasi lisensi
+> `bepass-sdk`. Roadmap Xray-core sendiri dianggap SELESAI diinvestigasi
+> per versi ini.
+
 ## v3.37.0 — Round 6 CONFIRMED + Round 7: apakah bug dispatcher juga menimpa runXray produksi (2026-08-08)
 
 > **Hasil Round 6 (v3.36.0) DIBACA — DEFINITIF, bukan lagi hipotesis:**
