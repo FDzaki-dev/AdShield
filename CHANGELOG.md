@@ -1,5 +1,54 @@
 # Changelog
 
+## v3.37.0 — Round 6 CONFIRMED + Round 7: apakah bug dispatcher juga menimpa runXray produksi (2026-08-08)
+
+> **Hasil Round 6 (v3.36.0) DIBACA — DEFINITIF, bukan lagi hipotesis:**
+> `probeTestXrayNonexistentPath` (configPath ke file yang dijamin tidak
+> ada) DAN `probeTestXrayEmptyStringPath` (configPath="" eksplisit)
+> SAMA-SAMA balas `"infra/conf/serial: failed to read config file >
+> EOF"` — **PERSIS SAMA** dengan error round 3-5 pakai file 470-byte
+> yang TERBUKTI ada isinya. Kesimpulan: field `configPath` di payload
+> `testXray` **TIDAK PERNAH sampai ke Go sama sekali** — ini bug di
+> dispatcher `Invoke()` AAR ini untuk method kategori
+> `func XXX(base64Text string) string`, BUKAN bug kode kita, BUKAN bisa
+> diperbaiki dari sisi Kotlin manapun. Gradle log dikonfirmasi
+> `BUILD SUCCESSFUL`, `Finished 10 tests` (2 round 6 + round 1-5 lama).
+>
+> **Pertanyaan baru yang JAUH lebih penting**: `testXray` cuma dipakai
+> untuk *validasi* config — method yang SUNGGUHAN dipakai buat
+> menyalakan tunnel produksi adalah `runXray`. Kalau `runXray` kena bug
+> dispatcher yang SAMA (kemungkinan besar — kemungkinan besar kategori
+> func Go-nya sama, `base64Text string`), maka jalur Xray-core lewat AAR
+> libXray ini **MATI TOTAL untuk kebutuhan WARP-native**, bukan cuma
+> soal validasi client-side yang bisa di-skip.
+
+**File baru — `LibXrayInvokeProbeRound7Test.kt`** (package sama
+`xray/`), 1 test: `probeRunXrayNonexistentPath` — metodologi identik
+round 6 (nonexistent-path sebagai bukti definitif) tapi untuk method
+`runXray`. `stopXray` SELALU dipanggil di `finally` (best-effort
+cleanup, jaga-jaga kalau `runXray` tetap start proses background walau
+config invalid). Tag Logcat baru `LibXrayInvokeProbeR7`, sudah
+ditambahkan proaktif ke filter `adb logcat` di `.github/workflows/build.yml`
+(pelajaran dari hotfix v3.34.1 — jangan lagi ketinggalan tag).
+
+**0 baris kode app produksi (`WarpTunnelManager`/dst) disentuh** — murni
+1 file test baru di `androidTest/` + 1 baris filter workflow + version
+bump.
+
+**WAJIB dicek PALING PERTAMA sesi berikutnya**: baca
+`invoke-probe-logcat.log` run baru, tag `LibXrayInvokeProbeR7`, baris
+`RUNXRAY-NOFILE-WIN`/`-MISS`/`-ERROR`:
+- Error **SAMA PERSIS** pola EOF → `runXray` JUGA kena bug, jalur
+  Xray-core via libXray AAR ini dianggap **MATI TOTAL**, roadmap perlu
+  keputusan besar berikutnya (cari basis lain / batalkan Xray-core
+  sepenuhnya, WARP tetap di jalur `com.wireguard.android:tunnel` biasa
+  "bukan WARP resmi" seperti keputusan v3.28.0).
+- Error **BEDA** (mis. "no such file") atau `success:true` → `runXray`
+  AMAN, lanjut Round 8: desain integrasi langsung (config WireGuard-
+  outbound + `reserved` bytes WARP asli), skip `testXray` sepenuhnya,
+  tangani kegagalan lewat observasi tunnel real-time bukan validasi
+  client-side.
+
 ## v3.36.0 — Round 6: definitive test whether configPath ever reaches Go (2026-08-08)
 
 > Round 5 data: file PROVEN non-empty (470 bytes, read back before

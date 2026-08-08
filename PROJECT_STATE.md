@@ -3,7 +3,37 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.36.0 (2026-08-08) — Round 6: uji definitif "apakah `configPath`
+- **v3.37.0 (2026-08-08) — Round 6 hasil DIBACA (DEFINITIF) + Round 7:
+  apakah `runXray` produksi kena bug yang sama.** User upload log run
+  v3.36.0 (`libxray-invoke-probe-log.zip`): gradle `BUILD SUCCESSFUL`,
+  `Finished 10 tests`. Tag `LibXrayInvokeProbeR6` terbaca lengkap:
+  `probeTestXrayNonexistentPath` (configPath ke file yang DIJAMIN tidak
+  ada) dan `probeTestXrayEmptyStringPath` (configPath="" eksplisit)
+  KEDUANYA balas `"infra/conf/serial: failed to read config file > EOF"`
+  — **PERSIS SAMA** dengan error round 3-5 yang pakai file 470-byte
+  TERBUKTI berisi. **KESIMPULAN DEFINITIF (bukan lagi hipotesis)**:
+  field `configPath` di payload `testXray` TIDAK PERNAH sampai ke fungsi
+  Go — bug di dispatcher `Invoke()` AAR ini, kategori method
+  `func XXX(base64Text string) string`, BUKAN bug kode kita, TIDAK BISA
+  diperbaiki dari sisi Kotlin.
+  **Pertanyaan baru & jauh lebih penting**: `testXray` cuma dipakai utk
+  validasi — method PRODUKSI yang benar-benar menyalakan tunnel adalah
+  `runXray`. Kalau `runXray` kena bug dispatcher yang SAMA, jalur
+  Xray-core via libXray AAR ini MATI TOTAL utk WARP-native (bukan cuma
+  soal skip validasi client-side). File baru `LibXrayInvokeProbeRound7Test.kt`,
+  1 fungsi `probeRunXrayNonexistentPath` — metodologi identik round 6
+  tapi utk `runXray`, + `stopXray` di `finally` sbg cleanup best-effort.
+  Tag logcat `LibXrayInvokeProbeR7` sudah ditambahkan proaktif ke filter
+  `adb logcat` (pelajaran hotfix v3.34.1 — jangan lagi ketinggalan tag).
+  **WAJIB dicek PALING PERTAMA sesi berikutnya**: baca
+  `invoke-probe-logcat.log` run BARU, tag `LibXrayInvokeProbeR7`, baris
+  `RUNXRAY-NOFILE-WIN`/`-MISS`/`-ERROR`. Sama pola EOF → jalur Xray-core
+  MATI TOTAL, next keputusan besar (cari basis lain/batalkan). Beda pola
+  → `runXray` aman, lanjut Round 8: integrasi langsung config WireGuard-
+  outbound+reserved bytes WARP asli, skip `testXray` sepenuhnya. 0 baris
+  kode app produksi disentuh.
+
+- v3.36.0 (2026-08-08) — Round 6: uji definitif "apakah `configPath`
   pernah sampai ke Go sama sekali".** Data round 5 (v3.35.0) LENGKAP:
   `FILE-CHECK: length()=470 readText().length=470` (file TERBUKTI ada isi
   PERSIS sebelum invoke) DAN config minimal 53-byte freedom-only (TANPA
@@ -2372,7 +2402,27 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-08, v3.33.0 — round 3, belum ada run baru):**
+**PALING BARU & PALING PENTING (2026-08-08, v3.37.0 — round 7, belum ada run baru):**
+1. Cek job `libxray-invoke-probe` run v3.37.0 — download
+   `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
+2. Cari `RUNXRAY-NOFILE-`: kalau error SAMA PERSIS pola EOF
+   (`"infra/conf/serial: failed to read config file > EOF"`) — `runXray`
+   TERBUKTI kena bug dispatcher yang sama seperti `testXray` (round 6) →
+   **jalur Xray-core via libXray AAR ini dianggap MATI TOTAL** untuk
+   WARP-native. Next: putuskan basis lain (fork wireguard-go/bepass-sdk,
+   sudah pernah ditolak — perlu re-evaluasi) atau batalkan roadmap
+   Xray-core sepenuhnya, WARP tetap di `com.wireguard.android:tunnel`
+   ("bukan WARP resmi", keputusan v3.28.0 tetap berlaku).
+3. Kalau error BEDA (mis. "no such file") atau `success:true` —
+   `runXray` AMAN dari bug ini. Lanjut Round 8: desain integrasi
+   langsung (config WireGuard-outbound + `reserved` bytes WARP asli dari
+   `client_id` registrasi Cloudflare — field ini BELUM disimpan di
+   `WarpAccount`, perlu ditambah dulu), skip `testXray` sepenuhnya,
+   tangani kegagalan config lewat observasi tunnel real-time.
+4. Cek juga `STOPXRAY-CLEANUP` — pastikan tidak ada proses/goroutine
+   Xray menggantung dari probe ini di run selanjutnya.
+
+**SEBELUMNYA (2026-08-08, v3.33.0 — round 3, belum ada run baru):**
 1. Cek job `libxray-invoke-probe` run v3.33.0 — download
    `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
 2. Cari `NOARG-RESULT:` (2 baris — `xrayVersion`/`getXrayState`): kalau
