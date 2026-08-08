@@ -3,7 +3,45 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.33.0 (2026-08-08) — Round 3 probe: no-arg method lain +
+- **v3.34.0 (2026-08-08) — Round 4 probe: ROOT CAUSE round 3 KETEMU lewat
+  riset ulang README resmi XTLS/libXray (dibaca langsung dari repo, bukan
+  cache lama) — field payload method (`datDir`/`configPath`/`count`/dst)
+  HARUS di-nest di bawah key `"payload"`, contoh resmi:
+  `{"apiVersion":1,"method":"runXray","payload":{"configPath":"..."}}`.
+  SEMUA kandidat round 1-3 (termasuk `CANDIDATE-WIN` round 2
+  `getFreePorts` yang dianggap "terbukti") kirim field FLAT di top-level,
+  bukan di-nest — ini juga mempertanyakan ulang validitas `CANDIDATE-WIN`
+  round 2: `data` balasannya KOSONG (`{}`), bukan daftar port asli,
+  mencurigakan sebagai sukses-semu (param `count` tidak ke-bind, fungsi
+  jalan default lalu balas `success:true` vacuous) — BUKAN bukti valid
+  envelope flat benar. `xrayVersion`/`getXrayState` (no-arg, TIDAK butuh
+  payload berisi apa pun) TETAP dipercaya sah karena balas DATA ASLI
+  (`"version":"26.7.28"`, cocok versi Xray-core yang di-pin AAR ini per
+  README resmi — bukan data kosong/vacuous).
+  File test baru `LibXrayInvokeProbeRound4Test.kt` (package sama), 3
+  fungsi: (1) `probeGetFreePortsFlatVsPayload` — bandingkan langsung
+  getFreePorts flat (repro round 2) vs payload-nested, apiVersion 1 & 2,
+  untuk MEMBUKTIKAN/MENYANGKAL teori sukses-semu di atas by evidence; (2)
+  `probeTestXrayPayloadNested` — testXray dgn datDir+configPath (nama
+  field sudah pasti benar dari source Go resmi) kali ini DI-NEST payload,
+  apiVersion 1 & 2; (3) `probeNoArgPayloadOmittedVsEmpty` — sanity murah
+  payload dihilangkan vs `{}` eksplisit utk no-arg method.
+  **BELUM DIKONFIRMASI run CI** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: baca `invoke-probe-logcat.log` (artifact
+  `libxray-invoke-probe-log`), cari tag `LibXrayInvokeProbeR4`, baris
+  `PORTS-WIN`/`PORTS-MISS` (bandingkan isi `data` flat vs nested) dan
+  `TESTXRAY-WIN`/`TESTXRAY-MISS`/`TESTXRAY-ERROR`. Kalau TESTXRAY-MISS
+  masih PERSIS error EOF yang sama walau sudah di-nest payload → dugaan
+  root cause round ini SALAH, root cause sebenarnya di tempat lain (lihat
+  catatan lengkap di KDoc class-nya). Kalau error BERUBAH (soal isi
+  WireGuard config, bukan EOF baca file) → nesting payload TERBUKTI benar,
+  config placeholder yang perlu diganti round berikutnya.
+  **0 baris `WarpTunnelManager`/kode app produksi disentuh** — murni file
+  test baru (round 1-3 TIDAK dihapus/diedit, tetap jalan tiap CI karena
+  workflow sudah run seluruh package `com.fdzaki.adshield.xray`, tidak
+  perlu edit `.github/workflows/build.yml`).
+
+- v3.33.0 (2026-08-08) — Round 3 probe: no-arg method lain +
   `testXray` config-payload field-name candidates, SEMUA lewat CI
   `libxray-invoke-probe` yang SUDAH ADA (bukan harness eksternal —
   dikonfirmasi user, workflow ini satu-satunya cara jalankan probe).**

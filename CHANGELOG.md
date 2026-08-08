@@ -1,5 +1,26 @@
 # Changelog
 
+## v3.34.0 — Round 4 probe: root cause found — payload must be nested (2026-08-08)
+
+> Riset ulang README resmi XTLS/libXray (dibaca langsung dari repo)
+> mengonfirmasi bentuk request `Invoke()` yang benar:
+> `{"apiVersion":1,"method":"runXray","payload":{"configPath":"..."}}` —
+> field method HARUS di-nest di bawah `"payload"`, bukan flat. Ini
+> menjelaskan error EOF seragam di round 3 (payload flat = field tidak
+> ke-bind = Xray-core baca config kosong). Juga mempertanyakan ulang
+> `CANDIDATE-WIN` round 2 (`getFreePorts` flat balas `data:{}` kosong,
+> dicurigai sukses-semu).
+
+**File baru — `LibXrayInvokeProbeRound4Test.kt`** (package sama `xray/`),
+3 test: `probeGetFreePortsFlatVsPayload` (bandingkan flat vs
+payload-nested langsung, buktikan/sangkal teori sukses-semu),
+`probeTestXrayPayloadNested` (datDir+configPath di-nest payload,
+apiVersion 1 & 2), `probeNoArgPayloadOmittedVsEmpty` (sanity murah).
+Round 1-3 tidak diubah, tetap jalan (workflow sudah run seluruh package).
+Versi dinaikkan ke 3.34.0 (versionCode 75). 0 baris kode app produksi
+disentuh. **Belum dikonfirmasi run CI** — lihat PROJECT_STATE.md untuk
+langkah baca logcat sesi berikutnya.
+
 ## v3.33.0 — Round 3 probe: no-arg methods + testXray payload candidates (2026-08-08)
 
 > Lanjutan langsung round 1+2 (v3.32.0/v3.32.3 — envelope
