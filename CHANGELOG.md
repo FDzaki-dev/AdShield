@@ -1,5 +1,39 @@
 # Changelog
 
+## v4.2.0 — "Radikal Perf" batch 2: fix TLS handshake berulang di WARP health-check (2026-08-09)
+
+User minta WARP juga di-dongkrak radikal. Audit modul `warp/` (WarpTunnelManager,
+WarpForegroundService, WarpAccountRepository, WarpEndpointSelector,
+WarpRegistrationClient, WarpVpnEngineAdapter): sebagian besar SUDAH teraudit
+berat di batch v3.7/v3.16/v3.27/v3.41 (endpoint probing sudah konkuren,
+endpoint/MTU sudah di-cache 30 menit, event-driven combine tanpa polling,
+dsb) — dan jalur penerusan paket WARP sendiri sepenuhnya di native WireGuard
+GoBackend (di luar kendali kode Kotlin), jadi tidak ada "packet loop" ala DNS
+mode yang bisa dioptimasi di sisi app. Satu bottleneck nyata & signifikan
+tetap ditemukan:
+
+**`WarpTunnelManager.probeTrace()` — TLS handshake penuh di SETIAP health-check,
+selama tunnel menyala.** Persis kelas bug yang sama seperti `DohClient`
+sebelum fix v4.1.0: `connection.disconnect()` dipanggil di setiap probe,
+mematikan eligibilitas keep-alive/connection-pool JVM. Probe ini jalan tiap
+`HEALTH_CHECK_INTERVAL_MS` (25 detik) SELAMA WARP aktif — bisa ratusan kali
+per sesi berjam-jam — jadi setiap panggilan membayar TLS handshake penuh ke
+Cloudflare yang seharusnya bisa di-reuse dari koneksi sebelumnya. Beda dari
+DohClient, probe ini TIDAK butuh custom protect()ing SSLSocketFactory (lewat
+tunnel WARP yang sudah UP, seperti trafik app lain), jadi fix-nya lebih
+simpel: cukup hapus `disconnect()`, connection pool bawaan Android langsung
+jalan begitu stream dibaca habis lewat `.use {}`.
+
+Bonus: `latencyMs` yang ditampilkan di kartu kualitas WARP sekarang RTT yang
+lebih jujur (tidak lagi digelembungkan oleh handshake TLS di setiap probe).
+
+**Diubah:**
+- `warp/WarpTunnelManager.kt` — `probeTrace()`: hapus `disconnect()` per-probe,
+  tambah header `Connection: keep-alive` eksplisit (konsisten dgn DohClient).
+
+Tidak ada perubahan perilaku terlihat user selain latency probe yang sedikit
+lebih akurat — murni pengurangan overhead TLS/radio di health-check loop.
+
 ## v4.1.0 — "Radikal Perf": hilangkan 2 bottleneck tersembunyi di hot path DNS (2026-08-09)
 
 User minta dongkrak performa secara radikal. Audit menemukan 2 bottleneck

@@ -512,9 +512,25 @@ class WarpTunnelManager(context: Context) {
                 connectTimeout = PROBE_TIMEOUT_MS
                 readTimeout = PROBE_TIMEOUT_MS
                 requestMethod = "GET"
+                setRequestProperty("Connection", "keep-alive")
             }
             val body = connection.inputStream.bufferedReader().use { it.readText() }
-            connection.disconnect()
+            // v4.2.0 — "Radikal Perf" batch (see PROJECT_STATE.md): this used to call
+            // connection.disconnect() here on every single health-check probe. Per
+            // java.net.HttpURLConnection docs (same root cause already fixed in
+            // vpn/DohClient.kt v3.25.0/v4.1.0), disconnect() signals the underlying
+            // socket must NOT be kept alive for reuse — so for as long as WARP stays
+            // connected, EVERY probeTrace() call (one every HEALTH_CHECK_INTERVAL_MS,
+            // i.e. potentially hundreds of times over a session) paid a full fresh TLS
+            // handshake to Cloudflare instead of resuming the still-open, already-
+            // negotiated connection from the probe before it. Removing disconnect() is
+            // safe: the response stream is still fully read and closed via `.use {}`
+            // below (the actual requirement for a connection to become pool-eligible),
+            // and this connection isn't wrapped in a custom protect()ing SSLSocketFactory
+            // (unlike DohClient) — it rides the already-UP WireGuard tunnel like any
+            // other app traffic, so no protect()-per-socket concern applies here. Bonus:
+            // the reported `latencyMs` below is now a more honest steady-state RTT
+            // instead of being inflated by a fresh handshake on every single probe.
             val elapsed = System.currentTimeMillis() - started
             val warpOn = body.lineSequence().any { line ->
                 val trimmed = line.trim()

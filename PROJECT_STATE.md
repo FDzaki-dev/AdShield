@@ -2,7 +2,31 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.1.0, "Radikal Perf" batch (2026-08-09)
+## STATUS PROYEK: AKTIF — v4.2.0, "Radikal Perf" batch 2 — WARP (2026-08-09)
+
+User minta WARP juga di-dongkrak radikal (lanjutan v4.1.0 di DNS mode). Audit
+modul `warp/` — sebagian besar sudah teraudit berat sebelumnya (probing
+konkuren, cache endpoint/MTU 30 menit, event-driven combine) dan jalur
+paket WARP sendiri ada di native WireGuard GoBackend (di luar kode Kotlin) —
+jadi TIDAK ada "packet loop" seperti DNS mode yang bisa dioptimasi lagi di
+sisi app. Satu fix nyata ditemukan & diterapkan:
+
+- `WarpTunnelManager.probeTrace()` — hapus `connection.disconnect()` per
+  health-check (tiap 25 detik selama tunnel nyala) — kelas bug sama persis
+  dengan `DohClient` sebelum v4.1.0 (disconnect() mematikan keep-alive/
+  connection-pool). JANGAN tambahkan `disconnect()` balik ke sini tanpa
+  sadar itu menghilangkan reuse koneksi lagi. TIDAK butuh protect()ing
+  SSLSocketFactory di sini (beda dari DohClient) karena probe ini jalan
+  LEWAT tunnel WARP yang sudah UP, bukan lewat forwarder DNS mode.
+
+Kalau sesi berikutnya diminta cari perf win WARP lagi: endpoint-probe timeout
+(800ms, `WarpEndpointSelector.PROBE_TIMEOUT_MS`) SENGAJA tidak diubah di
+batch ini — mengubahnya berisiko salah klasifikasi endpoint yang genuinely
+lambat-tapi-jalan sebagai "unreachable", beda kelas risiko dari fix
+connection-reuse murni di atas; perlu diskusi eksplisit dgn user dulu kalau
+mau disentuh.
+
+## STATUS SEBELUMNYA: v4.1.0, "Radikal Perf" batch 1 — DNS (2026-08-09)
 
 User minta dongkrak performa "radikal". Audit fokus ke hot path (packet
 loop + upstream forward), BUKAN kosmetik — lihat CHANGELOG.md v4.1.0 untuk
