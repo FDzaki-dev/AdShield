@@ -17,12 +17,9 @@ import kotlinx.coroutines.flow.flow
  * the WireGuard private key (full tunnel decryption capability) and
  * Cloudflare access token were stored **unencrypted** on disk, readable by
  * anything with filesystem access (root, ADB backup on older Android,
- * physical extraction). [com.fdzaki.adshield.data.VpnProfileRepository]
- * already used `EncryptedSharedPreferences` for the *other* VPN engines'
- * secrets (OpenVPN/IKEv2/Shadowsocks) — this class was the one inconsistent
- * holdout still on plaintext storage. Migrated to the same
- * `EncryptedSharedPreferences` (AES256_SIV keys / AES256_GCM values)
- * pattern. Public API (property/method names + `Flow` return types) is
+ * physical extraction). Migrated to `EncryptedSharedPreferences`
+ * (AES256_SIV keys / AES256_GCM values) — this class was the one
+ * inconsistent holdout still on plaintext storage. Public API (property/method names + `Flow` return types) is
  * UNCHANGED so [WarpTunnelManager] needed zero edits — `wasTunnelRunning`/
  * `hasAccount` are now one-shot `flow { emit(...) }` wrappers instead of
  * DataStore's reactive Flow, which is safe because neither caller in this

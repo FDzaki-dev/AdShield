@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.0.0 — Major cleanup: hapus semua fitur di luar scope DNS+WARP (2026-08-09)
+
+> User: proyek "kegemukan" untuk 2 fitur utama (DNS Ad-Block + WARP) +
+> penunjang esensial — minta eliminasi total semua yang tidak berhubungan.
+
+Atomic Change besar, lintas modul, atas izin eksplisit user.
+
+**Dihapus:**
+- `app/libs/libXray.aar` (96.7MB) + `app/src/androidTest/.../xray/` (6 file
+  probe test) + job CI `libxray-poc`/`libxray-invoke-probe`. Investigasi
+  Xray-core sudah won't-fix permanen sebelumnya — dead weight murni.
+- IKEv2 (protokol VPN ke-3) — dihapus total: `IkeV2VpnEngine.kt`,
+  `VpnProfileRepository.kt`, varian `IkeV2` di `VpnProtocolConfig`,
+  `AppMode.IKEV2/OPENVPN/SHADOWSOCKS`, `IkeV2ModeCard`+`IkeV2ProfileDialog`
+  di HomeScreen, seluruh wiring MainActivity/MainViewModel. App sekarang
+  persis 2 mode: DNS Ad-Block dan WARP.
+- `ui/components/Tactile*.kt` (4 file) + `TactileTokens.kt` — dead code,
+  0 call site sejak dibuat.
+
+**Dampak:** ukuran project ~94MB → ~1.2MB (source), APK rilis akan jauh
+lebih kecil (libXray native libs tidak lagi ter-bundle). Tidak ada
+perubahan behavior DNS Ad-Block maupun WARP — keduanya diverifikasi tetap
+utuh, hanya kode/UI protokol ke-3 dan investigasi mati yang dibuang.
+
+Detail lengkap keputusan: lihat PROJECT_STATE.md.
+
 ## v3.43.1 — Fix CI build failure: missing `getValue` import (2026-08-08)
 
 > CI run 31258449475 gagal di `:app:compileDebugKotlin` — 7 error "Type

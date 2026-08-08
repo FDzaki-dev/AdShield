@@ -159,117 +159,22 @@ gejala.
 
 ## Status proyek
 
-- **v3.20.0 (terbaru)** — Polish UI/UX batch 1/N: `WhitelistScreen`
-  disamakan pola search+empty-state+count dengan Logs/Rules; `HomeScreen`
-  dapat spinner koneksi WARP/IKEv2, haptic feedback di kontrol utama, dan
-  format angka statistik pakai pemisah ribuan. Belum dikonfirmasi build CI
-  — lihat PROJECT_STATE.md/CHANGELOG.md.
-- v3.19.0 — Testing & Diagnostic audit batch 1/N: 11 unit test baru
-  `DnsPacketTest.kt` menutup gap coverage method DNS cache/prefetch.
-  Belum dijalankan (tidak ada Gradle/JDK Android di sandbox) — lihat
-  PROJECT_STATE.md.
-- v3.18.0 — Audit Security (2 batch) + Performance (clean, 0 fix):
-  migrasi WARP private key ke `EncryptedSharedPreferences`, scan TLS/
-  hardcoded-secret bersih. Lihat CHANGELOG.md.
-- v3.17.1 — HOTFIX: build CI v3.17.0 gagal (`Unclosed
-  comment` di `AdBlockVpnService.kt` — literal `/*` dalam KDoc dibaca
-  Kotlin sebagai nested block comment). Fungsionalitas sama, murni
-  perbaikan sintaks. **Belum dikonfirmasi build sukses** — lihat
-  PROJECT_STATE.md.
-- v3.17.0 — Refactor "God Class": `AdBlockVpnService`
-  (~600 baris) dipecah jadi orchestrator tipis + 7 kolaborator baru di
-  `vpn/dns/` dan `vpn/` (packet loop, upstream forward, prefetch,
-  whitelist per-app, notification, watchdog). Murni structural, 0
-  perubahan behavior/API publik. **Belum dikonfirmasi build CI** — lihat
-  PROJECT_STATE.md.
-- v3.16.0–v3.16.9 — Audit Concurrency & Lifecycle (executor leak,
-  `WarpForegroundService` scope leak, `BlocklistManager` race condition)
-  + IKEv2 config screen + wiring. Belum dikonfirmasi build CI untuk
-  seluruh rentang ini (lihat PROJECT_STATE.md).
-- v3.15.0 — Wire WARP ke `VpnEngine` interface di titik drive nyata.
-  Batch 4 (Shadowsocks/VLESS via Xray-core) dibatalkan permanen — butuh
-  toolchain Go/gomobile/NDK sendiri, sejajar OpenVPN.
-- v3.14.0 — Batch 3/N: IKEv2 native (`protocol/IkeV2VpnEngine.kt`)
-  pakai `android.net.VpnManager`/`Ikev2VpnProfile` platform API (0
-  dependency pihak ketiga). OpenVPN dibatalkan permanen dari roadmap —
-  tidak ada jalur non-GPL/AGPL yang legit di Android. Belum di-wire ke
-  UI, belum dikonfirmasi build CI (lihat PROJECT_STATE.md).
-- v3.13.0 — Batch 2/N: adaptasi WireGuard/WARP existing ke
-  interface `VpnEngine` (`protocol/WarpVpnEngineAdapter.kt`). 0 baris di
-  package `warp/` diubah — adapter murni membungkus `WarpTunnelManager`
-  yang sudah ada, belum di-wire ke UI mana pun. Belum dikonfirmasi build
-  CI (lihat PROJECT_STATE.md).
-- v3.12.0 — Batch 1/N Arsitektur Multi-Protokol: fondasi
-  untuk memperluas AdShield dari 2 mode (DNS Ad-Block/WARP) jadi VPN
-  client multi-protokol (rencana: + OpenVPN, IKEv2, Shadowsocks/VLESS,
-  rilis bertahap per protokol). Batch ini scaffolding saja — interface
-  `VpnEngine`, model config per protokol, penyimpanan aman untuk
-  secrets. Belum ada engine baru yang fungsional. Belum dikonfirmasi
-  build CI (lihat PROJECT_STATE.md).
-- v3.11.1 — HOTFIX: compile error di `DohClient.kt` (build v3.11.0 gagal CI). Fungsionalitas sama, murni perbaikan sintaks. Belum
-  dikonfirmasi build sukses (lihat PROJECT_STATE.md).
-- v3.11.0 — DNS-over-HTTPS (DoH): query DNS dicoba lewat
-  HTTPS (Cloudflare, lalu Google) dulu sebelum fallback ke plain DNS
-  biasa. Merespons laporan user: fix MTU v3.10.2 tidak menolong, plain
-  UDP port 53 kemungkinan diblokir total di jaringannya. Belum
-  dikonfirmasi di device (lihat PROJECT_STATE.md).
-- v3.10.2 — HOTFIX: `VPN_MTU` diturunkan dari 32000 (tidak wajar) ke 1500
-  (standar) — tidak cukup menyelesaikan masalah, lihat v3.11.0.
-- v3.10.1 — HOTFIX: upstream DNS resolver diversity (`1.1.1.1, 1.0.0.1,
-  8.8.8.8`) — tidak cukup menyelesaikan masalah total internet failure
-  sendirian, lihat v3.10.2.
-- v3.10.0 — Instrumentasi profiling memori & baterai (layar
-  Diagnostik): PSS memori app, memori sistem tersisa, baterai
-  (persen/suhu/status isi). Murni baca-saja, tidak ada perubahan perilaku
-  VPN/DNS/WARP. Belum divalidasi di device fisik.
-- v3.5.0–v3.9.0 — Rangkaian optimasi performa & reliability ("Internet
-  Surfing Optimization" + audit performa/feedback): DNS cache, socket
-  pooling upstream, blocklist matching O(kedalaman domain), auto-MTU +
-  smart endpoint selection + fast reconnect + kill-switch hardening WARP,
-  DNS prefetch/cache-warming, Quick Settings Tile per-mode. Detail lengkap
-  per versi ada di CHANGELOG.md — daftar di bawah ini belum diperbarui
-  sejak v2.5.0, lihat CHANGELOG.md untuk riwayat v2.6.0 ke atas.
-- **v2.5.0** — DNS AdBlocker (scope ringan): blocklist kustom via URL
-  dengan auto-update tiap 24 jam (WorkManager), UI Aturan Kustom lebih
-  mudah dikelola (validasi domain, pencarian, pesan kondisi kosong).
-  Custom DNS terenkripsi (DoH/DoT) sengaja disisihkan ke batch terpisah
-  — itu perubahan arsitektur, bukan penambahan UI biasa (lihat Roadmap)
-- v2.4.0 — UX & Onboarding: layar Onboarding 4-slide untuk pengguna
-  baru (penjelasan kedua mode + pengecualian baterai), tampil sekali lalu
-  tidak lagi (bisa dilewati kapan saja)
-- v2.3.0 — Monitoring & Diagnostik: layar Diagnostik baru (status
-  teknis + salin ke clipboard), Log Domain kini bisa dicari & difilter,
-  kegagalan Ad-Block DNS sekarang terlihat (sebelumnya diam-diam gagal)
-- v2.2.0 — App Shortcuts: tekan lama ikon di launcher untuk buka
-  Whitelist/Log langsung, atau toggle DNS/WARP tanpa buka aplikasi
-- v2.1.0 — WARP UX: auto reconnect + indikator kualitas koneksi
-  (latensi & konfirmasi trafik nyata lewat probe Cloudflare). Belum
-  divalidasi di device fisik (lihat Batasan di atas)
-- v2.0.1 — perbaikan bug internal: race condition saat pindah mode
-  DNS⇄WARP yang bisa merusak auto-restart-setelah-reboot (tidak ada
-  perubahan perilaku yang terlihat user)
-- v2.0.0 — mode baru VPN Tunnel (WARP), full-tunnel WireGuard via
-  Cloudflare WARP gratis, terpisah & mutually-exclusive dari Ad-Block DNS
-- v1.2.0 — pematangan: whitelist per-app benar-benar aktif (UID nyata),
-  critical allowlist domain esensial konektivitas, DNS forward fallback
-  multi-resolver
-- v1.1.0 — matching domain diganti ke exact-match + wildcard eksplisit,
-  blocklist bawaan dikurasi ulang (lebih presisi, tidak over-block)
-- v1.0.1 — fix build gagal (salah import)
-- v1.0.0 — rilis awal, arsitektur lengkap
+- **v4.0.0 (terbaru)** — Major cleanup: proyek dipangkas kembali ke scope
+  murni 2 fitur (DNS Ad-Block + WARP) + penunjang esensial. Semua kode
+  IKEv2/OpenVPN/Shadowsocks/Xray-core (protokol ke-3+ yang sempat
+  dieksplorasi v3.12.0–v3.32.0) dan komponen UI "Tactile" yang tak
+  terpakai dihapus total — lihat CHANGELOG.md/PROJECT_STATE.md untuk
+  rincian.
+- v3.20.0 dan sebelumnya — riwayat lengkap eksplorasi multi-protokol
+  (IKEv2, percobaan Xray-core untuk Shadowsocks/VLESS) dan seluruh
+  riwayat versi lain: lihat CHANGELOG.md. Ringkasan: semua itu SUDAH
+  DIHAPUS di v4.0.0 karena di luar scope aplikasi.
 
 Lihat CHANGELOG.md untuk detail lengkap tiap versi.
 
 ## Roadmap (belum dikerjakan)
 
-- **Multi-protokol VPN (v3.12.0+, batch 3/N sudah selesai statis)** —
-  perluasan dari 2 mode jadi VPN client multi-protokol: WireGuard/WARP
-  (v3.13.0) dan IKEv2 native (v3.14.0) sudah punya `VpnEngine`; OpenVPN
-  **dibatalkan permanen** (GPL/AGPL, lihat PROJECT_STATE.md);
-  Shadowsocks/VLESS masih placeholder. Rilis bertahap 1 protokol per
-  batch. Lihat PROJECT_STATE.md untuk urutan & status detail.
-- Validasi mode WARP di device fisik (masih prioritas #1 — v2.1.0
-  menambah fitur di atas fondasi yang belum pernah dibuktikan jalan nyata)
+- Validasi mode WARP di device fisik (masih prioritas #1)
 - ~~DNS AdBlocker: custom DNS terenkripsi (DoH/DoT)~~ — **DoH selesai
   v3.11.0** (fallback ke plain-UDP kalau DoH gagal). DoT (port 853) belum
   dikerjakan, prioritas rendah — lihat PROJECT_STATE.md

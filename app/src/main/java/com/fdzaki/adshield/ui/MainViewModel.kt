@@ -8,12 +8,8 @@ import com.fdzaki.adshield.data.BlocklistUpdateWorker
 import com.fdzaki.adshield.data.InstalledApp
 import com.fdzaki.adshield.data.InstalledAppsRepository
 import com.fdzaki.adshield.data.SettingsRepository
-import com.fdzaki.adshield.data.VpnProfileRepository
 import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
-import com.fdzaki.adshield.protocol.IkeV2VpnEngine
-import com.fdzaki.adshield.protocol.VpnEngineState
-import com.fdzaki.adshield.protocol.VpnProtocolConfig
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.ResourceMonitor
 import com.fdzaki.adshield.vpn.AdBlockVpnService
@@ -73,74 +69,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val domainLogDao = AppDatabase.getInstance(application).domainLogDao()
     private val blocklist = BlocklistManager.getInstance()
     private val warpTunnelManager = WarpTunnelManager.getInstance(application)
-
-    // v3.15.0 — first VpnEngine implementation actually wired to the UI (see
-    // PROJECT_STATE.md). DNS Ad-Block/WARP deliberately keep their existing
-    // direct Service-based path (AdBlockVpnService/WarpForegroundService) —
-    // migrating those proven, running foreground services onto VpnEngine is
-    // its own separate, higher-risk batch, NOT done here. IKEv2 has no
-    // custom Service of its own (android.net.VpnManager owns the tunnel at
-    // the OS level once provisioned), so it's driven straight from the
-    // ViewModel/engine instead.
-    private val vpnProfileRepository = VpnProfileRepository(application)
-    private val ikeV2Engine = IkeV2VpnEngine(application)
-    val ikeV2State: StateFlow<VpnEngineState> = ikeV2Engine.state
-
-    private val _ikeV2Profile = MutableStateFlow(loadIkeV2Profile())
-    val ikeV2Profile: StateFlow<VpnProfileRepository.IkeV2StoredProfile?> = _ikeV2Profile
-
-    private fun loadIkeV2Profile() = vpnProfileRepository.getIkeV2Profile(IKEV2_PROFILE_NAME)
-
-    /** Saves the profile the user typed on Home, then refreshes the in-memory
-     *  copy [ikeV2Profile] reads from — [VpnProfileRepository] itself is
-     *  plain synchronous EncryptedSharedPreferences, not Flow-backed. */
-    fun saveIkeV2Profile(serverAddress: String, identity: String, username: String, password: String) {
-        vpnProfileRepository.saveIkeV2Profile(IKEV2_PROFILE_NAME, serverAddress, identity, username, password)
-        _ikeV2Profile.value = loadIkeV2Profile()
-        sendEvent(UiEvent.Message("Profil IKEv2 disimpan"))
-    }
-
-    private fun currentIkeV2Config(): VpnProtocolConfig.IkeV2? {
-        val profile = _ikeV2Profile.value ?: return null
-        return VpnProtocolConfig.IkeV2(
-            serverAddress = profile.serverAddress,
-            identity = profile.identity,
-            username = profile.username,
-            password = profile.password,
-        )
-    }
-
-    /** Called by MainActivity before connecting — returns the system consent
-     *  Intent to launch if one is needed (see VpnEngine.prepareConsent kdoc),
-     *  or null if consent isn't required / no profile is saved yet. */
-    suspend fun prepareIkeV2Consent(): android.content.Intent? {
-        val config = currentIkeV2Config() ?: return null
-        return ikeV2Engine.prepareConsent(config)
-    }
-
-    /** MainActivity calls this AFTER consent is confirmed (or immediately if
-     *  none was needed) — mutual exclusion with DNS/WARP is MainActivity's
-     *  responsibility (it stops those services before calling this, same
-     *  pattern as requestVpnPermissionThenStartDns/Warp). */
-    fun connectIkeV2() {
-        val config = currentIkeV2Config() ?: run {
-            sendEvent(UiEvent.Message("Isi dan simpan profil IKEv2 dulu sebelum menyambung"))
-            return
-        }
-        viewModelScope.launch {
-            settingsRepository.setActiveMode(AppMode.IKEV2)
-            ikeV2Engine.connect(config)
-        }
-    }
-
-    fun disconnectIkeV2() {
-        viewModelScope.launch {
-            ikeV2Engine.disconnect()
-            if (settingsRepository.activeMode.first() == AppMode.IKEV2) {
-                settingsRepository.setActiveMode(AppMode.NONE)
-            }
-        }
-    }
 
     /** Which of the two mutually-exclusive modes is active — persisted, so
      *  it also reflects state correctly right after process restart. */
@@ -430,24 +358,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { settingsRepository.setHasSeenOnboarding(true) }
     }
 
-    /**
-     * v3.40.0 — closes the fix noted (but deliberately deferred) since concurrency/lifecycle
-     * audit batch 2 (v3.16.8): [ikeV2Engine]'s internal `engineScope`/`pollJob` was never
-     * cancelled anywhere, since `MainViewModel` had no `onCleared()` override at all. Calls
-     * [IkeV2VpnEngine.releaseMonitoring] ONLY — that method is scoped to stop leaking the local
-     * poll coroutine/broadcast receiver, NOT to disconnect the IKEv2 profile itself (the profile
-     * is OS-managed and intentionally outlives this process, per decision #16.8).
-     */
-    override fun onCleared() {
-        super.onCleared()
-        ikeV2Engine.releaseMonitoring()
-    }
-
     companion object {
         private const val RESOURCE_POLL_INTERVAL_MS = 3000L
-        // Single-profile storage for now (see VpnProfileRepository) — same
-        // simplification OpenVpn/Shadowsocks scaffolding already implied by
-        // taking a `name` key; multi-profile support is a later UI concern.
-        private const val IKEV2_PROFILE_NAME = "default"
     }
 }

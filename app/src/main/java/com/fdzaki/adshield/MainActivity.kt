@@ -107,20 +107,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** v3.15.0 — IKEv2's consent Intent comes from VpnManager.provisionVpnProfile()
-     *  (see MainViewModel.prepareIkeV2Consent/IkeV2VpnEngine.prepareConsent), a
-     *  separate per-call mechanism from VpnService.prepare() used by DNS/WARP
-     *  above, hence its own launcher rather than reusing vpnPermissionLauncher. */
-    private val ikeV2ConsentLauncher = registerForActivityResult(
-        ActivityResultContracts.StartActivityForResult()
-    ) { result ->
-        if (result.resultCode == RESULT_OK) {
-            viewModel.connectIkeV2()
-        } else {
-            viewModel.notifyVpnPermissionDenied()
-        }
-    }
-
     private val notifPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* no-op: notification just won't show if denied, protection still runs */ }
@@ -236,8 +222,6 @@ class MainActivity : ComponentActivity() {
                             onStopVpn = { stopDnsService() },
                             onRequestWarpStart = ::requestVpnPermissionThenStartWarp,
                             onStopWarp = { stopWarpService() },
-                            onRequestIkeV2Start = ::requestIkeV2Start,
-                            onStopIkeV2 = { viewModel.disconnectIkeV2() },
                             onOpenWhitelist = { navController.navigate("whitelist") },
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
@@ -340,24 +324,6 @@ class MainActivity : ComponentActivity() {
         if (prepareIntent != null) vpnPermissionLauncher.launch(prepareIntent) else startWarpService()
     }
 
-    /** IKEv2 consent works differently from VpnService.prepare() (see
-     *  ikeV2ConsentLauncher above) — provisionVpnProfile() itself needs the
-     *  profile fields, so MainViewModel builds the consent Intent rather
-     *  than this Activity. Stops DNS/WARP first, same mutual-exclusion rule
-     *  as startDnsService()/startWarpService() below. */
-    private fun requestIkeV2Start() {
-        stopDnsService(isModeSwitch = true)
-        stopWarpService(isModeSwitch = true)
-        lifecycleScope.launch {
-            val consentIntent = viewModel.prepareIkeV2Consent()
-            if (consentIntent != null) {
-                ikeV2ConsentLauncher.launch(consentIntent)
-            } else {
-                viewModel.connectIkeV2()
-            }
-        }
-    }
-
     /** Modes are mutually exclusive (see PROJECT_STATE.md) — starting one
      *  always sends a stop to the other first. Stopping an already-stopped
      *  service is a harmless no-op. The stop sent here is flagged as a mode
@@ -375,7 +341,6 @@ class MainActivity : ComponentActivity() {
     // anymore; the ring updates itself once the real state lands.
     private fun startDnsService() {
         stopWarpService(isModeSwitch = true)
-        viewModel.disconnectIkeV2()
         val intent = Intent(this, AdBlockVpnService::class.java).setAction(AdBlockVpnService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
     }
@@ -389,7 +354,6 @@ class MainActivity : ComponentActivity() {
 
     private fun startWarpService() {
         stopDnsService(isModeSwitch = true)
-        viewModel.disconnectIkeV2()
         val intent = Intent(this, WarpForegroundService::class.java).setAction(WarpForegroundService.ACTION_START)
         ContextCompat.startForegroundService(this, intent)
     }
