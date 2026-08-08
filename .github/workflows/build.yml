@@ -265,7 +265,7 @@ jobs:
             gradle connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.package=com.fdzaki.adshield.xray --no-daemon > invoke-probe-gradle.log 2>&1
             GRADLE_EXIT=$?
             cat invoke-probe-gradle.log
-            adb logcat -d -s LibXrayInvokeProbe:* LibXrayInvokeProbeR3:* LibXrayInvokeProbeR4:* LibXrayInvokeProbeR5:* > invoke-probe-logcat.log || true
+            adb logcat -d -s LibXrayInvokeProbe:* LibXrayInvokeProbeR3:* LibXrayInvokeProbeR4:* LibXrayInvokeProbeR5:* LibXrayInvokeProbeR6:* > invoke-probe-logcat.log || true
             exit $GRADLE_EXIT
 
       - name: Report result to step summary

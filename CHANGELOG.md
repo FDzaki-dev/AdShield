@@ -1,5 +1,19 @@
 # Changelog
 
+## v3.36.0 — Round 6: definitive test whether configPath ever reaches Go (2026-08-08)
+
+> Round 5 data: file PROVEN non-empty (470 bytes, read back before
+> invoke) AND minimal 53-byte freedom-only config (no WireGuard) BOTH
+> still gave identical EOF. Both round-5 hypotheses eliminated. New
+> theory: `configPath` field may never actually reach Go's `TestXray()`
+> at all (possible dispatcher bug specific to methods whose underlying
+> Go func takes `base64Text string`, unlike `getFreePorts` which takes
+> direct params and works correctly). File baru
+> `LibXrayInvokeProbeRound6Test.kt`: nonexistent-path + empty-string-path
+> controls — if error stays identical, field is proven never delivered
+> (library bug, not our code); if error changes, our real path has a
+> content/access issue. Logcat filter proactively tagged R6.
+
 ## v3.35.0 — Round 5 diagnostic: envelope confirmed, testXray EOF mystery isolated (2026-08-08)
 
 > Round 4 data lengkap: **envelope payload-nested + apiVersion:2

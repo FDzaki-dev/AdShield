@@ -3,6 +3,40 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
+- **v3.36.0 (2026-08-08) — Round 6: uji definitif "apakah `configPath`
+  pernah sampai ke Go sama sekali".** Data round 5 (v3.35.0) LENGKAP:
+  `FILE-CHECK: length()=470 readText().length=470` (file TERBUKTI ada isi
+  PERSIS sebelum invoke) DAN config minimal 53-byte freedom-only (TANPA
+  WireGuard) SAMA-SAMA tetap `"infra/conf/serial: failed to read config
+  file > EOF"` — 2 hipotesis round 5 (file kosong / config WireGuard
+  bermasalah) GUGUR DUA-DUANYA. Error IDENTIK sejak round 3, di SEMUA
+  ukuran/isi file. Dugaan baru: field `configPath` di dalam `"payload"`
+  tidak pernah benar-benar nyampe ke fungsi Go `xray.TestXray(datDir,
+  configPath)` — kemungkinan bug spesifik dispatcher `Invoke()` utk method
+  yang underlying func Go-nya `func XXX(base64Text string) string`
+  (`testXray` termasuk kategori ini — beda dari `getFreePorts` yang
+  `func GetFreePorts(count int)`, param langsung, TERBUKTI benar round
+  4/5). Kalau field selalu efektif jadi string kosong, Xray-core baca
+  path kosong = treat sbg stdin = EOF instan (proses instrumented test
+  gak ada stdin) — persis cocok pola error yang selalu sama.
+  File baru `LibXrayInvokeProbeRound6Test.kt`, 2 fungsi: (1)
+  `probeTestXrayNonexistentPath` — `configPath` yang DIJAMIN gak pernah
+  ada sama sekali; kalau errornya BEDA dari EOF (mis. "no such file"),
+  field kita SAMPAI ke Go, masalah balik ke isi/akses file asli. Kalau
+  SAMA PERSIS, field TERBUKTI tidak pernah sampai — bug di libXray AAR
+  ini utk `testXray`, bukan kode kita. (2) `probeTestXrayEmptyStringPath`
+  — kontrol tambahan, `configPath:""` eksplisit.
+  **WAJIB dicek PALING PERTAMA sesi berikutnya**: baca
+  `invoke-probe-logcat.log`, tag `LibXrayInvokeProbeR6`, bandingkan
+  pesan error `TESTXRAY-NOFILE`/`TESTXRAY-EMPTYPATH` dgn error EOF round
+  3-5. **Kalau field TERBUKTI tidak pernah sampai (dugaan di atas benar)**:
+  `testXray` via `Invoke()` TIDAK BISA dipakai utk validasi config di
+  app produksi — perlu strategi lain (skip validasi client-side, pakai
+  `runXray` langsung dan tangani error real-time, atau cari method lain
+  yang underlying func-nya param langsung bukan base64Text-based, sama
+  kategori `getFreePorts`). Workflow filter logcat sudah ditambah tag
+  R6 proaktif. 0 baris kode app produksi disentuh.
+
 - **v3.35.0 (2026-08-08) — Round 5 (diagnostik, bukan kandidat baru):
   data round 4 LENGKAP terbaca (run CI kedua stlh hotfix v3.34.1).
   **2 TEMUAN TERKONFIRMASI PASTI, jangan diuji ulang tanpa alasan baru:**

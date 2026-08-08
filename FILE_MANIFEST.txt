@@ -10,6 +10,7 @@ app/proguard-rules.pro
 app/src/androidTest/java/com/fdzaki/adshield/xray/LibXrayInvokeProbeRound3Test.kt
 app/src/androidTest/java/com/fdzaki/adshield/xray/LibXrayInvokeProbeRound4Test.kt
 app/src/androidTest/java/com/fdzaki/adshield/xray/LibXrayInvokeProbeRound5Test.kt
+app/src/androidTest/java/com/fdzaki/adshield/xray/LibXrayInvokeProbeRound6Test.kt
 app/src/androidTest/java/com/fdzaki/adshield/xray/LibXrayInvokeProbeTest.kt
 app/src/main/AndroidManifest.xml
 app/src/main/java/com/fdzaki/adshield/AdShieldApp.kt
