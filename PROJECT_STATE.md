@@ -14,6 +14,20 @@ status singkat + daftar item "Yang HARUS dikerjakan" (checklist CI/device
 yang belum pernah dikonfirmasi), JANGAN langsung mengerjakan fitur besar.
 
 ## Status terakhir
+- **v3.42.0 (2026-08-08) — Final debugging/optimization sweep (per
+  permintaan eksplisit user "terakhir kalinya"): CLEAN, 0 fix baru.**
+  Grep sistematis SEMUA `CoroutineScope(...)` manual (11 titik) +
+  semua `registerReceiver` + semua Service/TileService lifecycle —
+  memverifikasi 2 leak yang baru ditutup (v3.40.0 IkeV2VpnEngine,
+  v3.41.0 WarpVpnEngineAdapter) benar-benar fixed, DAN memastikan
+  tidak ada instance ketiga yang terlewat. Hasil: bersih di seluruh
+  sisanya (detail per-file di CHANGELOG.md v3.42.0). **Kesimpulan:
+  scope-leak sweep ini SELESAI — kalau ada bug baru ditemukan lagi ke
+  depan, kemungkinan besar kelas bug BERBEDA (bukan uncancelled
+  scope), karena kelas ini sudah disapu tuntas.** Status proyek TETAP
+  HIATUS (lihat header file ini) — sweep ini dikerjakan sebagai
+  penutup eksplisit atas permintaan user, bukan pembukaan roadmap
+  baru.
 - **v3.41.0 (2026-08-08) — Fix leak nyata `WarpVpnEngineAdapter.adapterScope`,
   lebih parah dari v3.40.0.** User tanya "sudah tidak ada lagi yang mau
   di-debug?" — audit lanjutan langsung nemu: `adapterScope` internal

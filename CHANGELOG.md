@@ -1,5 +1,42 @@
 # Changelog
 
+## v3.42.0 — Final debugging/optimization pass: sweep menyeluruh, CLEAN (2026-08-08)
+
+> User: "Lakukan Debugging+optimalisasi untuk terakhir kalinya."
+
+Sweep sistematis atas SEMUA `CoroutineScope(...)` manual di codebase
+(11 titik, di-grep satu-satu) + semua `registerReceiver`/komponen
+lifecycle (`Service`/`TileService`), menyusul 2 leak nyata yang baru
+ditemukan & diperbaiki (v3.40.0 `IkeV2VpnEngine`, v3.41.0
+`WarpVpnEngineAdapter`):
+
+- `WarpTunnelManager.managerScope`, `AdShieldApp.appScope` — CLEAN,
+  memang didesain hidup seumur proses (singleton/Application), bukan
+  leak (didokumentasikan sejak awal, deputusan #6c).
+- `AdBlockVpnService.serviceScope` — CLEAN, keputusan sadar sejak
+  v3.16.8 (coroutine self-terminate lewat `running.get()`, cancel
+  paksa berisiko motong write in-flight — TIDAK diubah).
+- `DnsTileService`/`WarpTileService` — CLEAN, sudah benar sejak awal
+  (`onCreate`/`onDestroy` cancel scope dengan benar).
+- `BootReceiver` — CLEAN, `goAsync()`+`pendingResult.finish()` di
+  `finally` sudah benar.
+- `RestartReceiver`/`WarpRestartReceiver` — CLEAN, sinkron, tidak ada
+  scope untuk di-leak.
+- `IkeV2VpnEngine`/`WarpVpnEngineAdapter` — sudah diperbaiki
+  (v3.40.0/v3.41.0), diverifikasi ulang sekarang keduanya benar.
+- `ResourceMonitor.registerReceiver(null, ...)` — CLEAN, pola resmi
+  Android untuk ambil sticky intent baterai, BUKAN registrasi
+  persisten (tidak butuh unregister).
+
+**0 fix kode baru batch ini** — sweep ini murni verifikasi, hasilnya
+bersih di seluruh sisa codebase. Menutup permintaan user "debugging +
+optimalisasi untuk terakhir kalinya": scope-leak class of bug yang
+baru ditemukan (v3.40.0/v3.41.0) sudah disapu tuntas ke SELURUH
+codebase, bukan cuma 2 titik yang kebetulan ketemu. Version bump saja
+(84/3.42.0) — konsisten praktik project ini menandai audit-clean
+dengan version bump kecil (lihat pola sama v3.18.0 Security batch 2,
+Performance audit, dst).
+
 ## v3.41.0 — Fix leak nyata: `WarpVpnEngineAdapter.adapterScope` tak pernah di-cancel (2026-08-08)
 
 > Ditemukan saat user tanya "sudah tidak ada lagi yang mau di-debug?" —
