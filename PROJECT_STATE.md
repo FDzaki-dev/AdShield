@@ -3,7 +3,31 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.34.0 (2026-08-08) — Round 4 probe: ROOT CAUSE round 3 KETEMU lewat
+- **v3.34.1 (2026-08-08) — HOTFIX: logcat filter ketinggalan tag R4,
+  bukan test yang gagal.** User upload log run v3.34.0: gradle log
+  konfirmasi **`Starting 6 tests` / `Finished 6 tests`** (naik dari 3 —
+  round 1 (1) + round 3 (2) + round 4 (3) = 6, SEMUA benar-benar
+  ke-eksekusi, `BUILD SUCCESSFUL`), TAPI `invoke-probe-logcat.log` cuma
+  isi output round 1+3 (identik run sebelumnya) — 0 baris tag
+  `LibXrayInvokeProbeR4` sama sekali. Root cause: command capture
+  `adb logcat -d -s LibXrayInvokeProbe:* LibXrayInvokeProbeR3:*` pakai
+  mode silent-all-except (`-s`) dengan daftar tag EKSPLISIT — waktu round
+  3 ditambah, tag `...R3` sudah dimasukkan ke daftar, tapi round 4 lupa
+  ditambahkan `...R4` ke command yang sama. Bug MURNI di
+  `.github/workflows/build.yml` (1 baris, tambah `LibXrayInvokeProbeR4:*`
+  ke daftar filter) — bukan salah satu pun dari 3 test round 4 kembali
+  gagal/salah, datanya CUMA belum pernah kebaca sama sekali. **BELUM ADA
+  data hasil round 4** (getFreePorts flat-vs-payload, testXray
+  payload-nested) — WAJIB run ulang CI dan baca logcat baru sebelum
+  lanjut analisa apa pun soal payload-nesting theory.
+  **WAJIB dicek PALING PERTAMA di sesi berikutnya**: baca
+  `invoke-probe-logcat.log` run BARU (bukan yang sudah diupload — itu
+  masih dari run v3.34.0 sebelum fix), cari tag `LibXrayInvokeProbeR4`,
+  baris `PORTS-WIN`/`PORTS-MISS` dan `TESTXRAY-WIN`/`TESTXRAY-MISS`.
+  0 baris kode app produksi / kode test disentuh — murni 1 baris command
+  CI.
+
+- v3.34.0 (2026-08-08) — Round 4 probe: ROOT CAUSE round 3 KETEMU lewat
   riset ulang README resmi XTLS/libXray (dibaca langsung dari repo, bukan
   cache lama) — field payload method (`datDir`/`configPath`/`count`/dst)
   HARUS di-nest di bawah key `"payload"`, contoh resmi:

@@ -1,5 +1,16 @@
 # Changelog
 
+## v3.34.1 — HOTFIX: logcat filter missing R4 tag (2026-08-08)
+
+> Round 4 test (3 fungsi) TERBUKTI jalan (`Starting 6 tests`/`Finished 6
+> tests` di gradle log — naik dari 3), tapi `adb logcat -s` capture
+> command di `.github/workflows/build.yml` cuma daftar tag
+> `LibXrayInvokeProbe`/`...R3`, lupa tambah `...R4` — semua output round 4
+> ke-silent, 0 data terbaca. Fix: tambah `LibXrayInvokeProbeR4:*` ke
+> command capture. 1 baris workflow, tidak ada kode test/app yang diubah.
+> Data hasil round 4 (payload-nesting theory) masih KOSONG — WAJIB run
+> ulang CI setelah fix ini.
+
 ## v3.34.0 — Round 4 probe: root cause found — payload must be nested (2026-08-08)
 
 > Riset ulang README resmi XTLS/libXray (dibaca langsung dari repo)
