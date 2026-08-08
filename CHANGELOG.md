@@ -1,5 +1,54 @@
 # Changelog
 
+## v3.41.0 — Fix leak nyata: `WarpVpnEngineAdapter.adapterScope` tak pernah di-cancel (2026-08-08)
+
+> Ditemukan saat user tanya "sudah tidak ada lagi yang mau di-debug?" —
+> jawaban jujurnya: ada, dan ini LEBIH parah dari fix v3.40.0.
+
+`WarpVpnEngineAdapter` (dipakai `WarpForegroundService`) punya
+`adapterScope` sendiri yang menjalankan
+`combine(...).onEach{}.launchIn(adapterScope)` di `init{}` — collector
+TANPA kondisi berhenti sendiri, kelas bug SAMA PERSIS dengan
+`WarpForegroundService.onDestroy()` yang sudah diperbaiki v3.16.8. TAPI
+`onDestroy()` v3.16.8 cuma cancel `scope` milik Service sendiri —
+`adapterScope` milik `warpEngine` (instance terpisah) TIDAK PERNAH
+tersentuh. Karena `WarpVpnEngineAdapter` BARU dibuat setiap
+`onCreate()` Service (bukan singleton), setiap restart service
+menambah SATU collector forever-running lagi di atas yang lama —
+lebih parah dari leak sekali (v3.40.0 punya scope kalau `MainViewModel`
+ini hidup seumur proses; service ini bisa restart berkali-kali).
+
+**Fix:** `WarpVpnEngineAdapter.release()` (baru) — cancel
+`adapterScope`. Dipanggil dari `WarpForegroundService.onDestroy()`
+setelah `scope.cancel()` sendiri.
+
+Verifikasi statis: lexer nested-comment seluruh `app/src` — 0 masalah.
+2 file kode diubah + version bump. **BELUM DIKONFIRMASI CI/device.**
+
+## v3.40.0 — PROJECT STATUS: HIATUS (resmi) + fix leak IkeV2VpnEngine (2026-08-08)
+
+> User resmi melabeli proyek ini **HIATUS** — bukan dibatalkan/dihapus,
+> tapi tidak lagi dikerjakan aktif kecuali user membuka sesi baru
+> secara eksplisit. Lihat `PROJECT_STATE.md` bagian atas untuk detail.
+
+**Fix nyata (bukan cuma dokumentasi):** `IkeV2VpnEngine.engineScope`/
+`pollJob` tidak pernah di-cancel — gap yang sudah tercatat sejak
+concurrency/lifecycle audit batch 2 (v3.16.8) tapi sengaja ditunda
+sebagai low-priority. Ditutup batch ini:
+- `IkeV2VpnEngine.releaseMonitoring()` (baru) — cancel `pollJob` +
+  unregister broadcast receiver + cancel `engineScope`. SENGAJA TIDAK
+  memanggil `disconnect()` — profil IKEv2 dikelola OS (`VpnManager`)
+  dan didesain hidup lepas dari proses app, mematikannya di
+  `onCleared()` akan salah menghentikan sesi yang user tidak minta
+  dihentikan.
+- `MainViewModel.onCleared()` (baru, sebelumnya tidak ada override
+  sama sekali) — panggil `ikeV2Engine.releaseMonitoring()` sekali.
+
+Verifikasi statis: lexer nested-comment ke seluruh `app/src` — 0
+masalah. 2 file kode diubah + version bump. **BELUM DIKONFIRMASI CI/
+device** — konsisten dengan status hiatus, tidak dikejar sampai sesi
+berikutnya dibuka user.
+
 ## v3.39.0 — KEPUTUSAN FINAL: roadmap Xray-core/WARP-reserved-bytes ditutup (2026-08-08)
 
 > User serahkan keputusan ("cari jalan keluarnya sendiri") atas 3 opsi

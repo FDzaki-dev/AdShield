@@ -7,6 +7,7 @@ import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -94,5 +95,18 @@ class WarpVpnEngineAdapter(context: Context) : VpnEngine {
 
     override suspend fun disconnect() {
         manager.disconnect()
+    }
+
+    /**
+     * v3.41.0 — [adapterScope] runs the `combine(...).onEach{}.launchIn()` collector in [init]
+     * above, which has NO self-terminating condition (same bug class as
+     * `WarpForegroundService.onDestroy()`, fixed v3.16.8 — see the comment there). Because a
+     * fresh [WarpVpnEngineAdapter] (and therefore a fresh, never-cancelled [adapterScope]) is
+     * created on every `WarpForegroundService.onCreate()`, this leaked WORSE than a one-time
+     * leak: each service restart compounded another forever-running collector on top of the
+     * last one. Call this from the owning Service's `onDestroy()`.
+     */
+    fun release() {
+        adapterScope.cancel()
     }
 }

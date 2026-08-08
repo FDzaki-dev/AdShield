@@ -430,6 +430,19 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { settingsRepository.setHasSeenOnboarding(true) }
     }
 
+    /**
+     * v3.40.0 — closes the fix noted (but deliberately deferred) since concurrency/lifecycle
+     * audit batch 2 (v3.16.8): [ikeV2Engine]'s internal `engineScope`/`pollJob` was never
+     * cancelled anywhere, since `MainViewModel` had no `onCleared()` override at all. Calls
+     * [IkeV2VpnEngine.releaseMonitoring] ONLY — that method is scoped to stop leaking the local
+     * poll coroutine/broadcast receiver, NOT to disconnect the IKEv2 profile itself (the profile
+     * is OS-managed and intentionally outlives this process, per decision #16.8).
+     */
+    override fun onCleared() {
+        super.onCleared()
+        ikeV2Engine.releaseMonitoring()
+    }
+
     companion object {
         private const val RESOURCE_POLL_INTERVAL_MS = 3000L
         // Single-profile storage for now (see VpnProfileRepository) — same

@@ -15,6 +15,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -224,6 +225,20 @@ class IkeV2VpnEngine(context: Context) : VpnEngine {
     private fun unregisterEventReceiver() {
         eventReceiver?.let { runCatching { appContext.unregisterReceiver(it) } }
         eventReceiver = null
+    }
+
+    /**
+     * v3.40.0 — cancels ONLY the local monitoring machinery (poll coroutine + broadcast
+     * receiver), NOT the IKEv2 profile itself. The profile is OS-managed by `VpnManager` and is
+     * designed to outlive this app's process (see decision #16.8 / concurrency audit batch 2 in
+     * PROJECT_STATE.md) — calling [disconnect] here would wrongly tear down a session the user
+     * never asked to stop. Call this exactly once, from `MainViewModel.onCleared()`.
+     */
+    fun releaseMonitoring() {
+        pollJob?.cancel()
+        pollJob = null
+        unregisterEventReceiver()
+        engineScope.cancel()
     }
 
     companion object {

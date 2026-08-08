@@ -194,6 +194,12 @@ class WarpForegroundService : Service() {
             }
         }
         scope.cancel()
+        // v3.41.0 — warpEngine (WarpVpnEngineAdapter) owns its OWN internal coroutine scope
+        // (`adapterScope`) for its state-combining collector, separate from this Service's
+        // `scope` above — cancelling `scope` here never touched it. Compounded on every
+        // service restart (fresh adapter + fresh never-cancelled scope each `onCreate()`).
+        // See WarpVpnEngineAdapter.release() kdoc for full detail.
+        warpEngine.release()
         super.onDestroy()
     }
 
