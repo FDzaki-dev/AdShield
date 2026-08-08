@@ -3,37 +3,134 @@
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
 ## Status terakhir
-- **v3.32.0 (2026-08-08) — Envelope invoke() LibXray DIKONFIRMASI + method
-  list resmi ditemukan (bukan tebakan lagi).** User probe manual di
-  emulator (instrumented test, `libxray-invoke-probe-log.zip`) — AAR
-  hasil PoC v3.31.0 BENAR-BENAR bisa di-load native (`LibXray.touch() OK`)
-  DAN `LibXray.invoke()` sukses dipanggil nyata. **Bentuk envelope
-  resmi terbukti dari respons `success:true`:**
-  `{"apiVersion":2,"method":"<nama_aksi>", ...field lain...}` — kuncinya
-  `method`, BUKAN `name`/`action`/`APIVersion` (9 kandidat lain semua
-  `CANDIDATE-MISS`, cuma `[v2+method+count(lower)]` yang `CANDIDATE-WIN`).
-  **Dikonfirmasi silang lewat dokumentasi resmi `XTLS/libXray`** (web
-  search 2026-08-08): daftar method valid mencakup `getFreePorts`,
-  `runXray`, `runXrayFromJson`, `stopXray`, `xrayVersion`, `testXray`,
-  `ping`, `pingBatch`, `convertShareLinksToXrayJson`,
-  `convertXrayJsonToShareLinks`, `countGeoData` — SEMUA lewat envelope
-  `{"apiVersion":2,"method":"..."}` yang sama, field tambahan menyusul
-  per method (mis. `runXray` butuh config JSON, bukan cuma `count` yang
-  dipakai di probe `getFreePorts`).
-  **BUKAN integrasi WARP — masih murni konfirmasi shape API.** 0 baris
-  `WarpTunnelManager`/`WarpAccount` disentuh, jalur WARP existing (v3.28.0,
-  "bukan WARP resmi" tapi tunnel sehat) tidak berubah.
-  **WAJIB sesi berikutnya sebelum tulis kode integrasi:** probe lanjutan
-  method `runXray`/`runXrayFromJson` dengan config JSON WireGuard outbound
-  + field `reserved` (transformasi dari WARP account `id`, formula PERSIS
-  dari wgcf — BELUM diverifikasi baca source di sesi ini) — itu baru
-  pembuktian reserved-bytes benar-benar jalan lewat libXray, bukan cuma
-  konfirmasi bentuk envelope generik seperti batch ini. `SetTunFd` sudah
-  dihapus di versi libXray terkini (dari dok resmi) — fd harus ditulis ke
-  `xray.tun.fd` di root `env` object config sebelum `runXray`, BUKAN API
-  terpisah — catat ini supaya sesi depan tidak coba cari method `setTunFd`
-  yang sudah tidak ada.
+- **v3.33.0 (2026-08-08) — Round 3 probe: no-arg method lain +
+  `testXray` config-payload field-name candidates, SEMUA lewat CI
+  `libxray-invoke-probe` yang SUDAH ADA (bukan harness eksternal —
+  dikonfirmasi user, workflow ini satu-satunya cara jalankan probe).**
+  Lanjutan langsung round 1+2 (v3.32.0/v3.32.3, envelope
+  `{"apiVersion":2,"method":"..."}` sudah TERBUKTI lewat CANDIDATE-WIN
+  nyata `getFreePorts`). File test baru
+  `LibXrayInvokeProbeRound3Test.kt` (package sama, `xray/`), 2 fungsi
+  test:
+  1. `probeXrayVersionAndState` — sanity-check `xrayVersion`/
+     `getXrayState` (no-arg, method resmi dari dok yang sama dipakai
+     v3.32.3) pakai envelope yang sudah pasti benar — murah, cepat.
+  2. `probeTestXrayConfigCandidates` — 3 kandidat payload untuk method
+     `testXray` (config WireGuard PLACEHOLDER: `secretKey` 32-byte nol,
+     `reserved:[0,0,0]`, peer publicKey/endpoint WARP resmi yang SUDAH
+     terverifikasi lintas sumber): `configPath` (file ditulis ke
+     `context.filesDir` dulu), `configJson` inline, `config` inline.
+     Config SENGAJA placeholder — tujuan cuma "field mana yang
+     dikenali", BUKAN test WARP asli (`reserved`/`secretKey` real belum
+     boleh dipakai, formula belum diverifikasi baca source wgcf).
+  **`.github/workflows/build.yml`**: job `libxray-invoke-probe` diganti
+  dari run 1 class (`-Pandroid.testInstrumentationRunnerArguments.class`)
+  jadi run seluruh package `com.fdzaki.adshield.xray`
+  (`...arguments.package=...`) — otomatis mencakup round 1+2 (class lama,
+  TIDAK dihapus, tetap jalan tiap CI) + round 3 (class baru) dalam SATU
+  run instrumented test, tanpa perlu edit command tiap nambah round baru
+  ke depan. `adb logcat` filter ditambah tag `LibXrayInvokeProbeR3`
+  (tag lama `LibXrayInvokeProbe` tetap ada juga).
+  **BELUM DIKONFIRMASI run CI** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: baca `invoke-probe-logcat.log` (artifact
+  `libxray-invoke-probe-log`), cari `NOARG-RESULT:` (dua baris,
+  `xrayVersion`/`getXrayState`) dan `TESTXRAY-WIN:`/`TESTXRAY-MISS:`/
+  `TESTXRAY-ERROR:` (3 baris `testXray`). Kalau `TESTXRAY-MISS`/`-ERROR`
+  semua: baca PERSIS pesan error tiap satu — error soal "field tidak
+  dikenal" beda kelas temuan dari error soal "config WireGuard invalid"
+  (yang kedua = field-nya sudah BENAR, config placeholder-nya yang perlu
+  diganti data asli).
+  **0 baris `WarpTunnelManager`/kode app produksi disentuh** — murni
+  file test baru + edit parsial 2 baris workflow (job probe saja).
 
+- **v3.32.3 (2026-08-07) — Round 2 kandidat envelope: root cause round
+  1 KETEMU, `apiVersion` harus 2 bukan 1.** User upload log run v3.32.2
+  + screenshot: **CI 3/3 job HIJAU total** (`build`/`libxray-poc`/
+  `libxray-invoke-probe`), APK `AdShield_v3.32.2.apk` (215953265 bytes)
+  ter-signed+ter-rilis normal. **Probe akhirnya jalan penuh** (2 hotfix
+  shell v3.32.1/v3.32.2 terbukti berhasil) — hasil round 1: 0/9 sukses,
+  TAPI kesembilannya balas error PERSIS SAMA: `"unsupported apiVersion"`,
+  termasuk kandidat yang eksplisit kirim `apiVersion:1`. **Riset lanjutan
+  (dokumentasi resmi XTLS/libXray) konfirmasi: `Invoke` cuma terima
+  `apiVersion: 2`**, bukan 1 — AAR yang di-commit sudah di versi
+  protokol itu. Dokumentasi yang sama juga sebut daftar aksi resmi
+  (`getFreePorts`, `runXray`, `stopXray`, `xrayVersion`, `getXrayState`,
+  dll) — konsisten dengan aksi yang sudah dipakai probe
+  (`getFreePorts`), jadi kemungkinan besar nama aksi round 1 sudah benar,
+  cuma apiVersion-nya yang salah. Fix: `LibXrayInvokeProbeTest.kt` —
+  10 kandidat ROUND 2, semua pakai `apiVersion:2` (9 variasi
+  name/action/nesting sama dari round 1 + 1 baru `APIVersion`
+  PascalCase). **BELUM ADA jaminan salah satu benar** — apiVersion sudah
+  pasti benar sekarang, tapi bentuk name/nesting masih hipotesis belum
+  terbukti terpisah. Detail lengkap CHANGELOG.md v3.32.3. **BELUM
+  DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: baca `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:`.
+- v3.32.2 (2026-08-07) — HOTFIX #2: backslash line-continuation di
+  `script:` emulator-runner pecah jadi task gradle literal `\`.** User
+  upload log run v3.32.1. **Kabar baik: hotfix v3.32.1 BERHASIL** — step
+  sekarang sampai ke Gradle beneran (`Starting a Gradle Daemon`
+  muncul), beda total dari v3.32.0 yang mati sebelum Gradle sempat
+  jalan. Job `build` HIJAU (2x `BUILD SUCCESSFUL`), `libxray-poc` TETAP
+  HIJAU — v3.32.1 tidak merusak keduanya. **TAPI** Gradle langsung
+  `FAILURE: Task '\' not found` — command gradle 3-baris pakai
+  backslash line-continuation (pola normal di step `run:` biasa/bash)
+  TERNYATA tidak dipertahankan sebagai penyambung baris oleh mekanisme
+  eksekusi `script:` action `reactivecircus/android-emulator-runner@v2`
+  — backslash literal ikut lolos jadi argumen terpisah, dibaca Gradle
+  sebagai nama task. Fix: gabung command gradle jadi SATU baris penuh
+  (0 backslash sama sekali) — sisa struktur (redirect log, `$?`,
+  `exit $GRADLE_EXIT`) dari v3.32.1 dipertahankan, itu sudah benar. 1
+  file (`.github/workflows/build.yml`, edit parsial job
+  `libxray-invoke-probe` saja) + version bump. Detail lengkap
+  CHANGELOG.md v3.32.2. **BELUM DIKONFIRMASI run baru** — WAJIB dicek
+  PALING PERTAMA di sesi berikutnya: apakah Gradle sekarang benar-benar
+  mengeksekusi `connectedDebugAndroidTest` (bukan lagi "Task not
+  found"), BARU baca `invoke-probe-logcat.log` untuk `CANDIDATE-WIN`
+  (pertanyaan asli v3.32.0, masih belum terjawab sampai sekarang — 2
+  hotfix berturut-turut ini murni infrastruktur CI, belum menyentuh
+  pertanyaan envelope sama sekali).
+- v3.32.1 (2026-08-07) — HOTFIX: job `libxray-invoke-probe` gagal
+  SEBELUM gradle sempat jalan sama sekali.** User upload log run
+  v3.32.0 (`logs_84727506606.zip`). Root cause: `script:` di action
+  `reactivecircus/android-emulator-runner@v2` dieksekusi via `/bin/sh`
+  (dash), bukan bash — `set -o pipefail` (bash-only) bikin step mati di
+  baris pertama dengan `Illegal option -o pipefail`, SEBELUM baris
+  `gradle connectedDebugAndroidTest` manapun sempat jalan. **9 kandidat
+  envelope v3.32.0 NOL PERNAH DICOBA** — beda dari "0 kandidat sukses"
+  (hasil valid yang sudah diantisipasi). Job `build`/`libxray-poc` TIDAK
+  terdampak (keduanya pakai `run:` step biasa = bash, bukan `script:`
+  action emulator-runner). Fix: hapus `set -o pipefail`, ganti ke
+  `gradle ... > log 2>&1` + `$?` + `exit $GRADLE_EXIT` (POSIX-portable,
+  exit code gradle asli tetap terjaga tanpa butuh bash). 1 file
+  (`.github/workflows/build.yml`, edit parsial job `libxray-invoke-probe`
+  saja) + version bump. Detail lengkap CHANGELOG.md v3.32.1. **BELUM
+  DIKONFIRMASI run baru** — WAJIB dicek PALING PERTAMA di sesi
+  berikutnya: apakah job sekarang benar-benar sampai ke `gradle
+  connectedDebugAndroidTest`. BARU setelah itu baca
+  `invoke-probe-logcat.log` untuk `CANDIDATE-WIN` (pertanyaan asli
+  v3.32.0, belum terjawab sama sekali sampai sekarang).
+- v3.32.0 (2026-08-07) — libXray invoke() envelope probe, roadmap
+  langkah 2.5.** User konfirmasi `libxray-poc` v3.31.0 HIJAU, upload
+  artifact (`libXray.aar` 96.7MB + log 0 error) — diverifikasi statis lewat
+  parser bytecode `.class` custom (bukan asumsi): AAR asli, 4 ABI, API
+  resmi terbaru. **Temuan kunci:** `LibXray.invoke(String):String` adalah
+  SATU-SATUNYA dispatcher publik (dikonfirmasi, bukan tebakan) — TAPI
+  bentuk JSON envelope-nya (field diskriminator aksi) TIDAK ada di
+  README/dokumentasi publik manapun yang berhasil ditemukan (web search +
+  fetch dilakukan, hasil detail di CHANGELOG.md v3.32.0). **Keputusan:
+  JANGAN tulis integrasi WarpTunnelManager di atas tebakan** — sebagai
+  gantinya, instrumented test baru `LibXrayInvokeProbeTest.kt` (di
+  belakang job CI terisolasi `libxray-invoke-probe`, emulator x86_64 API
+  30) coba 9 kandidat envelope ke aksi read-only `getFreePorts`, log
+  mentah ke Logcat dengan prefix `CANDIDATE-WIN`/`MISS`/`ERROR`. 0 baris
+  `warp/`/`protocol/` disentuh. **WAJIB dicek sesi berikutnya**: run CI
+  job `libxray-invoke-probe` (BUKAN `build` atau `libxray-poc`, job baru
+  terpisah) — baca `invoke-probe-logcat.log` dari artifact
+  `libxray-invoke-probe-log`, cari `CANDIDATE-WIN:`. Kalau ketemu, BARU
+  mulai desain engine Xray sungguhan (config WireGuard-outbound + reserved
+  bytes). Kalau 0 win, JANGAN tebak kandidat baru tanpa log itu di tangan
+  — baca source Go `XTLS/libXray` langsung dulu. Detail lengkap 9
+  kandidat + alasan tiap satu di CHANGELOG.md v3.32.0.
 - **v3.31.0 (2026-08-07) — libXray PoC iterasi 3.** Log run v3.30.0
   kasih error persis: "go.mod requires go >= 1.26.3". `go-version`
   dinaikkan jadi `'1.26.3'` pas. **WAJIB dicek**: job `libxray-poc` run
@@ -2137,32 +2234,73 @@ ui/            MainViewModel, ui/screens/ (Home, Whitelist, Rules, Logs), ui/the
 
 ## Yang HARUS dikerjakan di batch berikutnya (prioritas)
 
-**PALING BARU & PALING PENTING (2026-08-08, v3.32.0):**
-1. `libxray-poc` v3.31.0 TERBUKTI HIJAU (AAR jalan, `LibXray.invoke()`
-   sukses dipanggil dari device/emulator nyata) — TIDAK perlu dicek ulang.
-2. Envelope invoke() TERKONFIRMASI: `{"apiVersion":2,"method":"<aksi>"}`.
-3. **Probe LANJUTAN dibutuhkan SEBELUM integrasi**: panggil
-   `runXray`/`runXrayFromJson` dengan config JSON WireGuard outbound +
-   `reserved` bytes terisi (bukan cuma `getFreePorts` yang sudah
-   dibuktikan). Ini pembuktian INTI (reserved-bytes WARP jalan), bukan
-   cuma shape API generik.
-4. Formula transformasi WARP account `id` (dari respons registrasi
-   Cloudflare) → array `reserved` 3-byte PERSIS seperti wgcf — BELUM
-   diverifikasi baca source di sesi manapun. WAJIB dicek sebelum tulis
-   kode konversi, JANGAN tebak formula.
-5. **Baru setelah probe #3 sukses + formula #4 terverifikasi**: mulai
-   integrasi `WarpTunnelManager` di belakang flag, fallback jalur
-   `com.wireguard.android:tunnel` existing (v3.28.0) TETAP ada — sesuai
-   roadmap langkah 3 (lihat CHANGELOG v3.28.0), JANGAN skip ke situ tanpa
-   #3/#4 di tangan (pola "klaim fix tanpa validasi" sudah 2x bikin krisis
-   di proyek ini — DNS v3.9-v3.11).
+**PALING BARU & PALING PENTING (2026-08-08, v3.33.0 — round 3, belum ada run baru):**
+1. Cek job `libxray-invoke-probe` run v3.33.0 — download
+   `libxray-invoke-probe-log`, buka `invoke-probe-logcat.log`.
+2. Cari `NOARG-RESULT:` (2 baris — `xrayVersion`/`getXrayState`): kalau
+   `success:true`, catat versi Xray-core yang jalan (info berguna untuk
+   compatibility check `reserved` field ke depan).
+3. Cari `TESTXRAY-WIN:` — kalau ketemu, itu bentuk field payload
+   `testXray` yang BENAR. Lanjut ke probe berikutnya: config yang SAMA
+   tapi `secretKey`/`reserved` ASLI dari akun WARP (baru setelah formula
+   `reserved` diverifikasi baca source wgcf — lihat entri v3.33.0 di
+   bawah untuk alasan).
+4. Kalau `TESTXRAY-MISS`/`TESTXRAY-ERROR` semua: baca pesan error PERSIS
+   tiap kandidat — bedakan 2 kelas: (a) error soal method/field TIDAK
+   DIKENAL → nama field masih salah, perlu kandidat baru; (b) error soal
+   ISI config (parse WireGuard/key format/dst) → field-nya sudah BENAR,
+   config placeholder-nya yang ditolak (progress nyata, bukan buntu).
+5. Roadmap integrasi `WarpTunnelManager` (langkah 3) TETAP menunggu
+   sampai #3 sukses DAN formula `reserved` terverifikasi — jangan
+   loncat ke situ dari hasil round 3 ini saja.
 
-**SEBELUMNYA (2026-08-07, v3.31.0 — SUDAH SELESAI, lihat #1-2 di atas):**
-1. ~~Cek job `libxray-poc` run v3.31.0~~ — HIJAU, dikonfirmasi.
-2. ~~Kalau merah: kirim log baru~~ — tidak relevan lagi, sudah hijau.
-3. ~~Kalau hijau + ada `.aar`: lanjut roadmap langkah 3~~ — DITUNDA,
-   lihat #3-5 di atas (butuh probe reserved-bytes dulu, bukan langsung
-   integrasi generik).
+**SEBELUMNYA (2026-08-07, v3.32.2 — hotfix #2, TERBUKTI berhasil, lihat v3.32.3 di atas untuk hasil probe-nya):**
+1. Cek job `libxray-invoke-probe` run v3.32.2 — apakah Gradle sekarang
+   benar-benar mengeksekusi `connectedDebugAndroidTest` (bukan lagi
+   `Task '\' not found`)?
+2. Kalau ya: download `libxray-invoke-probe-log`, buka
+   `invoke-probe-logcat.log`, cari `CANDIDATE-WIN:` — ini pertanyaan
+   ASLI v3.32.0 yang baru sekarang bisa benar-benar dijawab.
+3. Kalau masih gagal dengan error BEDA (bukan lagi soal shell/line-
+   continuation): baca `invoke-probe-gradle.log` dari artifact — sudah
+   pasti ter-upload (`if: always()`) berisi output gradle lengkap
+   (bukan cuma exit code), kirim isinya untuk diagnosis lanjut.
+
+**SEBELUMNYA (2026-08-07, v3.32.1 — hotfix shell, TERBUKTI jalan tapi kena bug baru, lihat v3.32.2 di atas):**
+1. Cek job `libxray-invoke-probe` run v3.32.1 — apakah step "Run
+   instrumented probe test on emulator" sekarang sampai ke baris
+   `gradle connectedDebugAndroidTest` (bukan mati di `sh`/pipefail lagi)?
+2. Kalau ya (step selesai, apapun hasil gradle-nya): lanjut ke langkah
+   v3.32.0 di bawah — download `libxray-invoke-probe-log`, cari
+   `CANDIDATE-WIN` di `invoke-probe-logcat.log`.
+3. Kalau step MASIH mati sebelum gradle jalan (error baru, bukan
+   pipefail lagi): baca `invoke-probe-gradle.log` dari artifact — itu
+   sekarang selalu ter-upload (step "Upload probe logs" pakai
+   `if: always()`) meski gradle gagal total, beda dengan sebelumnya yang
+   kosong karena mati di shell.
+
+**SEBELUMNYA (2026-08-07, v3.32.0 — TERNYATA belum pernah benar-benar tercoba, lihat hotfix v3.32.1 di atas):**
+1. Cek job **`libxray-invoke-probe`** (job BARU, terpisah dari `build` dan
+   `libxray-poc`) — download artifact `libxray-invoke-probe-log`, buka
+   `invoke-probe-logcat.log`.
+2. Cari baris `CANDIDATE-WIN:` — kalau ada, itu bentuk envelope
+   `invoke()` yang benar (request JSON persis tertulis di baris itu).
+   BARU dari situ mulai desain engine Xray sungguhan: config JSON
+   WireGuard-outbound ke peer WARP + `reserved` bytes (dari `client_id`
+   registrasi Cloudflare, BELUM disimpan di `WarpAccount` — perlu
+   ditambah dulu, lihat catatan di CHANGELOG v3.32.0/riset field
+   `config.client_id` wgcf), tun fd lewat `env.xray.tun.fd` di root
+   config (API `SetTunFd` sudah dihapus versi ini, dikonfirmasi README).
+3. Kalau 0 `CANDIDATE-WIN:` sama sekali: JANGAN tebak kandidat ke-10
+   tanpa data tambahan — baca source Go `github.com/XTLS/libXray`
+   langsung (fungsi yang handle `Invoke`/`CGoInvoke`) sebelum lanjut.
+4. Kalau bahkan `LibXray.touch()` gagal di log: native lib x86_64 tidak
+   ter-load di emulator — cek dulu apakah itu masalah AAR atau masalah
+   setup emulator/ABI mismatch sebelum simpulkan apa pun soal envelope.
+
+**SEBELUMNYA (2026-08-07, v3.31.0 — sudah dicek, CI confirmed hijau):**
+1. ~~Cek job `libxray-poc` run v3.31.0~~ — HIJAU, dikonfirmasi user,
+   AAR diverifikasi statis valid. Lanjut ke v3.32.0 di atas.
 
 **SEBELUMNYA (2026-08-07, v3.30.0):**
 1. Cek job `libxray-poc` run v3.30.0 — hijau atau merah?
