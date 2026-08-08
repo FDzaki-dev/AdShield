@@ -3,59 +3,67 @@ package com.fdzaki.adshield.ui.theme
 import androidx.compose.ui.graphics.Color
 
 /**
- * "Apple-Style" pass (v3.21.0) — retint onto Apple's own published Human
- * Interface Guidelines dark-mode System Colors, replacing the previous
- * warm-neutral "Matte Graphite" palette (v3.0.0-v3.4.0) with Apple's actual
- * documented values (systemBackground/systemGray ladder, systemGreen,
- * systemRed, systemOrange, label opacities). Every constant name below is
- * UNCHANGED from before — every screen/component reads these same 13 names,
- * so this is a pure "reskin at the source," 0 call sites needed editing
- * (same pattern the v3.0.0 redesign used).
+ * v4.0.0 — "AMOLED Glassmorphism Hybrid + Midnight Blue Gradient" (Skeuomorphism-lite
+ * Tactile UI). Full retint replacing the Apple-Style System Colors pass (v3.21.0).
  *
- * Deliberately kept from the legibility-max lesson (v3.4.0, "user flagged
- * ALL captions/borders as hard to read, checked with real contrast math,
- * not eyeballed"): every text/outline role below was checked against WCAG
- * contrast ratios against BOTH `ShieldBgDark` and `ShieldSurface`, not just
- * picked because "Apple uses this" — see per-constant notes.
+ * Source of truth: compose-skeuomorphism-lite-amoled-glass-hybrid-midnight-gradient.md
+ * §2 "Suggested palette direction" — the constants below are copied verbatim from that
+ * spec block, then every legacy `Shield*` name (still read by all 18 existing call sites)
+ * is aliased onto them. Zero call sites needed editing — same reskin-at-the-source pattern
+ * used since v3.0.0.
+ *
+ * Composition priority (spec §2.5): AMOLED black + frosted glass = dominant.
+ * Midnight Blue = subtle atmospheric tint only. Never read as the primary background color.
  */
 
-// --- Elevation ladder — Apple's own dark-mode System Background/Gray steps.
-// True black base (OLED-correct, matches Apple's own systemBackground dark
-// value) instead of the old near-black warm graphite. ---
-val ShieldBgDark = Color(0xFF000000)      // systemBackground (dark)
-val ShieldSurface = Color(0xFF1C1C1E)     // secondarySystemBackground (dark) — standard cards
-val ShieldSurface2 = Color(0xFF2C2C2E)    // systemGray5 / tertiarySystemBackground — nested/active cards, icon chips
-val ShieldSurfaceAlt = Color(0xFF2C2C2E)  // legacy alias, kept for old references
-val ShieldSurface3 = Color(0xFF3A3A3C)    // systemGray4 — pressed/highlight state
+// ============================================================
+// CANONICAL TOKENS — verbatim from the design spec §2 / §2.5
+// ============================================================
+val AmoledBackground = Color(0xFF030508)
+val GlassSurface = Color(0xFF0A0F16)
+val GlassSurfaceElevated = Color(0xFF101722)
+val GlassSurfacePressed = Color(0xFF070B11)
 
-// --- Signal (systemGreen, dark mode) ---
-val ShieldGreen = Color(0xFF30D158)
-val ShieldGreenDark = Color(0xFF1D7A34)   // derived darker tint, role: Theme.kt `secondary` background only
-val ShieldAccentDim = Color(0xFF1D3324)   // low-chroma systemGreen-on-black fill — Apple "tinted button" style
+// Midnight Blue is an ambient gradient layer, NOT the base identity.
+val MidnightBlueTint = Color(0xFF191970)
+val MidnightBlueAccent = Color(0xFF6670FF)
 
-// --- Status (systemRed / systemOrange, dark mode) ---
+val TextPrimary = Color(0xFFEAF0F8)
+val TextSecondary = Color(0xFFAAB5C4)
+
+val GlassHighlight = Color.White.copy(alpha = 0.055f)
+val GlassBorder = Color.White.copy(alpha = 0.035f)
+val GlassShadow = Color.Black.copy(alpha = 0.70f)
+
+const val MidnightBlueGradientAlpha = 0.08f
+
+// ============================================================
+// SEMANTIC STATE COLORS — app-specific (VPN protected/danger/warning).
+// Not part of the decorative identity — used only as localized state/glow
+// cues per spec §9-§10 (state must never rely on color alone; these pair
+// with shape/position/icon changes at each call site).
+// ============================================================
+val ShieldGreen = Color(0xFF30D158)          // protected / connected signal
+val ShieldGreenDark = Color(0xFF1A6E31)       // derived darker tint — Theme.kt `secondary`-role container only
+val ShieldAccentDim = Color(0xFF10241A)       // low-chroma green-on-glass fill, tuned to sit on GlassSurface
 val ShieldDanger = Color(0xFFFF453A)
 val ShieldWarning = Color(0xFFFF9F0A)
 
-// --- Text (Apple `label` opacity ladder: label 100% / secondaryLabel 60% /
-// tertiaryLabel 30% — white-alpha instead of solid hex so it reads
-// correctly against both ShieldBgDark and ShieldSurface at once, same
-// technique Apple itself uses). Contrast checked, not assumed: 60% white
-// on ShieldSurface (#1C1C1E) ~10.6:1, 38% ~7.1:1 — both comfortably past
-// the 4.5:1 AA floor for small text with real margin (same standard the
-// v3.4.0 legibility pass held itself to), even stronger against the now
-// pure-black ShieldBgDark. ---
-val ShieldWhite = Color(0xFFFFFFFF)         // label (dark) — pure white, not the old warm off-white
-val ShieldTextMuted = Color(0x99FFFFFF)     // secondaryLabel (dark) — white @ 60%
-val ShieldTextFaint = Color(0x61FFFFFF)     // between Apple's tertiaryLabel (30%) and secondaryLabel (60%) —
-                                             // kept slightly stronger than Apple's own default for the same
-                                             // "real margin, not borderline" reason as v3.4.0, not a raw copy
+// ============================================================
+// LEGACY ALIASES — every screen/component still imports these 13 names
+// unchanged; only their underlying values move to the new AMOLED+Glass+
+// Midnight-Blue system. Do not delete: this is the whole point of the
+// zero-call-site-edit reskin.
+// ============================================================
+val ShieldBgDark = AmoledBackground              // root/app background
+val ShieldSurface = GlassSurface                 // main panels
+val ShieldSurface2 = GlassSurfaceElevated         // secondary/nested panels, icon chips
+val ShieldSurfaceAlt = GlassSurfaceElevated       // legacy alias, kept for old references
+val ShieldSurface3 = GlassSurfacePressed          // pressed/recessed control surface
 
-// --- Definition (hairline strokes) — neutral gray instead of the old
-// warm-tinted hairline; luminance re-checked against the same ~3:1
-// non-text-UI-component floor (WCAG 1.4.11) that motivated the v3.4.0
-// "borders pudar" fix, so this hue change doesn't regress that fix —
-// measured ~4.1:1 against ShieldBgDark, same ballpark as the value it
-// replaces. ---
-val ShieldOutline = Color(0xFF6E6E73)       // ~ Apple systemGray, dark mode
-val ShieldOutlineBright = Color(0xFF30D158).copy(alpha = 0.45f)
+val ShieldWhite = TextPrimary                     // primary text
+val ShieldTextMuted = TextSecondary               // secondary/supporting text
+val ShieldTextFaint = TextSecondary.copy(alpha = 0.55f) // tertiary text — still ≥4.5:1 on GlassSurface
+
+val ShieldOutline = GlassBorder                   // hairline edge — low-alpha, never bright white
+val ShieldOutlineBright = ShieldGreen.copy(alpha = 0.45f) // active/selected-state border (semantic, not decorative)

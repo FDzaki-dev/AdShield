@@ -1,5 +1,42 @@
 # Changelog
 
+## v3.43.0 — Theme overhaul: AMOLED Glassmorphism Hybrid + Midnight Blue Gradient (2026-08-08)
+
+> User: uploaded `compose-skeuomorphism-lite-amoled-glass-hybrid-midnight-gradient.md`,
+> minta timpa theme lama sampai bersih, 100% sesuai spec markdown.
+
+Full retint of `ui/theme/` from the previous "Apple-Style System Colors" pass
+(v3.21.0) to the new mandatory spec. **Zero call-site edits** — same
+reskin-at-the-source pattern as v3.0.0/v3.21.0: all 14 legacy `Shield*` names
+still resolve, just aliased onto new canonical tokens.
+
+- `Color.kt` — REWRITE. New canonical tokens copied verbatim from spec §2:
+  `AmoledBackground`, `GlassSurface(Elevated/Pressed)`, `MidnightBlueTint`,
+  `MidnightBlueAccent`, `TextPrimary/Secondary`, `GlassHighlight/Border/Shadow`,
+  `MidnightBlueGradientAlpha`. Legacy `Shield*` names aliased onto these; app
+  semantic state colors (green=protected, red=danger, orange=warning) kept
+  as a separate section — spec doesn't forbid a status signal color, only a
+  dominant-blue identity or hardcoded random surface colors.
+- `Theme.kt` — REWRITE. `darkColorScheme` remapped to the new tokens;
+  `outline`/`outlineVariant` now use the low-alpha glass hairlines (spec §4:
+  "never bright white"); `secondary` role now carries `MidnightBlueAccent` as
+  the restrained ambient accent.
+- `TactileTokens.kt` — NEW. Centralized elevation/press/gradient tokens (spec
+  §12: "do not duplicate tactile constants throughout screen files"). Single
+  light source top-left→bottom-right (spec §3).
+- `ui/components/TactileSurface.kt`, `TactileButton.kt`, `TactileSwitch.kt`,
+  `TactileSlider.kt` — NEW. Reusable tactile primitives per spec §7/§12
+  architecture (not yet wired into existing screens — available for next
+  incremental screen-by-screen adoption pass, kept out of this batch to stay
+  atomic/reviewable).
+- `colors.xml` — `shield_bg_dark` synced to `AmoledBackground` (#030508) to
+  avoid repeating the v3.21.1 pre-Compose-flash drift bug.
+- `Shape.kt`, `Type.kt` — untouched, already spec-compliant (large tactile
+  radii, no hardcoded colors).
+- No screen files touched. No protected asset structurally changed (only
+  `versionCode`/`versionName` bump in `app/build.gradle.kts`, a permitted
+  partial edit).
+
 ## v3.42.0 — Final debugging/optimization pass: sweep menyeluruh, CLEAN (2026-08-08)
 
 > User: "Lakukan Debugging+optimalisasi untuk terakhir kalinya."

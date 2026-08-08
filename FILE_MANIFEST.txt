@@ -45,6 +45,11 @@ app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Shape.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Type.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/TactileTokens.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileSurface.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileButton.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileSwitch.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileSlider.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
 app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ResourceMonitor.kt

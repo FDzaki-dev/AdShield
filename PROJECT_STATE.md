@@ -2768,3 +2768,40 @@ ditulis ulang manual). Command update Termux SUDAH diperbaiki sejak v2.3.0
 untuk mengecualikan `.gitignore`/`.github` dari `rm -rf` — insiden ini bukti
 kenapa pengecualian itu wajib ada di command manapun ke depan, JANGAN pernah
 dihapus.
+
+## v3.43.0 — Theme overhaul (2026-08-08)
+
+Retint lengkap `ui/theme/` ke spec "AMOLED Glassmorphism Hybrid + Midnight
+Blue Gradient" (file markdown user, disimpan sebagai referensi desain).
+Pola reskin-at-the-source dipertahankan: SEMUA 14 nama `Shield*` lama masih
+resolve (0 call site diedit) — hanya value & Theme.kt yang berubah.
+
+Token baru (canonical, verbatim dari spec §2): `AmoledBackground`,
+`GlassSurface/Elevated/Pressed`, `MidnightBlueTint`, `MidnightBlueAccent`,
+`TextPrimary/Secondary`, `GlassHighlight/Border/Shadow`,
+`MidnightBlueGradientAlpha` — semua di `Color.kt`.
+
+Baru: `TactileTokens.kt` (token elevation/press/gradient terpusat) +
+4 komponen di `ui/components/`: `TactileSurface`, `TactileButton`,
+`TactileSwitch`, `TactileSlider` — BELUM dipakai di screen manapun
+(sengaja, biar batch ini tetap atomic & reviewable). Next step kalau user
+minta: adopsi bertahap per-screen (HomeScreen dulu, paling banyak custom
+tactile control-nya).
+
+Keputusan desain:
+- Warna semantik (ShieldGreen=protected, ShieldDanger, ShieldWarning) TETAP
+  dipertahankan sebagai signal state aplikasi, terpisah dari identitas
+  dekoratif tema. Spec tidak melarang status color, hanya melarang identitas
+  dominan biru / warna surface acak yang di-hardcode.
+- `outline`/`outlineVariant` di Theme.kt sekarang pakai glass hairline
+  alpha-rendah (bukan solid gray seperti sebelumnya) — sesuai spec §4
+  "border tidak boleh putih terang". Efek sampingnya: komponen Material3
+  default yang mengandalkan `outline` (mis. OutlinedTextField bawaan, kalau
+  ada) akan terlihat sangat samar — ini disengaja sesuai spec, bevel
+  gradient sekarang jadi cue kedalaman utama, bukan garis outline.
+- `colors.xml` `shield_bg_dark` disamakan ke `AmoledBackground` (#030508)
+  supaya tidak mengulang bug drift v3.21.1.
+
+Belum dikerjakan (menunggu instruksi user): wiring 4 komponen Tactile* ke
+HomeScreen/RulesScreen/dll, dan histori visual QA di device fisik untuk
+kontras GlassBorder alpha 0.035 di atas background yang sangat gelap.

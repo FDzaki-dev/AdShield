@@ -1,11 +1,7 @@
 <resources>
-    <!-- Apple-Style pass (v3.21.1): `shield_bg_dark` drives statusBarColor/
-         navigationBarColor/windowBackground in themes.xml — i.e. what's
-         visible BEFORE Compose draws (splash flash) and the system bars
-         AROUND the Compose content. It was #0F1512, which never matched
-         either the old Compose ShieldBgDark (#181816) or the new one
-         (#000000) — a pre-existing drift bug (not introduced this batch),
-         invisible on the old muddy palette but very visible now against a
-         true-black Apple-style background. Synced to match. -->
-    <color name="shield_bg_dark">#000000</color>
+    <!-- v4.0.0 AMOLED Glassmorphism Hybrid pass: kept in sync with Compose
+         `AmoledBackground` (Color.kt) so the pre-Compose flash (statusBar/
+         navigationBar/windowBackground in themes.xml) never drifts from the
+         in-app background, per the drift-bug lesson from v3.21.1. -->
+    <color name="shield_bg_dark">#030508</color>
 </resources>
