@@ -210,6 +210,11 @@ class AdBlockVpnService : VpnService() {
         startForeground(Constants.NOTIF_ID, VpnNotificationFactory.build(this))
         loopExecutor.execute { packetLoop.run(iface) }
         prefetcher.start()
+        // v4.1.0 — "Radikal Perf" batch (see PROJECT_STATE.md): starts the
+        // periodic batched flush of counters/log entries (see DnsQueryLogger
+        // kdoc) — must be started here, mirroring prefetcher.start() above,
+        // so a DNS-mode session that never stops still flushes regularly.
+        queryLogger.start()
     }
 
     private fun stopVpn(isModeSwitch: Boolean = false) {
@@ -217,6 +222,11 @@ class AdBlockVpnService : VpnService() {
         try { vpnInterface?.close() } catch (_: Exception) {}
         vpnInterface = null
         forwarder.closeAllSockets()
+        // v4.1.0 — "Radikal Perf" batch: stop the periodic batched flush and
+        // synchronously drain whatever counters/log entries are still only
+        // buffered in memory (see DnsQueryLogger kdoc) so a stop right before
+        // a scheduled flush never silently loses them.
+        serviceScope.launch { queryLogger.stop() }
         serviceScope.launch {
             settingsRepository.setWasRunning(false)
             // When this stop is just the "turn off DNS mode" half of a

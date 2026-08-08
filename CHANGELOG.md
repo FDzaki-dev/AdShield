@@ -1,5 +1,47 @@
 # Changelog
 
+## v4.1.0 — "Radikal Perf": hilangkan 2 bottleneck tersembunyi di hot path DNS (2026-08-09)
+
+User minta dongkrak performa secara radikal. Audit menemukan 2 bottleneck
+nyata di jalur tercepat aplikasi (bukan micro-opt kosmetik):
+
+1. **`DohClient` — TLS handshake penuh di SETIAP query DoH, bukan cuma yang
+   pertama.** v3.25.0 sebelumnya sudah menghapus `disconnect()` per-query
+   supaya JVM connection-pool/keep-alive HTTPS bisa dipakai ulang — tapi
+   fix itu tidak pernah benar-benar menyala: `protectingSocketFactory()`
+   masih dibuat BARU di setiap panggilan `queryOne()`, dan pool koneksi
+   `HttpsURLConnection` di Android mengunci identitas `SSLSocketFactory`
+   sebagai bagian dari key-nya — factory baru tiap query = tidak pernah
+   ada reuse sama sekali. Karena DoH dicoba PERTAMA untuk setiap query DNS
+   yang diteruskan (keputusan 2026-08-05), ini berarti setiap lookup non-
+   cache-hit membayar 1-2 round-trip TLS handshake ekstra yang seharusnya
+   tidak perlu. Fix: cache SATU instance factory per `VpnService` yang
+   sedang hidup (masih `protect()` tiap socket individual, jadi properti
+   keamanan tidak berubah) — sekarang reuse benar-benar terjadi.
+2. **`DnsQueryLogger` — disk write sinkron per SATU query DNS.**
+   `incrementBlocked()`/`incrementAllowed()` masing-masing memicu
+   `DataStore.edit{}` (write-then-rename file) untuk SETIAP query yang
+   ditangani packet loop — plus 1 coroutine launch baru per query. Di
+   browsing biasa itu puluhan disk write sinkron per detik hanya untuk 2
+   counter. Fix: `log()` sekarang hanya increment `AtomicLong` +
+   masuk antrian in-memory (tanpa suspend, aman dipanggil dari packet-loop
+   thread), dikuras oleh satu loop background setiap 3 detik jadi SATU
+   `dataStore.edit{}` + SATU transaksi Room batched (`insertAll` baru di
+   `DomainLogDao`) — bukan N terpisah. `stop()` melakukan flush sinkron
+   final saat VPN berhenti supaya tidak ada count/log yang hilang.
+
+**Diubah:**
+- `vpn/DohClient.kt` — cache `SSLSocketFactory` per-VpnService-instance.
+- `vpn/dns/DnsQueryLogger.kt` — rewrite ke buffer+batch-flush (lihat di atas).
+- `data/SettingsRepository.kt` — tambah `incrementCountersBy(blocked, allowed)`
+  (1 edit{} untuk kedua counter, dipakai oleh flush batch).
+- `data/db/DomainLogDao.kt` — tambah `insertAll(entries: List<DomainLogEntity>)`.
+- `vpn/AdBlockVpnService.kt` — wire `queryLogger.start()`/`.stop()` di
+  startVpn()/stopVpn(), simetris dengan `prefetcher.start()` yang sudah ada.
+
+Tidak ada perubahan perilaku yang terlihat user (counter/log tetap akurat,
+cuma ditulis lebih jarang) — murni pengurangan I/O dan latency di hot path.
+
 ## v4.0.0 — Major cleanup: hapus semua fitur di luar scope DNS+WARP (2026-08-09)
 
 > User: proyek "kegemukan" untuk 2 fitur utama (DNS Ad-Block + WARP) +

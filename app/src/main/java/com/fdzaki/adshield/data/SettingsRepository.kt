@@ -173,6 +173,23 @@ class SettingsRepository(private val context: Context) {
         }
     }
 
+    // Perf (v4.1.0 — "Radikal Perf" batch, see PROJECT_STATE.md): DnsQueryLogger
+    // used to call incrementBlocked()/incrementAllowed() — each its OWN
+    // dataStore.edit{} disk write — on EVERY single DNS query the packet loop
+    // handled. DataStore.edit() does a real atomic file write (temp file +
+    // rename) per call; under heavy browsing that meant dozens of synchronous
+    // disk writes per second just for two counters. DnsQueryLogger now
+    // accumulates both deltas in memory and flushes them here in ONE edit{}
+    // call every few seconds instead of one edit{} per query — same eventual
+    // counter values, orders of magnitude fewer disk writes.
+    suspend fun incrementCountersBy(blockedDelta: Long, allowedDelta: Long) {
+        if (blockedDelta == 0L && allowedDelta == 0L) return
+        context.dataStore.edit { prefs ->
+            if (blockedDelta != 0L) prefs[Keys.BLOCKED_COUNT] = (prefs[Keys.BLOCKED_COUNT] ?: 0L) + blockedDelta
+            if (allowedDelta != 0L) prefs[Keys.ALLOWED_COUNT] = (prefs[Keys.ALLOWED_COUNT] ?: 0L) + allowedDelta
+        }
+    }
+
     suspend fun resetCounters() {
         context.dataStore.edit { prefs ->
             prefs[Keys.BLOCKED_COUNT] = 0L

@@ -69,6 +69,7 @@ object DohClient {
         val url = URL(endpointUrl)
         val conn = url.openConnection() as HttpsURLConnection
         conn.sslSocketFactory = protectingSocketFactory(vpnService)
+        conn.setRequestProperty("Connection", "keep-alive")
         conn.requestMethod = "POST"
         conn.doOutput = true
         conn.connectTimeout = com.fdzaki.adshield.util.Constants.DOH_TIMEOUT_MS
@@ -93,6 +94,37 @@ object DohClient {
         return conn.inputStream.use { it.readBytes() }
     }
 
+    // Perf (v4.1.0 — see PROJECT_STATE.md "Radikal Perf" batch): the v3.25.0
+    // fix above removed the per-query disconnect() specifically so the JVM's
+    // built-in HTTPS keep-alive/connection pool (and TLS session resumption)
+    // could kick in across queries. It never actually did: protectingSocketFactory()
+    // was still called fresh INSIDE queryOne() on every single call, and
+    // Android's HttpsURLConnection connection-pool key includes the identity
+    // of the SSLSocketFactory instance in use — a brand-new factory object
+    // every query means every query looks like a different, unpoolable route,
+    // so every DoH lookup (tried FIRST for every forwarded DNS query per
+    // decision 2026-08-05) silently kept paying a full fresh TLS handshake
+    // (~1-2 extra round-trips) no matter how many times the same endpoint was
+    // queried. Caching ONE factory instance per live VpnService here — while
+    // still calling protect() on every individual socket createSocket() makes,
+    // so the security property is unchanged — is what actually turns on reuse.
+    // A new VpnService instance (fresh VPN start) naturally invalidates the
+    // cache via the `!==` identity check, so nothing can leak across restarts.
+    @Volatile private var cachedFactory: SSLSocketFactory? = null
+    @Volatile private var cachedForService: VpnService? = null
+    private val factoryBuildLock = Any()
+
+    private fun protectingSocketFactory(vpnService: VpnService): SSLSocketFactory {
+        cachedFactory?.let { factory -> if (cachedForService === vpnService) return factory }
+        synchronized(factoryBuildLock) {
+            cachedFactory?.let { factory -> if (cachedForService === vpnService) return factory }
+            val factory = buildProtectingSocketFactory(vpnService)
+            cachedForService = vpnService
+            cachedFactory = factory
+            return factory
+        }
+    }
+
     /**
      * Wraps the platform's default [SSLSocketFactory] so every socket it
      * creates is immediately handed to [VpnService.protect] before use —
@@ -100,7 +132,7 @@ object DohClient {
      * looping back into it (same principle as `protect()` calls on the
      * plain-UDP upstream sockets elsewhere in this package).
      */
-    private fun protectingSocketFactory(vpnService: VpnService): SSLSocketFactory {
+    private fun buildProtectingSocketFactory(vpnService: VpnService): SSLSocketFactory {
         val delegate = SSLContext.getInstance("TLS").apply { init(null, null, null) }.socketFactory
         return object : SSLSocketFactory() {
             override fun getDefaultCipherSuites(): Array<String> = delegate.defaultCipherSuites

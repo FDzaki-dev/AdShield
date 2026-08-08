@@ -2,7 +2,26 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.0.0, major cleanup (2026-08-09)
+## STATUS PROYEK: AKTIF — v4.1.0, "Radikal Perf" batch (2026-08-09)
+
+User minta dongkrak performa "radikal". Audit fokus ke hot path (packet
+loop + upstream forward), BUKAN kosmetik — lihat CHANGELOG.md v4.1.0 untuk
+detail penuh. Ringkasan 2 fix nyata:
+
+1. `DohClient` — `SSLSocketFactory` sekarang di-cache per-VpnService-instance
+   (lihat kdoc di file). SEBELUM ini, fix v3.25.0 (hapus `disconnect()`
+   per-query) tidak pernah benar-benar menyala karena factory baru dibuat
+   tiap query — kalau ada perubahan lain ke `queryOne()`/`protectingSocketFactory()`
+   nanti, JANGAN balikin ke "factory baru per call" tanpa sadar itu
+   menghilangkan connection-reuse lagi.
+2. `DnsQueryLogger` — buffer in-memory (`AtomicLong` + `ConcurrentLinkedQueue`)
+   + flush batched tiap 3 detik (`FLUSH_INTERVAL_MS`), BUKAN lagi 1
+   `dataStore.edit{}` + 1 coroutine launch per query. `start()`/`stop()`
+   WAJIB dipanggil simetris di `AdBlockVpnService.startVpn()`/`stopVpn()`
+   (sudah di-wire) — kalau lupa `stop()`, buffer di RAM tidak pernah
+   sampai ke disk saat VPN berhenti.
+
+## STATUS SEBELUMNYA: v4.0.0, major cleanup (2026-08-09)
 
 User eksplisit minta: proyek ini "kegemukan" untuk cakupan yang sebenarnya
 cuma 2 fitur utama (DNS Ad-Block + WARP) + penunjang esensial — semua yang
