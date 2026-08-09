@@ -140,3 +140,17 @@ object AppMode {
     const val DNS_ADBLOCK = "dns"
     const val WARP_TUNNEL = "warp"
 }
+
+/** The two visual themes AdShield can render — persisted via
+ *  SettingsRepository.appTheme, same string-constant pattern as [AppMode].
+ *  DEFAULT is the existing "AMOLED Glassmorphism Hybrid" identity
+ *  (ui/theme/Color.kt). SKEUO_RADICAL_DARK is the "Radical + Literal
+ *  Skeuomorphism — Dark Mode Only" identity added for the in-app theme
+ *  picker (Settings screen) — see ui/theme/SkeuoTokens.kt for the exact
+ *  palette/token source (compose-skeuomorphism-radical-literal-dark-
+ *  performance.md). Dark-mode-only per that spec §24 — there is no
+ *  light-mode variant of either theme. */
+object AppTheme {
+    const val DEFAULT = "default"
+    const val SKEUO_RADICAL_DARK = "skeuo_radical_dark"
+}

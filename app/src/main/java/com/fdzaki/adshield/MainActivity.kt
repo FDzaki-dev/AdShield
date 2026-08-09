@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -39,6 +40,7 @@ import com.fdzaki.adshield.ui.screens.HomeScreen
 import com.fdzaki.adshield.ui.screens.LogsScreen
 import com.fdzaki.adshield.ui.screens.OnboardingScreen
 import com.fdzaki.adshield.ui.screens.RulesScreen
+import com.fdzaki.adshield.ui.screens.SettingsScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
@@ -138,7 +140,8 @@ class MainActivity : ComponentActivity() {
         handleShortcutToggleIntent(intent)
 
         setContent {
-            AdShieldTheme {
+            val appTheme by viewModel.appTheme.collectAsState()
+            AdShieldTheme(themeMode = appTheme) {
                 val navController = rememberNavController()
 
                 // Single Snackbar host shared by every screen in the NavHost —
@@ -226,6 +229,7 @@ class MainActivity : ComponentActivity() {
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
                             onOpenDiagnostics = { navController.navigate("diagnostics") },
+                            onOpenSettings = { navController.navigate("settings") },
                             onRequestBatteryExemption = ::requestBatteryOptimizationExemption
                         )
                     }
@@ -240,6 +244,9 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("diagnostics") {
                         DiagnosticsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
+                    }
+                    composable("settings") {
+                        SettingsScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                     }
                 }
                 }

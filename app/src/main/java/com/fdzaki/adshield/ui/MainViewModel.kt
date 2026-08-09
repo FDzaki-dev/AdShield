@@ -98,6 +98,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val warpRouteIpv6: StateFlow<Boolean> = settingsRepository.warpRouteIpv6
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    /** Active visual theme — see [com.fdzaki.adshield.util.AppTheme]. Read by
+     *  MainActivity to select which MaterialTheme AdShieldTheme() renders. */
+    val appTheme: StateFlow<String> = settingsRepository.appTheme
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), com.fdzaki.adshield.util.AppTheme.DEFAULT)
+
     /** Last DNS-mode (Ad-Block) failure, if any — e.g. VPN interface failed
      *  to establish. Used by the Diagnostics screen; see AdBlockVpnService
      *  for why this exists (previously DNS failures were silent). */
@@ -278,6 +283,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAutoStartOnBoot(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setAutoStartOnBoot(enabled) }
+    }
+
+    fun setAppTheme(theme: String) {
+        viewModelScope.launch { settingsRepository.setAppTheme(theme) }
     }
 
     /** Caller (LogsScreen) is responsible for confirming with the user first

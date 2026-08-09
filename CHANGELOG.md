@@ -1,5 +1,53 @@
 # Changelog
 
+## v4.3.0 — Setting: pilihan tema "Radical Skeuomorphism (Dark)" (2026-08-09)
+
+User minta tombol pemilih tema di Setting aplikasi, dengan tema baru yang
+konfigurasinya 100% mengikuti dokumen
+`compose-skeuomorphism-radical-literal-dark-performance.md` (Radical +
+Literal Skeuomorphism, dark-mode-only, performance-first). Atomic Change
+lintas modul (9 file, di bawah batas 10 tapi menyentuh >1 modul — disetujui
+sebagai satu perubahan fitur koheren, bukan dipecah per-modul karena
+theme-switching butuh data layer + viewmodel + UI + nav sekaligus untuk
+tetap konsisten).
+
+**Baru:**
+- `ui/theme/SkeuoTokens.kt` — palet warna persis dari spec §2 (hex verbatim:
+  `Background 0xFF050505`, `Surface 0xFF101010`, dst), `SkeuoTokens` data
+  class (spec §21: raisedElevation 6dp, pressedElevation 1dp, cornerRadius
+  14dp, pressedScale 0.975f — nilai persis dari contoh kode spec §6), dan
+  `Modifier.skeuoRaised()`/`skeuoRecessed()` — bevel murah pakai
+  Shape+Brush+shadow()/border() saja (spec §23 rendering priority), TANPA
+  Canvas custom, TANPA blur, TANPA animasi looping (spec §13/§14).
+- `ui/components/SkeuoButton.kt` — tombol fisik: raised+beveled default,
+  compress+scale 0.975 saat ditekan (spec §6), state SELECTED ditandai lewat
+  warna ikon/teks (accent), bukan cuma lewat depth (spec §19 — state tidak
+  boleh depth-only).
+- `ui/screens/SettingsScreen.kt` — layar Setting baru, section "Tema
+  Aplikasi" berisi 2 `SkeuoButton` selector: Default (identitas AMOLED Glass
+  lama, tidak berubah) dan Radical Skeuomorphism (Dark). Pilihan langsung
+  aktif ke seluruh app (MaterialTheme recomposition instan), tersimpan di
+  DataStore.
+
+**Diubah (edit parsial, sesuai Protected Assets rule):**
+- `ui/theme/Theme.kt` — `AdShieldTheme()` sekarang menerima `themeMode`
+  (default `AppTheme.DEFAULT`, non-breaking untuk semua call site lama),
+  memilih `AdShieldColorScheme` (tidak disentuh) vs `SkeuoColorScheme` baru
+  + shape ladder lebih "mekanis" (14dp base, bukan 28-34dp).
+- `data/SettingsRepository.kt` — key `APP_THEME` baru + `appTheme` Flow +
+  `setAppTheme()`, default `AppTheme.DEFAULT` (instalasi lama tidak berubah
+  tampilannya).
+- `ui/MainViewModel.kt` — `appTheme: StateFlow<String>` + `setAppTheme()`.
+- `MainActivity.kt` — collect `appTheme`, teruskan ke `AdShieldTheme()`,
+  tambah route NavHost `"settings"`.
+- `ui/screens/HomeScreen.kt` — tambah `onOpenSettings` param + `NavRow`
+  "Pengaturan Aplikasi" (ikon Settings) di grup navigasi Home.
+- `util/Constants.kt` — `object AppTheme { DEFAULT, SKEUO_RADICAL_DARK }`,
+  pola string-constant sama seperti `AppMode` yang sudah ada.
+
+Tidak ada file dihapus. Tidak menyentuh AndroidManifest/build.gradle/DB
+schema/keystore/dotfiles CI.
+
 ## v4.2.0 — "Radikal Perf" batch 2: fix TLS handshake berulang di WARP health-check (2026-08-09)
 
 User minta WARP juga di-dongkrak radikal. Audit modul `warp/` (WarpTunnelManager,

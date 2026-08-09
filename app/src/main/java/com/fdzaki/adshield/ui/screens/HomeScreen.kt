@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Rule
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -75,6 +76,7 @@ fun HomeScreen(
     onOpenRules: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    onOpenSettings: () -> Unit,
     onRequestBatteryExemption: () -> Unit
 ) {
     val vpnActive by viewModel.vpnActive.collectAsState()
@@ -208,6 +210,8 @@ fun HomeScreen(
             NavRow(icon = Icons.Filled.Shield, label = "Aturan Kustom (Block/Allow)", onClick = onOpenRules)
             NavDivider()
             NavRow(icon = Icons.Filled.BugReport, label = "Diagnostik", onClick = onOpenDiagnostics)
+            NavDivider()
+            NavRow(icon = Icons.Filled.Settings, label = "Pengaturan Aplikasi", onClick = onOpenSettings)
         }
 
         Spacer(Modifier.height(20.dp))
