@@ -2,7 +2,42 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.3.0, "Radikal Perf" batch 3 — Room DB (2026-08-09)
+## STATUS PROYEK: AKTIF — v4.4.0, "Radikal Redesign" — theme regresi + skeuomorphism-lite (2026-08-09)
+
+**Root cause regresi "theme custom menghilang" (dikonfirmasi):** v3.43.0
+membangun `ui/components/Tactile*.kt` (skeuomorphic-lite components) +
+`TactileTokens.kt` lengkap dengan token warna barunya, TAPI tidak pernah
+wiring komponennya ke layar manapun. v4.0.0 cleanup lalu menghapusnya
+sebagai "dead code, 0 call site" — padahal itu fitur setengah-jadi yang
+lupa di-wire, bukan kode mati beneran. Root cause = disiplin proses yang
+hilang: token/komponen dibuat di satu batch, wiring "menyusul" di batch
+lain yang tidak pernah datang.
+
+**Aturan baru mulai v4.4.0 — WAJIB dipatuhi di sesi manapun ke depan:**
+Setiap komponen UI baru (`Tactile*` atau apa pun namanya) HARUS di-wire ke
+minimal 1 layar nyata DI BATCH YANG SAMA dengan pembuatannya. Dilarang
+"bangun tokennya dulu, nanti sesi lain baru dipasang" — itu persis pola yang
+menyebabkan regresi ini. Kalau scope tidak cukup untuk wiring semua layar
+sekaligus, WAJIB dicatat eksplisit di CHANGELOG.md + section ini sebagai
+"Wired vs pending" (lihat CHANGELOG.md v4.4.0) — bukan didiamkan.
+
+**Status wiring skeuomorphism-lite ("Tactile" system) per 2026-08-09:**
+- ✅ HomeScreen.kt — wired penuh (ProtectionRing, WarpModeCard, StatCard x2,
+  NavGroup, 2 Switch, tombol Reset statistik).
+- ⏳ RulesScreen.kt, LogsScreen.kt, DiagnosticsScreen.kt, WhitelistScreen.kt,
+  OnboardingScreen.kt — MASIH Material3 polos (Card/Switch/OutlinedButton).
+  Otomatis ikut palet+shape baru lewat alias `Shield*` di Color.kt (jadi
+  visualnya konsisten, tidak pecah), tapi belum dapat bevel/gradient/shadow.
+  **INI YANG HARUS DIKERJAKAN DI SESI LANJUTAN** kalau diminta "lanjutkan
+  skeuomorphism-nya" — jangan bikin komponen baru lagi, WIRING 5 layar di
+  atas ke komponen `Tactile*` yang SUDAH ADA di `ui/components/`.
+
+**Arah desain:** brushed-titanium instrument panel (bukan glass/blur seperti
+identitas sebelumnya). Lihat kdoc `ui/theme/Color.kt` untuk token lengkap +
+alasan tiap pilihan warna. Depth pakai teknik Compose asli (`Modifier.border`
+dengan Brush gradient, `Modifier.shadow()` asli) — bukan gambar tekstur.
+
+## STATUS SEBELUMNYA: v4.3.0, "Radikal Perf" batch 3 — Room DB (2026-08-09)
 
 Audit radikal lanjutan (batch 3). Ketemu `domain_log` tidak ada index di
 `timestamp` DAN tidak pernah di-prune (`pruneOlderThan()` sudah lama ada

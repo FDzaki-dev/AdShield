@@ -2,7 +2,6 @@ package com.fdzaki.adshield.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,6 +39,13 @@ import androidx.compose.ui.unit.sp
 import java.text.NumberFormat
 import java.util.Locale
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.components.TactileButton
+import com.fdzaki.adshield.ui.components.TactileButtonVariant
+import com.fdzaki.adshield.ui.components.TactileSurface
+import com.fdzaki.adshield.ui.components.TactileSwitch
+import com.fdzaki.adshield.ui.components.TactileTokens
+import com.fdzaki.adshield.ui.components.bevelBorder
+import com.fdzaki.adshield.ui.components.panelShadow
 import com.fdzaki.adshield.ui.theme.ShieldAccentDim
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
@@ -169,12 +175,11 @@ fun HomeScreen(
 
         Spacer(Modifier.height(12.dp))
 
-        OutlinedButton(
+        TactileButton(
             onClick = { showResetConfirm = true },
             modifier = Modifier.fillMaxWidth(),
-            border = BorderStroke(1.dp, ShieldOutline),
-            colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldTextMuted)
-        ) { Text("Reset statistik", style = MaterialTheme.typography.labelLarge) }
+            variant = TactileButtonVariant.Secondary
+        ) { Text("Reset statistik", style = MaterialTheme.typography.labelLarge, color = ShieldTextMuted) }
 
         Spacer(Modifier.height(28.dp))
 
@@ -298,8 +303,18 @@ private fun ProtectionRing(active: Boolean, onClick: () -> Unit) {
             modifier = Modifier
                 .size(152.dp)
                 .scale(scale)
+                .panelShadow(if (isPressed) TactileTokens.elevationRaisedPressed else TactileTokens.elevationRaised, CircleShape)
                 .clip(CircleShape)
-                .background(if (active) ShieldAccentDim else ShieldSurface2)
+                .background(
+                    if (active) {
+                        androidx.compose.ui.graphics.Brush.verticalGradient(
+                            listOf(ShieldAccentDim.copy(alpha = 1f), ShieldAccentDim.copy(alpha = 0.6f))
+                        )
+                    } else {
+                        if (isPressed) TactileTokens.raisedBrushPressed() else TactileTokens.raisedBrush()
+                    }
+                )
+                .bevelBorder(CircleShape, accent = active, accentColor = ShieldGreen)
                 .clickable(
                     interactionSource = interactionSource,
                     indication = null,
@@ -337,11 +352,7 @@ private fun WarpModeCard(
     onToggle: (Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
-        border = BorderStroke(1.dp, if (active) ShieldGreen.copy(alpha = 0.4f) else ShieldOutline)
-    ) {
+    TactileSurface(modifier = Modifier.fillMaxWidth(), accentActive = active) {
         Column(Modifier.padding(18.dp)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -402,17 +413,13 @@ private fun WarpModeCard(
                         color = if (active) ShieldGreen else ShieldTextMuted
                     )
                 }
-                Switch(
+                TactileSwitch(
                     checked = active,
                     enabled = !connecting,
                     // Row above owns the toggle via `toggleable` now —
                     // null here prevents a double-fire when the user taps
                     // directly on the Switch's own hit target.
-                    onCheckedChange = null,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = ShieldGreen,
-                        checkedThumbColor = ShieldSurface
-                    )
+                    onCheckedChange = null
                 )
             }
             if (active) {
@@ -455,17 +462,13 @@ private fun WarpModeCard(
                     )
                 }
                 Spacer(Modifier.width(8.dp))
-                Switch(
+                TactileSwitch(
                     checked = routeIpv6,
                     // Row above now owns the toggle via `toggleable` — null
                     // here prevents a double-fire when tapping directly on
                     // the Switch's own hit target (same pattern as the two
                     // tunnel cards above, Logs, and Whitelist).
-                    onCheckedChange = null,
-                    colors = SwitchDefaults.colors(
-                        checkedTrackColor = ShieldGreen,
-                        checkedThumbColor = ShieldSurface
-                    )
+                    onCheckedChange = null
                 )
             }
         }
@@ -526,11 +529,7 @@ private fun StatCard(
     value: String,
     color: androidx.compose.ui.graphics.Color
 ) {
-    Card(
-        modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
-        border = BorderStroke(1.dp, ShieldOutline)
-    ) {
+    TactileSurface(modifier = modifier) {
         Column(Modifier.padding(16.dp)) {
             Text(value, style = ShieldMonoStat.copy(fontSize = 26.sp), color = color)
             Spacer(Modifier.height(2.dp))
@@ -539,15 +538,11 @@ private fun StatCard(
     }
 }
 
-/** Groups nav rows into a single hairline-bordered card, "premium settings list" style. */
+/** Groups nav rows into a single raised panel, "premium settings list" style. */
 @Composable
 private fun NavGroup(content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
-        border = BorderStroke(1.dp, ShieldOutline)
-    ) {
-        Column(content = content)
+    TactileSurface(modifier = Modifier.fillMaxWidth()) {
+        content()
     }
 }
 

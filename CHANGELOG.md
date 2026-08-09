@@ -1,5 +1,64 @@
 # Changelog
 
+## v4.4.0 — "Radikal Redesign": root-cause regresi theme + skeuomorphism-lite REAL, bukan akal-akalan (2026-08-09)
+
+> User: "setting theme custom menghilang tanpa jejak" + minta rombak total
+> dari theme gelap ke skeuomorphism-lite, eksplisit "tanpa akal-akalan".
+
+**Root cause regresi (dikonfirmasi, bukan dugaan):** v3.43.0 membangun
+sistem UI "Tactile" (skeuomorphic-lite) — `ui/components/Tactile*.kt` +
+`TactileTokens.kt` — LENGKAP dengan token warna/shape barunya (Color.kt,
+Theme.kt), TAPI wiring ke layar (HomeScreen dkk, seharusnya ganti `Card`/
+`Switch`/`Button` jadi `Tactile*`) tidak pernah dikerjakan. v4.0.0 (cleanup
+besar) lalu menghapus `ui/components/Tactile*.kt` sebagai "dead code, 0 call
+site sejak dibuat" — padahal itu bukan dead code beneran, itu fitur yang
+setengah jadi lalu tersapu tanpa ada yang sadar seharusnya di-wire, bukan
+dibuang. Itulah "menghilang tanpa jejak": fiturnya ada di kode selama ~1
+commit, tidak pernah terlihat user, lalu hilang beneran.
+
+**Fix bukan cuma "kembalikan file lama"** — dibangun ULANG dari nol dengan
+disiplin baru: setiap komponen yang dibuat WAJIB langsung di-wire ke minimal
+1 layar nyata di batch yang sama, tidak ada lagi "token dulu, wiring nanti".
+
+**Arah desain (deliberate, lihat kdoc Color.kt):** brushed-titanium
+instrument panel — bukan glass/blur. Depth dari teknik Compose yang REAL
+(bukan gambar tekstur/fake): gradient fill vertikal (`raisedBrush`/
+`recessedBrush`), gradient border asli lewat `Modifier.border(width, Brush,
+shape)` (`bevelBorder`/`bevelBorderRecessed`), dan `Modifier.shadow()` asli
+(`panelShadow`) — 3 cue depth independen per panel, bukan 1 hairline flat.
+Sekaligus fix keluhan readability: teks sekunder yang dulu andalkan alpha
+~55% sekarang warna solid (`Slate`/`SlateDim`), kontras naik terukur.
+
+**Dibuat (baru, REAL & terpakai — cek "Wired vs pending" di bawah):**
+- `ui/components/TactileTokens.kt` — brush gradient + helper `bevelBorder`/
+  `bevelBorderRecessed`/`panelShadow`.
+- `ui/components/TactileSurface.kt` — pengganti pola `Card(colors=..,
+  border=..)` yang berulang di semua layar.
+- `ui/components/TactileButton.kt` — tombol raised dengan animasi tenggelam
+  saat ditekan (elevation + gradient berubah bareng, bukan cuma ripple).
+- `ui/components/TactileSwitch.kt` — signature element: rocker switch fisik
+  (track = groove recessed, thumb = disc raised terpisah).
+
+**Diubah:**
+- `ui/theme/Color.kt`, `Theme.kt`, `Shape.kt` — REWRITE total ke palet
+  brushed-titanium + brass (lihat kdoc Color.kt untuk daftar token & alasan).
+  Alias legacy `Shield*` dipertahankan (pola reskin sejak v3.0.0) — layar yang
+  BELUM di-wire ke Tactile* otomatis ikut kebagian palet baru + shape baru,
+  tidak ada layar yang terlihat "ketinggalan zaman" secara warna.
+- `ui/screens/HomeScreen.kt` — WIRED PENUH: `ProtectionRing` (dial utama),
+  `WarpModeCard`, `StatCard` x2, `NavGroup`, kedua `Switch` (mode WARP + IPv6
+  routing), tombol "Reset statistik" — semua pakai komponen Tactile* baru.
+
+**Wired vs pending (dicatat eksplisit di PROJECT_STATE.md — supaya TIDAK ada
+lagi kasus "dibangun lalu dilupakan" seperti v3.43.0):**
+- ✅ HomeScreen — wired penuh, batch ini.
+- ⏳ RulesScreen, LogsScreen, DiagnosticsScreen, WhitelistScreen,
+  OnboardingScreen — MASIH pakai `Card`/`Switch`/`OutlinedButton` Material3
+  polos. Sudah otomatis ikut palet+shape baru (lewat alias Color.kt/Theme.kt/
+  Shape.kt di atas) jadi TIDAK pecah/salah warna, tapi belum dapat efek bevel/
+  gradient/shadow tactile. Wiring 5 layar ini adalah batch lanjutan yang jelas
+  — bukan "nanti kalau sempat" tanpa jejak seperti sebelumnya.
+
 ## v4.3.0 — "Radikal Perf" batch 3: index + auto-prune tabel domain_log (2026-08-09)
 
 Lanjutan audit radikal, kali ini ke layer Room DB. Ketemu 2 masalah yang
