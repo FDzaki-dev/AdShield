@@ -50,6 +50,7 @@ class DnsQueryLogger(
     @Volatile private var loggingEnabledCache = true
     private var enabledCollectorJob: Job? = null
     private var flushLoopJob: Job? = null
+    private var pruneLoopJob: Job? = null
 
     fun log(domain: String, blocked: Boolean) {
         if (blocked) blockedDelta.incrementAndGet() else allowedDelta.incrementAndGet()
@@ -75,6 +76,19 @@ class DnsQueryLogger(
             while (isActive) {
                 delay(FLUSH_INTERVAL_MS)
                 flush()
+            }
+        }
+        // v4.3.0 — "Radikal Perf" batch 3 (see PROJECT_STATE.md): keeps the
+        // domain_log Room table capped so it never decays query perf over a
+        // long-running install (see DomainLogDao.pruneKeepingLatest kdoc).
+        // Runs far less often than the flush loop above — a DELETE every 3s
+        // would defeat the point.
+        pruneLoopJob = scope.launch {
+            while (isActive) {
+                delay(PRUNE_INTERVAL_MS)
+                runCatching {
+                    AppDatabase.getInstance(context).domainLogDao().pruneKeepingLatest(PRUNE_KEEP_ROWS)
+                }
             }
         }
     }
@@ -110,8 +124,10 @@ class DnsQueryLogger(
     suspend fun stop() {
         flushLoopJob?.cancel()
         enabledCollectorJob?.cancel()
+        pruneLoopJob?.cancel()
         flushLoopJob = null
         enabledCollectorJob = null
+        pruneLoopJob = null
         flush()
     }
 
@@ -120,5 +136,9 @@ class DnsQueryLogger(
         private const val FLUSH_INTERVAL_MS = 3000L
         /** Hard cap on in-memory buffered log entries between flushes. */
         private const val MAX_PENDING_ENTRIES = 500
+        /** How often the domain_log table is pruned back down. */
+        private const val PRUNE_INTERVAL_MS = 5 * 60 * 1000L
+        /** Rows kept on prune — well above the 500-row UI LIMIT as a buffer. */
+        private const val PRUNE_KEEP_ROWS = 2000
     }
 }

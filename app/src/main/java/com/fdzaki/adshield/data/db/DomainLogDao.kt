@@ -31,6 +31,19 @@ interface DomainLogDao {
     @Query("DELETE FROM domain_log WHERE timestamp < :cutoffMillis")
     suspend fun pruneOlderThan(cutoffMillis: Long)
 
+    // Perf (v4.3.0 — "Radikal Perf" batch 3, see PROJECT_STATE.md): this
+    // table was previously NEVER pruned by anything (pruneOlderThan above
+    // was defined but had zero callers) — it grew unbounded for the entire
+    // lifetime of the install. Combined with the missing index (see
+    // DomainLogEntity kdoc), every recentEntries()/recentBlockedEntries()
+    // query got slower over weeks/months of use. The UI only ever shows the
+    // most recent 500 rows (see the LIMIT above), so keeping anything
+    // beyond a generous buffer past that has zero user-visible benefit.
+    // Wired into DnsQueryLogger's periodic loop (every ~5 min, not every
+    // flush — a DELETE+subquery every 3s would be its own waste).
+    @Query("DELETE FROM domain_log WHERE id NOT IN (SELECT id FROM domain_log ORDER BY timestamp DESC LIMIT :keep)")
+    suspend fun pruneKeepingLatest(keep: Int)
+
     @Query("SELECT COUNT(*) FROM domain_log")
     suspend fun count(): Int
 }

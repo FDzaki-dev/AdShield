@@ -1,52 +1,31 @@
 # Changelog
 
-## v4.3.0 — Setting: pilihan tema "Radical Skeuomorphism (Dark)" (2026-08-09)
+## v4.3.0 — "Radikal Perf" batch 3: index + auto-prune tabel domain_log (2026-08-09)
 
-User minta tombol pemilih tema di Setting aplikasi, dengan tema baru yang
-konfigurasinya 100% mengikuti dokumen
-`compose-skeuomorphism-radical-literal-dark-performance.md` (Radical +
-Literal Skeuomorphism, dark-mode-only, performance-first). Atomic Change
-lintas modul (9 file, di bawah batas 10 tapi menyentuh >1 modul — disetujui
-sebagai satu perubahan fitur koheren, bukan dipecah per-modul karena
-theme-switching butuh data layer + viewmodel + UI + nav sekaligus untuk
-tetap konsisten).
+Lanjutan audit radikal, kali ini ke layer Room DB. Ketemu 2 masalah yang
+saling memperparah di tabel `domain_log`:
 
-**Baru:**
-- `ui/theme/SkeuoTokens.kt` — palet warna persis dari spec §2 (hex verbatim:
-  `Background 0xFF050505`, `Surface 0xFF101010`, dst), `SkeuoTokens` data
-  class (spec §21: raisedElevation 6dp, pressedElevation 1dp, cornerRadius
-  14dp, pressedScale 0.975f — nilai persis dari contoh kode spec §6), dan
-  `Modifier.skeuoRaised()`/`skeuoRecessed()` — bevel murah pakai
-  Shape+Brush+shadow()/border() saja (spec §23 rendering priority), TANPA
-  Canvas custom, TANPA blur, TANPA animasi looping (spec §13/§14).
-- `ui/components/SkeuoButton.kt` — tombol fisik: raised+beveled default,
-  compress+scale 0.975 saat ditekan (spec §6), state SELECTED ditandai lewat
-  warna ikon/teks (accent), bukan cuma lewat depth (spec §19 — state tidak
-  boleh depth-only).
-- `ui/screens/SettingsScreen.kt` — layar Setting baru, section "Tema
-  Aplikasi" berisi 2 `SkeuoButton` selector: Default (identitas AMOLED Glass
-  lama, tidak berubah) dan Radical Skeuomorphism (Dark). Pilihan langsung
-  aktif ke seluruh app (MaterialTheme recomposition instan), tersimpan di
-  DataStore.
+1. **Tidak ada index sama sekali** di kolom `timestamp`, padahal SEMUA query
+   di `DomainLogDao` (`recentEntries`, `recentBlockedEntries`,
+   `pruneOlderThan`) order/filter by `timestamp` — full table scan + sort
+   di setiap panggilan.
+2. **Tidak pernah di-prune.** `pruneOlderThan()` sudah didefinisikan sejak
+   lama tapi TIDAK PERNAH dipanggil di mana pun — tabel tumbuh tanpa batas
+   selama app terpasang. Digabung dengan poin 1: query log (yang di-re-run
+   Room tiap `DnsQueryLogger` flush ~3 detik sekali, lihat v4.1.0) jadi makin
+   lambat seiring waktu — bug klasik "makin lama dipakai makin berat".
 
-**Diubah (edit parsial, sesuai Protected Assets rule):**
-- `ui/theme/Theme.kt` — `AdShieldTheme()` sekarang menerima `themeMode`
-  (default `AppTheme.DEFAULT`, non-breaking untuk semua call site lama),
-  memilih `AdShieldColorScheme` (tidak disentuh) vs `SkeuoColorScheme` baru
-  + shape ladder lebih "mekanis" (14dp base, bukan 28-34dp).
-- `data/SettingsRepository.kt` — key `APP_THEME` baru + `appTheme` Flow +
-  `setAppTheme()`, default `AppTheme.DEFAULT` (instalasi lama tidak berubah
-  tampilannya).
-- `ui/MainViewModel.kt` — `appTheme: StateFlow<String>` + `setAppTheme()`.
-- `MainActivity.kt` — collect `appTheme`, teruskan ke `AdShieldTheme()`,
-  tambah route NavHost `"settings"`.
-- `ui/screens/HomeScreen.kt` — tambah `onOpenSettings` param + `NavRow`
-  "Pengaturan Aplikasi" (ikon Settings) di grup navigasi Home.
-- `util/Constants.kt` — `object AppTheme { DEFAULT, SKEUO_RADICAL_DARK }`,
-  pola string-constant sama seperti `AppMode` yang sudah ada.
-
-Tidak ada file dihapus. Tidak menyentuh AndroidManifest/build.gradle/DB
-schema/keystore/dotfiles CI.
+**Fix:**
+- `data/db/DomainLogEntity.kt` — tambah `Index("timestamp")`.
+- `data/db/AppDatabase.kt` — bump `version` 1→2 (aman, sudah pakai
+  `fallbackToDestructiveMigration()`, cuma reset tabel log lokal).
+- `data/db/DomainLogDao.kt` — tambah `pruneKeepingLatest(keep: Int)`
+  (DELETE semua kecuali N baris terbaru — UI cuma pernah nampilin 500
+  baris teratas lewat `LIMIT 500`, jadi menyimpan lebih dari itu tanpa
+  buffer generous tidak ada gunanya buat user).
+- `vpn/dns/DnsQueryLogger.kt` — loop baru, `pruneKeepingLatest(2000)`
+  tiap 5 menit (bukan tiap flush 3 detik — DELETE sesering itu buang-buang
+  juga), di-stop simetris di `stop()`.
 
 ## v4.2.0 — "Radikal Perf" batch 2: fix TLS handshake berulang di WARP health-check (2026-08-09)
 

@@ -2,41 +2,17 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.3.0, Setting tema kustom "Radical Skeuomorphism Dark" (2026-08-09)
+## STATUS PROYEK: AKTIF — v4.3.0, "Radikal Perf" batch 3 — Room DB (2026-08-09)
 
-User minta tombol pemilih tema di layar Setting, dengan tema baru dikonfigurasi
-100% dari `compose-skeuomorphism-radical-literal-dark-performance.md` (spec
-diupload user, bukan bagian repo — nilai token disalin verbatim ke
-`ui/theme/SkeuoTokens.kt`, JANGAN diubah tanpa mengecek ulang doc itu kalau
-sesi depan diminta "sesuaikan lagi dengan spec").
-
-Detail lengkap perubahan: lihat CHANGELOG.md v4.3.0. Ringkasan arsitektur:
-- Theme sekarang dual-mode: `AdShieldTheme(themeMode, content)` di
-  `ui/theme/Theme.kt` pilih antara `AdShieldColorScheme` (default lama,
-  TIDAK diubah) dan `SkeuoColorScheme` (baru) + shape ladder masing-masing.
-  `themeMode` default ke `AppTheme.DEFAULT` — instalasi lama & setiap call
-  site yang belum di-update tetap render identitas AMOLED lama persis sama.
-- Sumber kebenaran pilihan tema: `SettingsRepository.appTheme` (DataStore
-  string key `app_theme`) → `MainViewModel.appTheme` (StateFlow) →
-  dikoleksi sekali di `MainActivity.setContent{}` → diteruskan ke
-  `AdShieldTheme(themeMode = appTheme)`. Layar baru `SettingsScreen.kt`
-  (route NavHost `"settings"`, dibuka dari `HomeScreen` NavRow "Pengaturan
-  Aplikasi") adalah satu-satunya penulis lewat `viewModel.setAppTheme()`.
-- Bevel/fisik primitives (`Modifier.skeuoRaised()`/`skeuoRecessed()` di
-  `SkeuoTokens.kt`, dipakai `SkeuoButton.kt`) SENGAJA dibangun dari
-  Shape+Brush+shadow()/border() saja — TIDAK ada Canvas custom, TIDAK ada
-  blur, TIDAK ada animasi looping — sesuai spec §11-14/§23 (performance-first
-  skeuomorphism). Kalau nanti diminta bikin komponen skeuo baru
-  (SkeuoSwitch/SkeuoSlider/SkeuoKnob dari spec §7-9), pola yang sama harus
-  diikuti — jangan lompat ke Canvas/bitmap texture kecuali benar-benar perlu.
-- `SkeuoButton` menandai state SELECTED lewat warna ikon/teks (accent), bukan
-  cuma lewat depth/scale — spec §19 eksplisit melarang state depth-only.
-
-**Kalau sesi berikutnya diminta perluas skeuo theme** (switch/slider/knob
-fisik beneran, bukan cuma tombol/warna): itu pekerjaan baru dari komponen
-yang belum ada (`SkeuoSwitch.kt`, `SkeuoSlider.kt`, `SkeuoKnob.kt`,
-`SkeuoSurface.kt`, `SkeuoPanel.kt` di spec §20 struktur folder belum semuanya
-dibuat — baru `SkeuoButton.kt` yang ada). Jangan asumsikan sudah lengkap.
+Audit radikal lanjutan (batch 3). Ketemu `domain_log` tidak ada index di
+`timestamp` DAN tidak pernah di-prune (`pruneOlderThan()` sudah lama ada
+tapi tak pernah dipanggil) — tabel tumbuh tak terbatas + tiap query
+`ORDER BY timestamp` full-scan, jadi makin lambat seiring waktu. Fix:
+index di `DomainLogEntity`, `AppDatabase` version 1→2 (destructive migration
+sudah di-set, aman), `DomainLogDao.pruneKeepingLatest(keep)` baru dipanggil
+dari `DnsQueryLogger` tiap 5 menit (keep 2000 baris — UI cuma pernah nampilin
+500 lewat LIMIT). Kalau nambah kolom/query baru ke `domain_log` nanti,
+CEK apakah butuh index tambahan juga — jangan ulangi pola yang sama.
 
 ## STATUS SEBELUMNYA: v4.2.0, "Radikal Perf" batch 2 — WARP (2026-08-09)
 

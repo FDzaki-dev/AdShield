@@ -45,7 +45,6 @@ class SettingsRepository(private val context: Context) {
         val WARP_CACHED_ENDPOINT = stringPreferencesKey("warp_cached_endpoint")
         val WARP_CACHED_MTU = intPreferencesKey("warp_cached_mtu")
         val WARP_ENDPOINT_CACHE_TIME = longPreferencesKey("warp_endpoint_cache_time")
-        val APP_THEME = stringPreferencesKey("app_theme")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -239,17 +238,5 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.WARP_CACHED_MTU] = mtu
             prefs[Keys.WARP_ENDPOINT_CACHE_TIME] = System.currentTimeMillis()
         }
-    }
-
-    /** Which visual theme is active — one of [com.fdzaki.adshield.util.AppTheme].
-     *  Defaults to AppTheme.DEFAULT (existing AMOLED Glassmorphism identity)
-     *  so a fresh install and every pre-existing user look identical to
-     *  before this setting was added. Read by MainActivity to pick the
-     *  MaterialTheme passed into AdShieldTheme(). */
-    val appTheme: Flow<String> =
-        context.dataStore.data.map { it[Keys.APP_THEME] ?: com.fdzaki.adshield.util.AppTheme.DEFAULT }
-
-    suspend fun setAppTheme(theme: String) {
-        context.dataStore.edit { it[Keys.APP_THEME] = theme }
     }
 }
