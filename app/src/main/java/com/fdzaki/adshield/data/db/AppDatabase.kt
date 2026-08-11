@@ -5,7 +5,10 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 
-@Database(entities = [DomainLogEntity::class], version = 2, exportSchema = false)
+// v4.5.0: version 2->3 for DomainLogEntity.backgroundApp (Silent Leak
+// Detector — see kdoc there). fallbackToDestructiveMigration() below already
+// covers this, same as the 1->2 bump in v4.3.0.
+@Database(entities = [DomainLogEntity::class], version = 3, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun domainLogDao(): DomainLogDao

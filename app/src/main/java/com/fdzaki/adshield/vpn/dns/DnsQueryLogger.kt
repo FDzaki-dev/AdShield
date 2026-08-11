@@ -52,10 +52,13 @@ class DnsQueryLogger(
     private var flushLoopJob: Job? = null
     private var pruneLoopJob: Job? = null
 
-    fun log(domain: String, blocked: Boolean) {
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): backgroundApp is
+    // non-null only when DnsPacketLoop resolved it (screen was off for this
+    // query) — just threaded straight into the entity, no new logic here.
+    fun log(domain: String, blocked: Boolean, backgroundApp: String? = null) {
         if (blocked) blockedDelta.incrementAndGet() else allowedDelta.incrementAndGet()
         if (loggingEnabledCache) {
-            pendingEntries.add(DomainLogEntity(domain = domain, blocked = blocked))
+            pendingEntries.add(DomainLogEntity(domain = domain, blocked = blocked, backgroundApp = backgroundApp))
             // Defensive cap: if a flush is somehow starved (e.g. Room stuck),
             // don't let this grow unbounded and eat memory — drop the oldest
             // buffered entries rather than crash or OOM. Matches the FIFO

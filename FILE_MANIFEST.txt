@@ -31,6 +31,7 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/OnboardingScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/RulesScreen.kt
+app/src/main/java/com/fdzaki/adshield/ui/screens/SilentLeakScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Shape.kt
@@ -39,6 +40,7 @@ app/src/main/java/com/fdzaki/adshield/ui/theme/Type.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
 app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt
 app/src/main/java/com/fdzaki/adshield/util/ResourceMonitor.kt
+app/src/main/java/com/fdzaki/adshield/util/ScreenStateMonitor.kt
 app/src/main/java/com/fdzaki/adshield/util/ShortcutsManager.kt
 app/src/main/java/com/fdzaki/adshield/vpn/AdBlockVpnService.kt
 app/src/main/java/com/fdzaki/adshield/vpn/DnsPacket.kt

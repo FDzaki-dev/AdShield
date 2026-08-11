@@ -46,6 +46,17 @@ import java.util.concurrent.TimeUnit
  * one-shot events, not state — a StateFlow would risk re-showing the same
  * Snackbar on config change/recomposition.
  */
+/** v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): one row per app
+ *  that made a DNS query while the screen was off, joined with its current
+ *  label/icon for display. [label] falls back to [packageName] itself when
+ *  the app was since uninstalled (loadAppInfo returns null). */
+data class SilentLeakUiItem(
+    val packageName: String,
+    val label: String,
+    val icon: android.graphics.drawable.Drawable?,
+    val count: Int
+)
+
 sealed class UiEvent {
     /** Plain confirmation/info message, no action button. */
     data class Message(val text: String) : UiEvent()
@@ -129,6 +140,25 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0L)
 
     val recentLogs: StateFlow<List<DomainLogEntity>> = domainLogDao.recentEntries()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): joins the raw
+    // per-app counts against InstalledAppsRepository for label/icon. map's
+    // transform lambda is suspend-capable, and List.map is `inline`, so
+    // calling the suspend loadAppInfo() per row here is valid Kotlin — no
+    // extra coroutine launch needed per row.
+    val silentLeaks: StateFlow<List<SilentLeakUiItem>> = domainLogDao.silentLeaks()
+        .map { counts ->
+            counts.map { c ->
+                val info = installedAppsRepository.loadAppInfo(c.backgroundApp)
+                SilentLeakUiItem(
+                    packageName = c.backgroundApp,
+                    label = info?.label ?: c.backgroundApp,
+                    icon = info?.icon,
+                    count = c.count
+                )
+            }
+        }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val loggingEnabled: StateFlow<Boolean> = settingsRepository.loggingEnabled

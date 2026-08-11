@@ -10,6 +10,7 @@ import com.fdzaki.adshield.data.BlocklistManager
 import com.fdzaki.adshield.data.DnsCache
 import com.fdzaki.adshield.data.SettingsRepository
 import com.fdzaki.adshield.util.Constants
+import com.fdzaki.adshield.util.ScreenStateMonitor
 import com.fdzaki.adshield.vpn.dns.AppUidWhitelistChecker
 import com.fdzaki.adshield.vpn.dns.DnsPacketLoop
 import com.fdzaki.adshield.vpn.dns.DnsPrefetcher
@@ -66,6 +67,8 @@ class AdBlockVpnService : VpnService() {
     private lateinit var prefetcher: DnsPrefetcher
     private lateinit var queryLogger: DnsQueryLogger
     private lateinit var packetLoop: DnsPacketLoop
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md).
+    private lateinit var screenStateMonitor: ScreenStateMonitor
 
     override fun onCreate() {
         super.onCreate()
@@ -75,13 +78,15 @@ class AdBlockVpnService : VpnService() {
         forwarder = UpstreamForwarder(this)
         prefetcher = DnsPrefetcher(this, serviceScope) { running.get() }
         queryLogger = DnsQueryLogger(serviceScope, settingsRepository, applicationContext)
+        screenStateMonitor = ScreenStateMonitor(applicationContext)
         packetLoop = DnsPacketLoop(
             blocklist = blocklist,
             whitelistChecker = whitelistChecker,
             forwarder = forwarder,
             forwardExecutor = forwardExecutor,
             isRunning = { running.get() },
-            onQueryHandled = { domain, blocked -> queryLogger.log(domain, blocked) },
+            isScreenOff = { screenStateMonitor.isScreenOff },
+            onQueryHandled = { domain, blocked, backgroundApp -> queryLogger.log(domain, blocked, backgroundApp) },
         )
     }
 
@@ -215,6 +220,10 @@ class AdBlockVpnService : VpnService() {
         // kdoc) — must be started here, mirroring prefetcher.start() above,
         // so a DNS-mode session that never stops still flushes regularly.
         queryLogger.start()
+        // v4.5.0 — Silent Leak Detector: symmetric with queryLogger.start()
+        // above — must start every session so a query right after screen-off
+        // is attributed from the first packet, not just the first broadcast.
+        screenStateMonitor.start()
     }
 
     private fun stopVpn(isModeSwitch: Boolean = false) {
@@ -227,6 +236,10 @@ class AdBlockVpnService : VpnService() {
         // buffered in memory (see DnsQueryLogger kdoc) so a stop right before
         // a scheduled flush never silently loses them.
         serviceScope.launch { queryLogger.stop() }
+        // v4.5.0 — Silent Leak Detector: unregisters the SCREEN_ON/OFF
+        // receiver (see ScreenStateMonitor.stop() kdoc) — synchronous, no
+        // coroutine needed, safe to call even if start() was never reached.
+        screenStateMonitor.stop()
         serviceScope.launch {
             settingsRepository.setWasRunning(false)
             // When this stop is just the "turn off DNS mode" half of a

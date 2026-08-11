@@ -46,4 +46,23 @@ interface DomainLogDao {
 
     @Query("SELECT COUNT(*) FROM domain_log")
     suspend fun count(): Int
+
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md / DomainLogEntity
+    // kdoc): backgroundApp is only ever non-null for a query made while the
+    // screen was off, so this aggregation IS the leak report — no extra
+    // WHERE clause needed beyond IS NOT NULL. LIMIT 50 caps the worst case
+    // (many distinct apps) the same defensive way recentEntries() caps rows.
+    @Query(
+        "SELECT backgroundApp, COUNT(*) as count FROM domain_log " +
+            "WHERE backgroundApp IS NOT NULL GROUP BY backgroundApp " +
+            "ORDER BY count DESC LIMIT 50"
+    )
+    fun silentLeaks(): Flow<List<SilentLeakCount>>
 }
+
+/** Projection for [DomainLogDao.silentLeaks] — one row per app seen making
+ *  DNS queries while the screen was off, most-frequent first. */
+data class SilentLeakCount(
+    val backgroundApp: String,
+    val count: Int
+)

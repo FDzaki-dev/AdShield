@@ -43,6 +43,24 @@ class InstalledAppsRepository(private val context: Context) {
             .sortedBy { it.label.lowercase() }
     }
 
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): single-package
+    // lookup for the leak list, which only has a handful of package names
+    // to resolve at a time — a full loadUserFacingApps() scan would be
+    // wasteful just to find the label/icon for a few packages. Returns null
+    // for an app that was uninstalled after it made the logged query.
+    suspend fun loadAppInfo(packageName: String): InstalledApp? = withContext(Dispatchers.IO) {
+        val pm = context.packageManager
+        runCatching {
+            val appInfo = pm.getApplicationInfo(packageName, 0)
+            InstalledApp(
+                packageName = packageName,
+                label = pm.getApplicationLabel(appInfo).toString(),
+                icon = runCatching { pm.getApplicationIcon(packageName) }.getOrNull(),
+                isSystemApp = isSystem(appInfo)
+            )
+        }.getOrNull()
+    }
+
     private fun isSystem(app: ApplicationInfo): Boolean =
         (app.flags and ApplicationInfo.FLAG_SYSTEM) != 0
 }

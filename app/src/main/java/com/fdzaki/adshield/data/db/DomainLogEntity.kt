@@ -14,10 +14,20 @@ import androidx.room.PrimaryKey
 // AppDatabase already uses fallbackToDestructiveMigration() for this
 // no-Migration-object setup, so this is just a local log table reset, not
 // user-visible data loss of anything durable.
+// v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): added `backgroundApp`,
+// nullable, populated ONLY when the query happened while the screen was off
+// (see ScreenStateMonitor + DnsPacketLoop). Deliberately NOT indexed: the
+// aggregation query (DomainLogDao.silentLeaks()) scans this table, but the
+// table is already kept ≤ ~2000 rows by pruneKeepingLatest (v4.3.0), so an
+// unindexed GROUP BY over that bound is cheap — adding an index here would
+// be the same over-eager-index mistake in reverse. Schema bumped 2->3;
+// fallbackToDestructiveMigration() already in AppDatabase means this is
+// just a local log-table reset, not durable user data loss.
 @Entity(tableName = "domain_log", indices = [Index(value = ["timestamp"])])
 data class DomainLogEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val domain: String,
     val blocked: Boolean,
-    val timestamp: Long = System.currentTimeMillis()
+    val timestamp: Long = System.currentTimeMillis(),
+    val backgroundApp: String? = null
 )

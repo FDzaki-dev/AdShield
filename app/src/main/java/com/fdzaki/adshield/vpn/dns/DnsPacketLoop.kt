@@ -26,7 +26,11 @@ class DnsPacketLoop(
     private val forwarder: UpstreamForwarder,
     private val forwardExecutor: ExecutorService,
     private val isRunning: () -> Boolean,
-    private val onQueryHandled: (domain: String, blocked: Boolean) -> Unit,
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): plain lambda
+    // reading ScreenStateMonitor.isScreenOff, same @Volatile-read idiom as
+    // isRunning above — zero cost on the hot path when screen is on.
+    private val isScreenOff: () -> Boolean,
+    private val onQueryHandled: (domain: String, blocked: Boolean, backgroundApp: String?) -> Unit,
 ) {
 
     /** Blocks the calling thread until [isRunning] goes false or the tun fd errors out. */
@@ -53,9 +57,16 @@ class DnsPacketLoop(
 
             val blocked = !bypassForWhitelistedApp && blocklist.isBlocked(query.queryDomain)
 
+            // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): only pay
+            // the uid->package resolution cost when the screen is actually
+            // off — that's the only case this feature cares about, and it
+            // keeps the common (screen-on) hot path exactly as cheap as
+            // before this feature existed.
+            val backgroundApp = if (isScreenOff()) whitelistChecker.resolvePackageName(query) else null
+
             if (blocked) {
                 writeBlockedResponse(output, query)
-                onQueryHandled(query.queryDomain, true)
+                onQueryHandled(query.queryDomain, true, backgroundApp)
             } else {
                 // v3.7.0 DNS cache: serve straight from the packet-loop thread
                 // on a hit — no executor hop, no socket round-trip. Falls
@@ -63,13 +74,13 @@ class DnsPacketLoop(
                 val cached = DnsCache.get(query.queryDomain, DnsPacket.qtypeOf(query))
                 if (cached != null) {
                     writeCachedResponse(output, query, cached)
-                    onQueryHandled(query.queryDomain, false)
+                    onQueryHandled(query.queryDomain, false, backgroundApp)
                 } else {
                     // Fire-and-forget async forward so a slow upstream lookup never
                     // stalls the packet loop for other concurrent queries. Must use
                     // forwardExecutor (NOT loopExecutor) — see field comment above.
                     forwardExecutor.execute { forwarder.forwardToUpstream(query, output) }
-                    onQueryHandled(query.queryDomain, false)
+                    onQueryHandled(query.queryDomain, false, backgroundApp)
                 }
             }
         }

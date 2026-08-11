@@ -31,20 +31,29 @@ class AppUidWhitelistChecker(
     private val uidToPackageCache = ConcurrentHashMap<Int, String?>()
 
     fun isFromWhitelistedApp(query: DnsPacket.ParsedQuery): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return false
+        val packageName = resolvePackageName(query) ?: return false
+        return blocklist.isAppWhitelisted(packageName)
+    }
+
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md): extracted the
+    // uid->package resolution out of isFromWhitelistedApp (ZERO behavior
+    // change for the whitelist path) so DnsPacketLoop can also call it
+    // directly to attribute a query to an app when the screen is off,
+    // without duplicating the getConnectionOwnerUid + cache logic.
+    fun resolvePackageName(query: DnsPacket.ParsedQuery): String? {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
         return try {
-            val cm = vpnService.getSystemService(ConnectivityManager::class.java) ?: return false
+            val cm = vpnService.getSystemService(ConnectivityManager::class.java) ?: return null
             val local = InetSocketAddress(query.sourceAddress, query.sourcePort)
             val remote = InetSocketAddress(query.destAddress, query.destPort)
             val uid = cm.getConnectionOwnerUid(OsConstants.IPPROTO_UDP, local, remote)
-            if (uid <= 0) return false // includes android.os.Process.INVALID_UID (-1)
+            if (uid <= 0) return null // includes android.os.Process.INVALID_UID (-1)
 
-            val packageName = uidToPackageCache.getOrPut(uid) {
+            uidToPackageCache.getOrPut(uid) {
                 runCatching { vpnService.packageManager.getPackagesForUid(uid)?.firstOrNull() }.getOrNull()
             }
-            blocklist.isAppWhitelisted(packageName)
         } catch (_: Exception) {
-            false
+            null
         }
     }
 

@@ -2,7 +2,35 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.4.0, "Radikal Redesign" — theme regresi + skeuomorphism-lite (2026-08-09)
+## STATUS PROYEK: AKTIF — v4.5.0, "Silent Leak Detector" — fitur unggulan baru (2026-08-11)
+
+User minta fitur unggulan yang tidak ada di app ad-block/VPN generik lain
+(dipilih dari 3 opsi yang diajukan). Dibangun: deteksi app yang melakukan
+query DNS SAAT LAYAR MATI ("silent leak" / trafik diam-diam), on-device
+penuh, tanpa cloud, tanpa permission baru. Detail lengkap desain + file
+yang disentuh: lihat CHANGELOG.md v4.5.0.
+
+**Poin penting untuk sesi lanjutan:**
+- `ScreenStateMonitor.isScreenOff` hanya di-set benar SELAMA sesi VPN DNS
+  aktif (start()/stop() dipanggil dari `AdBlockVpnService.startVpn()`/
+  `stopVpn()`, mirror `queryLogger`). WARP-only session TIDAK mengisi
+  `backgroundApp` — WARP tidak lewat `DnsPacketLoop` sama sekali (lihat
+  keputusan arsitektur #7). Kalau user minta fitur ini juga jalan di mode
+  WARP, itu scope baru (perlu titik instrumentasi terpisah di jalur WARP),
+  BUKAN bug di sini.
+- `AppUidWhitelistChecker.resolvePackageName()` hanya jalan API 29+ (sama
+  seperti whitelist sebelumnya) — di bawah itu, silent leak detector tidak
+  bisa atribusi per-app sama sekali (bukan kosong karena bug, tapi memang
+  API `getConnectionOwnerUid` tidak tersedia).
+- `domain_log.backgroundApp` sengaja TIDAK diberi index terpisah —
+  keputusan eksplisit (lihat kdoc `DomainLogEntity.kt`), jangan tambahkan
+  tanpa alasan baru (mis. kalau `PRUNE_KEEP_ROWS` dinaikkan jauh di atas
+  2000 nanti, evaluasi ulang).
+- `SilentLeakScreen` masih Material3 polos seperti 5 layar Tactile pending
+  di bawah — kalau "lanjutkan skeuomorphism" diminta lagi, tambahkan layar
+  ini ke daftar yang di-wire, jangan lupa.
+
+## STATUS SEBELUMNYA: v4.4.0, "Radikal Redesign" — theme regresi + skeuomorphism-lite (2026-08-09)
 
 **Root cause regresi "theme custom menghilang" (dikonfirmasi):** v3.43.0
 membangun `ui/components/Tactile*.kt` (skeuomorphic-lite components) +

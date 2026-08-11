@@ -39,6 +39,7 @@ import com.fdzaki.adshield.ui.screens.HomeScreen
 import com.fdzaki.adshield.ui.screens.LogsScreen
 import com.fdzaki.adshield.ui.screens.OnboardingScreen
 import com.fdzaki.adshield.ui.screens.RulesScreen
+import com.fdzaki.adshield.ui.screens.SilentLeakScreen
 import com.fdzaki.adshield.ui.screens.WhitelistScreen
 import com.fdzaki.adshield.ui.theme.AdShieldTheme
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
@@ -226,8 +227,12 @@ class MainActivity : ComponentActivity() {
                             onOpenRules = { navController.navigate("rules") },
                             onOpenLogs = { navController.navigate("logs") },
                             onOpenDiagnostics = { navController.navigate("diagnostics") },
+                            onOpenSilentLeaks = { navController.navigate("silent_leaks") },
                             onRequestBatteryExemption = ::requestBatteryOptimizationExemption
                         )
+                    }
+                    composable("silent_leaks") {
+                        SilentLeakScreen(viewModel = viewModel, onBack = { navController.popBackStack() })
                     }
                     composable("whitelist") {
                         WhitelistScreen(viewModel = viewModel, onBack = { navController.popBackStack() })

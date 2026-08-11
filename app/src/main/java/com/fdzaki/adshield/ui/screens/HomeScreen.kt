@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -81,6 +82,8 @@ fun HomeScreen(
     onOpenRules: () -> Unit,
     onOpenLogs: () -> Unit,
     onOpenDiagnostics: () -> Unit,
+    // v4.5.0 — Silent Leak Detector (see PROJECT_STATE.md).
+    onOpenSilentLeaks: () -> Unit,
     onRequestBatteryExemption: () -> Unit
 ) {
     val vpnActive by viewModel.vpnActive.collectAsState()
@@ -213,6 +216,12 @@ fun HomeScreen(
             NavRow(icon = Icons.Filled.Shield, label = "Aturan Kustom (Block/Allow)", onClick = onOpenRules)
             NavDivider()
             NavRow(icon = Icons.Filled.BugReport, label = "Diagnostik", onClick = onOpenDiagnostics)
+            NavDivider()
+            NavRow(
+                icon = Icons.Filled.VisibilityOff,
+                label = "Deteksi Aktivitas Diam-diam",
+                onClick = onOpenSilentLeaks
+            )
         }
 
         Spacer(Modifier.height(20.dp))

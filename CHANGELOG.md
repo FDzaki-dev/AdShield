@@ -1,5 +1,56 @@
 # Changelog
 
+## v4.5.0 — "Silent Leak Detector": fitur unggulan baru, bukan cosmetic (2026-08-11)
+
+> User: minta fitur unggulan yang tidak ada di aplikasi ad-block/VPN generik
+> lain, dipilih dari 3 opsi (Privacy Score, Silent Leak Detector, DGA
+> Anomaly Detector).
+
+**Apa itu:** menandai aplikasi yang melakukan query DNS SAAT LAYAR MATI —
+trafik background/diam-diam yang tidak pernah terlihat user secara sadar.
+100% on-device, tanpa cloud, tanpa permission baru.
+
+**Cara kerja:**
+- `ScreenStateMonitor` (baru) — registrasi dinamis `ACTION_SCREEN_ON/OFF`
+  (protected broadcast, TIDAK bisa lewat manifest), `@Volatile isScreenOff`
+  dibaca langsung dari hot path packet-loop, idiom sama seperti
+  `DnsQueryLogger.loggingEnabledCache`. Start/stop simetris dengan
+  `queryLogger` di `AdBlockVpnService`.
+- `AppUidWhitelistChecker.resolvePackageName()` — ekstraksi murni dari
+  `isFromWhitelistedApp` (nol perubahan perilaku whitelist), dipakai ulang
+  oleh `DnsPacketLoop` HANYA saat `isScreenOff() == true` — resolusi
+  uid->package (‑ mahal) tidak pernah dipanggil selama layar menyala,
+  jadi hot path screen-on TIDAK bertambah biaya sama sekali.
+- `DomainLogEntity.backgroundApp` (nullable, schema v2->v3) — diisi hanya
+  saat query terjadi selagi layar mati. Sengaja TIDAK diberi index
+  tambahan: tabel sudah dibatasi ~2000 baris oleh `pruneKeepingLatest`
+  (v4.3.0), jadi GROUP BY tanpa index masih murah di skala itu.
+- `DomainLogDao.silentLeaks()` — agregasi `COUNT(*) GROUP BY backgroundApp`,
+  proyeksi `SilentLeakCount`.
+- `MainViewModel.silentLeaks` — join hasil agregasi dengan
+  `InstalledAppsRepository.loadAppInfo()` (baru — lookup 1 package, bukan
+  scan semua app) untuk label/ikon.
+- `SilentLeakScreen` (baru, layar ke-6) — daftar app terurut jumlah query
+  background terbanyak. Ikut pola Material3 polos seperti 5 layar Tactile
+  yang masih pending (lihat PROJECT_STATE.md) — BUKAN skope batch ini.
+- Wiring nav: `HomeScreen` (NavRow baru) + `MainActivity` (route
+  `silent_leaks`) — di batch yang sama sesuai aturan wiring v4.4.0.
+
+**Wired vs pending:** SEMUA bagian fitur ini wired penuh di batch ini
+(monitor -> resolver -> entity -> dao -> viewmodel -> screen -> nav) —
+tidak ada bagian "menyusul nanti".
+
+**File disentuh:** 13 (2 baru: `ScreenStateMonitor.kt`,
+`SilentLeakScreen.kt`; 11 edit lintas modul: `data/db/*` x3,
+`vpn/dns/*` x3, `vpn/AdBlockVpnService.kt`, `data/InstalledAppsRepository.kt`,
+`ui/MainViewModel.kt`, `ui/screens/HomeScreen.kt`, `MainActivity.kt`).
+Melebihi batch limit 10 file — dikerjakan sebagai **Atomic Change**: fitur
+ini secara inheren lintas modul (DB schema -> hot path -> ViewModel -> UI)
+dan tidak bisa dipecah tanpa melanggar aturan "wiring wajib di batch yang
+sama" dari v4.4.0.
+
+`versionCode` 91->92, `versionName` 4.4.0->4.5.0.
+
 ## v4.4.0 — "Radikal Redesign": root-cause regresi theme + skeuomorphism-lite REAL, bukan akal-akalan (2026-08-09)
 
 > User: "setting theme custom menghilang tanpa jejak" + minta rombak total
