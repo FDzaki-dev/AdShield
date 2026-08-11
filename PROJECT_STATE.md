@@ -2,7 +2,35 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.6.0, Tactile wiring batch selesai (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.7.0, toggle tema kustom ke-2 "Titanium + Lapis Lazuli" (2026-08-11)
+
+Toggle baru di Home (grup nav, baris terakhir) ganti trim accent dekoratif
+antara Titanium+Brass (default) dan Titanium+Lapis Lazuli. Detail lengkap:
+lihat CHANGELOG.md v4.7.0.
+
+**Poin penting untuk sesi lanjutan:**
+- `LocalTrimAccent` (CompositionLocal di `ui/theme/ThemeVariant.kt`) adalah
+  SATU-SATUNYA cara benar buat komponen baru ikut tema. Jangan import
+  `AccentBrass`/`LapisLazuli` langsung di komponen — itu val statis, tidak
+  akan ikut toggle runtime. Kalau nambah komponen dekoratif baru yang
+  "harus ikut tema", baca `LocalTrimAccent.current`, bukan token warna
+  mentah.
+- `ShieldGreen` TETAP warna state proteksi di KEDUA tema, sengaja tidak
+  ikut toggle — jangan "perbaiki" ini jadi ikut tema tanpa diminta eksplisit,
+  itu akan merusak recognisability status ON/OFF yang sudah didokumentasikan
+  sejak v4.4.0.
+- Baru ADA 2 tempat yang benar-benar baca `LocalTrimAccent`:
+  `TactileButton` Primary variant dan `HomeScreen.NavRow`/`NavToggleRow`
+  icon tint. `TactileSurface`'s `accentColor` param (dipakai di beberapa
+  call site dengan `ShieldGreen` eksplisit) TIDAK disentuh — itu state,
+  bukan dekoratif, per keputusan di atas.
+- Storage key theme disimpan sebagai string (`"titanium_brass"`/
+  `"titanium_lapis"`), bukan enum `.name`/ordinal — `AppThemeVariant.
+  fromStorageKey()` fallback ke TITANIUM_BRASS kalau key tidak dikenali
+  (device lama / typo), jadi aman ditambah varian tema baru nanti tanpa
+  migrasi data.
+
+## STATUS SEBELUMNYA: v4.6.0, Tactile wiring batch selesai (2026-08-11)
 
 5 layar pending dari v4.4.0 (`RulesScreen`, `LogsScreen`,
 `DiagnosticsScreen`, `WhitelistScreen`, `OnboardingScreen`) sudah di-wire

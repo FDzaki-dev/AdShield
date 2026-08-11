@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.unit.dp
 import com.fdzaki.adshield.ui.theme.Ink
-import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
 
 /**
@@ -30,8 +29,10 @@ import com.fdzaki.adshield.ui.theme.ShieldTextMuted
  * for the duration of the press, then animate back — the button visibly sinks
  * into the panel on tap and pops back up on release, not just a ripple overlay.
  *
- * [TactileButtonVariant.Primary] = filled ShieldGreen surface, for the one
- * or two calls-to-action per screen that should read as the "main" control.
+ * [TactileButtonVariant.Primary] = filled trim-accent surface (see
+ * ui/theme/ThemeVariant.kt — [LocalTrimAccent], follows the active
+ * [com.fdzaki.adshield.ui.theme.AppThemeVariant]), for the one or two
+ * calls-to-action per screen that should read as the "main" control.
  * [TactileButtonVariant.Secondary] = neutral panel surface — replaces
  * `OutlinedButton` at secondary-action call sites (e.g. "Reset statistik").
  */
@@ -56,6 +57,11 @@ fun TactileButton(
         label = "tactileButtonElevation"
     )
 
+    // v4.7.0: was hardcoded ShieldGreen — Primary is a decorative "main
+    // action" role, not a protection-state indicator, so it now follows the
+    // theme toggle instead of always being the same color as the ring.
+    val trimAccent = com.fdzaki.adshield.ui.theme.LocalTrimAccent.current
+
     val contentColor = when (variant) {
         TactileButtonVariant.Primary -> androidx.compose.ui.graphics.Color(0xFF0B1F12)
         TactileButtonVariant.Secondary -> Ink
@@ -69,13 +75,13 @@ fun TactileButton(
                 when (variant) {
                     TactileButtonVariant.Primary ->
                         androidx.compose.ui.graphics.Brush.verticalGradient(
-                            listOf(ShieldGreen, ShieldGreen.copy(alpha = 0.82f))
+                            listOf(trimAccent, trimAccent.copy(alpha = 0.82f))
                         )
                     TactileButtonVariant.Secondary ->
                         if (isPressed) TactileTokens.raisedBrushPressed() else TactileTokens.raisedBrush()
                 }
             )
-            .bevelBorder(shape, accent = variant == TactileButtonVariant.Primary, accentColor = ShieldGreen)
+            .bevelBorder(shape, accent = variant == TactileButtonVariant.Primary, accentColor = trimAccent)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,

@@ -12,6 +12,7 @@ import com.fdzaki.adshield.data.db.AppDatabase
 import com.fdzaki.adshield.data.db.DomainLogEntity
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.ResourceMonitor
+import com.fdzaki.adshield.ui.theme.AppThemeVariant
 import com.fdzaki.adshield.vpn.AdBlockVpnService
 import com.fdzaki.adshield.warp.WarpConnectionQuality
 import com.fdzaki.adshield.warp.WarpTunnelManager
@@ -108,6 +109,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      *  that default. Only takes effect next time WARP is turned on. */
     val warpRouteIpv6: StateFlow<Boolean> = settingsRepository.warpRouteIpv6
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+
+    // v4.7.0 — custom theme #2 toggle (see PROJECT_STATE.md / ThemeVariant.kt).
+    // Mapped from SettingsRepository's plain-String storage key here (the
+    // one place in the app allowed to depend on both `data` and `ui.theme`)
+    // so nothing outside this ViewModel needs to know the raw key format.
+    val themeVariant: StateFlow<AppThemeVariant> = settingsRepository.themeVariant
+        .map { AppThemeVariant.fromStorageKey(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), AppThemeVariant.TITANIUM_BRASS)
+
+    fun setThemeVariant(variant: AppThemeVariant) {
+        viewModelScope.launch { settingsRepository.setThemeVariant(variant.storageKey) }
+    }
 
     /** Last DNS-mode (Ad-Block) failure, if any — e.g. VPN interface failed
      *  to establish. Used by the Diagnostics screen; see AdBlockVpnService

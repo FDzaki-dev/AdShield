@@ -26,6 +26,10 @@ app/src/main/java/com/fdzaki/adshield/receiver/BootReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/RestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/receiver/WarpRestartReceiver.kt
 app/src/main/java/com/fdzaki/adshield/ui/MainViewModel.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileButton.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileSurface.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileSwitch.kt
+app/src/main/java/com/fdzaki/adshield/ui/components/TactileTokens.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/DiagnosticsScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/HomeScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/screens/LogsScreen.kt
@@ -36,6 +40,7 @@ app/src/main/java/com/fdzaki/adshield/ui/screens/WhitelistScreen.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Color.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Shape.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Theme.kt
+app/src/main/java/com/fdzaki/adshield/ui/theme/ThemeVariant.kt
 app/src/main/java/com/fdzaki/adshield/ui/theme/Type.kt
 app/src/main/java/com/fdzaki/adshield/util/Constants.kt
 app/src/main/java/com/fdzaki/adshield/util/CrashLogger.kt

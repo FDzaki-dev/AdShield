@@ -89,3 +89,22 @@ val ShieldTextFaint = SlateDim
 
 val ShieldOutline = BevelHighlight
 val ShieldOutlineBright = ShieldGreen.copy(alpha = 0.45f)
+
+// ============================================================
+// THEME 2 — "Titanium + Lapis Lazuli" (v4.7.0). Same Chassis/Panel/Bevel
+// titanium-instrument-panel base as the default theme (that IS the
+// "Titanium" half — panels/shadows/bevels never change between themes,
+// only the decorative trim accent does). Lapis Lazuli replaces AccentBrass
+// as the trim color: classic mineral-pigment blue, #26619C, used since
+// antiquity in fine instrument/jewelry inlay work — a deliberate contrast
+// to Brass's warm metal-trim identity rather than a random blue. ShieldGreen
+// stays the ONE color used for protection state (ring/counters/signal) in
+// BOTH themes — see Color.kt kdoc above ("primary -> ShieldGreen ... this
+// is the one color users should always recognize"); a decorative theme
+// toggle must never repaint state, only trim. See ThemeVariant.kt for how
+// this is actually wired (LocalTrimAccent, not a hardcoded val reference)
+// and PROJECT_STATE.md for why AccentBrass itself was never visibly wired
+// before this batch.
+// ============================================================
+val LapisLazuli = Color(0xFF26619C)
+val LapisLazuliDim = LapisLazuli.copy(alpha = 0.18f)

@@ -45,6 +45,11 @@ class SettingsRepository(private val context: Context) {
         val WARP_CACHED_ENDPOINT = stringPreferencesKey("warp_cached_endpoint")
         val WARP_CACHED_MTU = intPreferencesKey("warp_cached_mtu")
         val WARP_ENDPOINT_CACHE_TIME = longPreferencesKey("warp_endpoint_cache_time")
+        // v4.7.0 — custom theme #2 toggle (see ui/theme/ThemeVariant.kt).
+        // Stored as the enum's `storageKey` string (not `.name`/ordinal) so
+        // renaming the Kotlin enum constant later can't silently break a
+        // value already persisted on someone's device.
+        val THEME_VARIANT = stringPreferencesKey("theme_variant")
     }
 
     val whitelistedApps: Flow<Set<String>> =
@@ -238,5 +243,17 @@ class SettingsRepository(private val context: Context) {
             prefs[Keys.WARP_CACHED_MTU] = mtu
             prefs[Keys.WARP_ENDPOINT_CACHE_TIME] = System.currentTimeMillis()
         }
+    }
+
+    /** Raw storage-key string, default = TITANIUM_BRASS's key so a fresh
+     *  install renders the original identity with zero migration needed.
+     *  Kept as `Flow<String>` (not `Flow<AppThemeVariant>`) here — this data
+     *  layer has no dependency on `ui/theme`, matching [activeMode]'s
+     *  existing plain-String pattern in this same class. */
+    val themeVariant: Flow<String> =
+        context.dataStore.data.map { it[Keys.THEME_VARIANT] ?: "titanium_brass" }
+
+    suspend fun setThemeVariant(storageKey: String) {
+        context.dataStore.edit { it[Keys.THEME_VARIANT] = storageKey }
     }
 }

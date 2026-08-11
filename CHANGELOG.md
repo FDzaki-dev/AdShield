@@ -1,5 +1,67 @@
 # Changelog
 
+## v4.7.0 — Toggle tema kustom ke-2: "Titanium + Lapis Lazuli" (2026-08-11)
+
+Fitur baru: toggle di Home (grup nav, baris terakhir, ikon Palette) untuk
+ganti trim accent dekoratif app antara **Titanium + Brass** (default, sejak
+v4.4.0) dan **Titanium + Lapis Lazuli** (baru). Persisten lewat DataStore
+(`SettingsRepository.themeVariant`), langsung berubah real-time tanpa
+restart app (bukan lewat konfigurasi resource/recreate Activity).
+
+**Prinsip desain — kenapa cuma trim yang berubah, bukan segalanya:**
+Chassis/Panel/Bevel (base "Titanium" instrument-panel) SAMA di kedua tema —
+"Titanium" adalah bagian yang TIDAK berubah, cuma "Brass"/"Lapis Lazuli"
+yang swap. `ShieldGreen` (warna status proteksi — ring, counter, WARP
+quality dot) JUGA tidak berubah di tema manapun — itu signal warna state,
+bukan identitas dekoratif, per aturan yang sudah didokumentasikan sejak
+v4.4.0 di kdoc `Color.kt` ("primary -> ShieldGreen ... satu warna yang harus
+selalu dikenali user"). Toggle tema TIDAK BOLEH mengecat ulang state.
+
+**File baru:**
+- `ui/theme/ThemeVariant.kt` — `enum class AppThemeVariant` (TITANIUM_BRASS/
+  TITANIUM_LAPIS) + `LocalTrimAccent` (CompositionLocal, dibaca komponen
+  dekoratif yang mau ikut tema — lihat kdoc file untuk alasan kenapa `val`
+  konstan biasa tidak cukup untuk toggle runtime).
+
+**File diubah:**
+- `ui/theme/Color.kt` — token baru `LapisLazuli`/`LapisLazuliDim` (#26619C).
+- `ui/theme/Theme.kt` — `AdShieldTheme(themeVariant, content)`, sebelumnya
+  `AdShieldTheme(content)` tanpa param (selalu Brass). ColorScheme
+  `secondary`/`secondaryContainer` sekarang ikut `themeVariant`, plus
+  `CompositionLocalProvider(LocalTrimAccent provides ...)` di sekitar
+  `MaterialTheme`.
+- `ui/components/TactileButton.kt` — fill `TactileButtonVariant.Primary`
+  (dulu hardcoded `ShieldGreen`) sekarang baca `LocalTrimAccent.current`.
+  **Kenapa aman diganti dari ShieldGreen:** Primary adalah tombol
+  "aksi utama" (CTA), peran dekoratif — bukan indikator status proteksi —
+  jadi wajar ikut tema, beda dengan ProtectionRing/StatCard yang memang
+  representasi state.
+- `ui/screens/HomeScreen.kt` — icon chip `NavRow` (dulu hardcoded
+  `ShieldGreen`) sekarang `LocalTrimAccent.current`; baris toggle baru
+  `NavToggleRow` (komposable baru, pola visual sama `NavRow` tapi
+  `TactileSwitch` menggantikan chevron) ditambahkan sebagai baris terakhir
+  `NavGroup`.
+- `data/SettingsRepository.kt` — key baru `THEME_VARIANT` (disimpan sebagai
+  `storageKey` string, bukan `.name`/ordinal enum — lihat kdoc kenapa).
+- `ui/MainViewModel.kt` — `themeVariant: StateFlow<AppThemeVariant>` +
+  `setThemeVariant()`, mapping storage-key string -> enum di titik ini saja.
+- `MainActivity.kt` — `AdShieldTheme { ... }` -> `AdShieldTheme(themeVariant
+  = themeVariant) { ... }`, `themeVariant` di-`collectAsState()` dari
+  `viewModel.themeVariant`.
+
+**Scope yang SENGAJA tidak disentuh:** `AccentBrass`/`LapisLazuli` TIDAK
+dipasang ke `ProtectionRing`, `StatCard`, `WarpModeCard`, atau divider warna
+apa pun yang saat ini mewakili state (blocked=Danger, allowed=Green, dst).
+Kalau ada permintaan lanjutan untuk memperluas cakupan trim accent ke
+tempat lain, itu scope baru — tanya dulu tempat mana, jangan asumsi
+"semua warna hijau harus ikut tema" karena banyak yang justru warna state.
+
+**BELUM DIKONFIRMASI CI/device** — `CompositionLocalProvider`+
+`staticCompositionLocalOf` adalah Compose API standar (dipakai luas,
+termasuk oleh `MaterialTheme` sendiri secara internal), risiko compile
+rendah, tapi sesi ini tidak punya Gradle/JDK Android untuk verifikasi
+sungguhan.
+
 ## v4.6.0 — Tactile wiring batch: 5 layar tersisa selesai (2026-08-11)
 
 **Item lama dari v4.4.0 akhirnya dikerjakan** — `RulesScreen`, `LogsScreen`,

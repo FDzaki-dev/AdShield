@@ -22,6 +22,7 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -139,7 +140,11 @@ class MainActivity : ComponentActivity() {
         handleShortcutToggleIntent(intent)
 
         setContent {
-            AdShieldTheme {
+            // v4.7.0 — custom theme #2 toggle: was `AdShieldTheme { ... }` with
+            // no argument (always TITANIUM_BRASS default). See PROJECT_STATE.md
+            // / ThemeVariant.kt.
+            val themeVariant by viewModel.themeVariant.collectAsState()
+            AdShieldTheme(themeVariant = themeVariant) {
                 val navController = rememberNavController()
 
                 // Single Snackbar host shared by every screen in the NavHost —

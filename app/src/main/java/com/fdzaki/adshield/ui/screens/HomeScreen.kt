@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.BugReport
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Palette
 import androidx.compose.material.icons.filled.PowerSettingsNew
 import androidx.compose.material.icons.filled.Rule
 import androidx.compose.material.icons.filled.Shield
@@ -96,6 +97,8 @@ fun HomeScreen(
     val warpQuality by viewModel.warpQuality.collectAsState()
     val warpRouteIpv6 by viewModel.warpRouteIpv6.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
+    // v4.7.0 — custom theme #2 toggle (see PROJECT_STATE.md / ThemeVariant.kt).
+    val themeVariant by viewModel.themeVariant.collectAsState()
 
     // Feedback audit finding: "Reset statistik" used to fire on a single tap
     // with no confirmation and no undo. Now gated behind a confirm dialog —
@@ -221,6 +224,22 @@ fun HomeScreen(
                 icon = Icons.Filled.VisibilityOff,
                 label = "Deteksi Aktivitas Diam-diam",
                 onClick = onOpenSilentLeaks
+            )
+            NavDivider()
+            // v4.7.0 — wajib jadi toggle (bukan layar terpisah): tema kedua
+            // "Titanium + Lapis Lazuli" langsung switch on/off di sini, lihat
+            // ThemeVariant.kt untuk kenapa cuma trim accent yang berubah
+            // (bukan warna state proteksi).
+            NavToggleRow(
+                icon = Icons.Filled.Palette,
+                label = com.fdzaki.adshield.ui.theme.AppThemeVariant.TITANIUM_LAPIS.displayName,
+                checked = themeVariant == com.fdzaki.adshield.ui.theme.AppThemeVariant.TITANIUM_LAPIS,
+                onCheckedChange = { useLapis ->
+                    viewModel.setThemeVariant(
+                        if (useLapis) com.fdzaki.adshield.ui.theme.AppThemeVariant.TITANIUM_LAPIS
+                        else com.fdzaki.adshield.ui.theme.AppThemeVariant.TITANIUM_BRASS
+                    )
+                }
             )
         }
 
@@ -564,8 +583,50 @@ private fun NavDivider() {
     )
 }
 
+/** Same visual shell as [NavRow] (icon chip + label) but ends in a
+ *  [TactileSwitch] instead of a chevron — for settings that toggle in place
+ *  rather than navigate to another screen. Row itself is clickable too
+ *  (tapping the label, not just the switch thumb, flips it) — same
+ *  toggleable-row pattern used in LogsScreen/WhitelistScreen. */
+@Composable
+private fun NavToggleRow(
+    icon: ImageVector,
+    label: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val trimAccent = com.fdzaki.adshield.ui.theme.LocalTrimAccent.current
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(ShieldSurface2),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = trimAccent, modifier = Modifier.size(16.dp))
+        }
+        Spacer(Modifier.width(14.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+        // onCheckedChange = null: the Row above owns the toggle action via
+        // `clickable`, same double-fire-avoidance pattern as LogsScreen/
+        // WhitelistScreen's TactileSwitch usage.
+        TactileSwitch(checked = checked, onCheckedChange = null)
+    }
+}
+
 @Composable
 private fun NavRow(icon: ImageVector, label: String, onClick: () -> Unit) {
+    // v4.7.0: icon chip tint was hardcoded ShieldGreen (protection-state
+    // color) — these are plain navigation icons, not state indicators, so
+    // they now follow the decorative theme toggle instead.
+    val trimAccent = com.fdzaki.adshield.ui.theme.LocalTrimAccent.current
     Row(
         Modifier
             .fillMaxWidth()
@@ -580,7 +641,7 @@ private fun NavRow(icon: ImageVector, label: String, onClick: () -> Unit) {
                 .background(ShieldSurface2),
             contentAlignment = Alignment.Center
         ) {
-            Icon(icon, contentDescription = null, tint = ShieldGreen, modifier = Modifier.size(16.dp))
+            Icon(icon, contentDescription = null, tint = trimAccent, modifier = Modifier.size(16.dp))
         }
         Spacer(Modifier.width(14.dp))
         Text(label, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
