@@ -2,7 +2,17 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.5.0, "Silent Leak Detector" — fitur unggulan baru (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.5.1, hotfix CI compile error (2026-08-11)
+
+CI run 31484435601 gagal di `compileDebugKotlin`: `SilentLeakScreen.kt`
+pakai `import androidx.compose.ui.graphics.drawable.toBitmap` (salah
+package, fungsi itu tidak ada di situ). Fix: pindah ke
+`androidx.core.graphics.drawable.toBitmap` (dari `core-ktx`, dependency
+sudah ada lama, bukan masalah dependency hilang). Satu baris, tidak ada
+perubahan logic. **BELUM diverifikasi CI hijau di run berikutnya — cek
+dulu sebelum lanjut kerja lain.**
+
+## STATUS SEBELUMNYA: v4.5.0, "Silent Leak Detector" — fitur unggulan baru (2026-08-11)
 
 User minta fitur unggulan yang tidak ada di app ad-block/VPN generik lain
 (dipilih dari 3 opsi yang diajukan). Dibangun: deteksi app yang melakukan

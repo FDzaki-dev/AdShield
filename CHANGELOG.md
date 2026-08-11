@@ -1,5 +1,17 @@
 # Changelog
 
+## v4.5.1 — hotfix: CI compile error di SilentLeakScreen (2026-08-11)
+
+**Root cause (CI run 31484435601, commit 3d86e1f):** `compileDebugKotlin`
+gagal — `import androidx.compose.ui.graphics.drawable.toBitmap` salah,
+package itu tidak punya fungsi `toBitmap()`. Ekstensi `Drawable.toBitmap()`
+sebenarnya ada di `androidx.core.graphics.drawable` (dari `core-ktx`, sudah
+jadi dependency lama). Sama sekali bukan masalah dependency hilang — cuma
+salah import path saat SilentLeakScreen.kt ditulis di v4.5.0.
+
+**Fix:** ganti import ke `androidx.core.graphics.drawable.toBitmap` di
+`SilentLeakScreen.kt`. Satu baris, tidak ada perubahan logic/perilaku lain.
+
 ## v4.5.0 — "Silent Leak Detector": fitur unggulan baru, bukan cosmetic (2026-08-11)
 
 > User: minta fitur unggulan yang tidak ada di aplikasi ad-block/VPN generik
