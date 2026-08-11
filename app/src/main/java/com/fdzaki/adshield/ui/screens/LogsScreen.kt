@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.components.TactileSwitch
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
@@ -126,7 +127,9 @@ fun LogsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 // onCheckedChange = null: the Row above now owns the toggle
                 // action via `toggleable`. Leaving a real callback here too
                 // would double-fire when tapping directly on the Switch.
-                Switch(checked = loggingEnabled, onCheckedChange = null)
+                // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md):
+                // Switch -> TactileSwitch, same call-shape, no logic change.
+                TactileSwitch(checked = loggingEnabled, onCheckedChange = null)
             }
 
             OutlinedTextField(

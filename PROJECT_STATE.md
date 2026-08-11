@@ -2,15 +2,28 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.5.1, hotfix CI compile error (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.6.0, Tactile wiring batch selesai (2026-08-11)
 
-CI run 31484435601 gagal di `compileDebugKotlin`: `SilentLeakScreen.kt`
-pakai `import androidx.compose.ui.graphics.drawable.toBitmap` (salah
-package, fungsi itu tidak ada di situ). Fix: pindah ke
-`androidx.core.graphics.drawable.toBitmap` (dari `core-ktx`, dependency
-sudah ada lama, bukan masalah dependency hilang). Satu baris, tidak ada
-perubahan logic. **BELUM diverifikasi CI hijau di run berikutnya — cek
-dulu sebelum lanjut kerja lain.**
+5 layar pending dari v4.4.0 (`RulesScreen`, `LogsScreen`,
+`DiagnosticsScreen`, `WhitelistScreen`, `OnboardingScreen`) sudah di-wire
+penuh ke `Tactile*`. Detail per layar: lihat CHANGELOG.md v4.6.0.
+
+**Poin penting untuk sesi lanjutan:**
+- Backlog wiring skeuomorphism-lite dari v4.4.0 SELESAI. Kalau user minta
+  "lanjutkan skeuomorphism" lagi, TIDAK ada lagi 5-layar-pending yang
+  dimaksud — tanya dulu apa yang dimaksud (mis. `SilentLeakScreen` v4.5.0,
+  yang sengaja dibiarkan Material3 karena di luar scope batch itu).
+- `TactileButtonVariant.Primary` baru punya call site PERTAMA di batch ini
+  (`OnboardingScreen` CTA) — sebelumnya cuma didokumentasikan, tidak
+  dipakai di manapun. Kalau ada bug visual di tombol hijau CTA onboarding,
+  itu jalur kode yang baru pertama kali benar-benar dieksekusi di device.
+- Pola `TactileButton` Secondary + `Text(color = ShieldDanger)` eksplisit
+  (dipakai di "Lupakan Akun WARP") adalah cara yang benar untuk tombol
+  destructive/danger di sistem Tactile — `TactileButton` sendiri tidak
+  punya varian Danger, jangan tambah varian baru tanpa alasan kuat, cukup
+  override warna teks seperti pola ini.
+
+## STATUS SEBELUMNYA: v4.5.1, hotfix CI compile error (2026-08-11)
 
 ## STATUS SEBELUMNYA: v4.5.0, "Silent Leak Detector" — fitur unggulan baru (2026-08-11)
 

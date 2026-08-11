@@ -19,6 +19,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.components.TactileSwitch
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
 import com.fdzaki.adshield.ui.theme.ShieldWhite
@@ -166,6 +167,7 @@ private fun AppRow(
         }
         // onCheckedChange = null: the Row above owns the toggle via
         // `toggleable` now — a live callback here too would double-fire.
-        Switch(checked = isWhitelisted, onCheckedChange = null)
+        // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md).
+        TactileSwitch(checked = isWhitelisted, onCheckedChange = null)
     }
 }

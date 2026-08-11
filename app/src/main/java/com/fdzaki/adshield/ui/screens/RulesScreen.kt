@@ -24,6 +24,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.components.TactileButton
+import com.fdzaki.adshield.ui.components.TactileButtonVariant
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
@@ -108,12 +110,16 @@ fun RulesScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         modifier = Modifier.weight(1f)
                     )
                     Spacer(Modifier.width(8.dp))
-                    Button(
+                    // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md):
+                    // Button -> TactileButton Primary, same onClick/enabled.
+                    TactileButton(
                         onClick = {
                             if (tab == 0) viewModel.addBlockedDomain(trimmedInput) else viewModel.addAllowedDomain(trimmedInput)
                             input = ""
                         },
-                        enabled = canAdd
+                        enabled = canAdd,
+                        variant = TactileButtonVariant.Primary,
+                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
                     ) { Text("Tambah") }
                 }
             }
@@ -268,18 +274,23 @@ private fun BlocklistUrlSection(viewModel: MainViewModel) {
                 )
                 Spacer(Modifier.height(8.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Button(
+                    // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md):
+                    // Button -> TactileButton Primary, OutlinedButton ->
+                    // TactileButton Secondary, same onClick/enabled/labels.
+                    TactileButton(
                         onClick = {
                             viewModel.setCustomBlocklistUrl(urlInput.trim())
                             if (urlInput.isNotBlank()) viewModel.refreshBlocklistNow()
                         },
-                        enabled = !isBusy
+                        enabled = !isBusy,
+                        variant = TactileButtonVariant.Primary
                     ) { Text(if (urlInput.isBlank()) "Simpan (Nonaktifkan)" else "Simpan & Perbarui") }
 
                     if (savedUrl.isNotBlank()) {
-                        OutlinedButton(
+                        TactileButton(
                             onClick = { viewModel.refreshBlocklistNow() },
-                            enabled = !isBusy
+                            enabled = !isBusy,
+                            variant = TactileButtonVariant.Secondary
                         ) { Text("Perbarui Sekarang") }
                     }
                 }

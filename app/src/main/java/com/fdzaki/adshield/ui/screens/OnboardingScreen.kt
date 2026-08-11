@@ -22,6 +22,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.fdzaki.adshield.ui.components.TactileButton
+import com.fdzaki.adshield.ui.components.TactileButtonVariant
 import com.fdzaki.adshield.ui.theme.ShieldAccentDim
 import com.fdzaki.adshield.ui.theme.ShieldGreen
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
@@ -124,16 +126,21 @@ fun OnboardingScreen(
         }
 
         if (isLastPage) {
-            OutlinedButton(
+            // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md):
+            // OutlinedButton -> TactileButton Secondary, same onClick.
+            TactileButton(
                 onClick = onRequestBatteryExemption,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .padding(horizontal = 24.dp),
+                variant = TactileButtonVariant.Secondary
             ) { Text("Kecualikan dari Optimasi Baterai") }
             Spacer(Modifier.height(12.dp))
         }
 
-        Button(
+        // v4.6.0 — Tactile wiring batch: Button -> TactileButton Primary
+        // (already ShieldGreen-filled by default for Primary), same onClick.
+        TactileButton(
             onClick = {
                 if (isLastPage) {
                     onFinish()
@@ -141,7 +148,7 @@ fun OnboardingScreen(
                     scope.launch { pagerState.animateScrollToPage(pagerState.currentPage + 1) }
                 }
             },
-            colors = ButtonDefaults.buttonColors(containerColor = ShieldGreen),
+            variant = TactileButtonVariant.Primary,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp, vertical = 12.dp)

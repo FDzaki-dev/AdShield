@@ -1,5 +1,42 @@
 # Changelog
 
+## v4.6.0 — Tactile wiring batch: 5 layar tersisa selesai (2026-08-11)
+
+**Item lama dari v4.4.0 akhirnya dikerjakan** — `RulesScreen`, `LogsScreen`,
+`DiagnosticsScreen`, `WhitelistScreen`, `OnboardingScreen` semua di-wire ke
+`Tactile*` (`TactileSurface`/`TactileButton`/`TactileSwitch`), TIDAK ada
+komponen baru dibuat (aturan v4.4.0 dipatuhi: tidak ada "token dulu, wiring
+nanti" lagi karena komponennya sudah ada sejak v4.4.0).
+
+**Per layar:**
+- `LogsScreen`, `WhitelistScreen` — `Switch` -> `TactileSwitch` di baris
+  toggle (logging / per-app whitelist). Pola `toggleable` + `onCheckedChange
+  = null` di Row induk TIDAK berubah.
+- `RulesScreen` — `Button`/`OutlinedButton` (Tambah, Simpan & Perbarui,
+  Perbarui Sekarang) -> `TactileButton` (Primary untuk aksi utama,
+  Secondary untuk aksi kedua).
+- `DiagnosticsScreen` — `DiagnosticSection` (`Card` custom) ->
+  `TactileSurface`; tombol "Lupakan Akun WARP" -> `TactileButton` Secondary
+  dengan `Text(color = ShieldDanger)` eksplisit (pola sama seperti "Reset
+  statistik" di HomeScreen — TactileButton Secondary py contentColor
+  default netral, warna danger di-override langsung di `Text`).
+- `OnboardingScreen` — tombol "Kecualikan dari Optimasi Baterai" ->
+  TactileButton Secondary; CTA utama ("Lanjut"/"Mulai Pakai AdShield") ->
+  TactileButton **Primary** — pemakaian Primary PERTAMA di app ini (sebelum
+  ini cuma didokumentasikan di kdoc `TactileButton.kt`, belum ada call
+  site). Tombol "Lewati" TETAP `TextButton` polos (sengaja — actionnya
+  low-emphasis, sama seperti tombol battery-exemption di HomeScreen).
+
+**Status wiring skeuomorphism-lite per v4.6.0: SELESAI 100%** — 6 dari 6
+layar (5 di atas + `HomeScreen` dari v4.4.0 + `SilentLeakScreen` dari
+v4.5.0, yang sejak awal sudah Material3 sesuai desain saat itu — TIDAK
+diubah ke Tactile di batch ini, di luar scope "5 layar pending").
+
+**File disentuh:** 5 (semua di `ui/screens/`, 1 modul) — dalam batch limit,
+tidak perlu Atomic Change.
+
+`versionCode` 93->94, `versionName` 4.5.1->4.6.0.
+
 ## v4.5.1 — hotfix: CI compile error di SilentLeakScreen (2026-08-11)
 
 **Root cause (CI run 31484435601, commit 3d86e1f):** `compileDebugKotlin`

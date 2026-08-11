@@ -6,7 +6,6 @@ import android.os.PowerManager
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
@@ -21,10 +20,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
+import com.fdzaki.adshield.ui.components.TactileButton
+import com.fdzaki.adshield.ui.components.TactileButtonVariant
+import com.fdzaki.adshield.ui.components.TactileSurface
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldGreen
-import com.fdzaki.adshield.ui.theme.ShieldSurface
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
 import com.fdzaki.adshield.ui.theme.ShieldWhite
 import com.fdzaki.adshield.util.AppMode
@@ -306,11 +307,15 @@ fun DiagnosticsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     DiagnosticRow("Error terakhir", warpLastError ?: "-", valueColor = ShieldDanger)
                 }
                 Spacer(Modifier.height(8.dp))
-                OutlinedButton(
+                // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md):
+                // OutlinedButton -> TactileButton Secondary. Text color set
+                // explicitly (overrides TactileButton's own contentColor,
+                // same pattern HomeScreen already uses for "Reset statistik").
+                TactileButton(
                     onClick = { showForgetWarpConfirm = true },
                     modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = ShieldDanger)
-                ) { Text("Lupakan Akun WARP", fontSize = 12.sp) }
+                    variant = TactileButtonVariant.Secondary
+                ) { Text("Lupakan Akun WARP", fontSize = 12.sp, color = ShieldDanger) }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -360,12 +365,9 @@ private fun readAppVersion(packageManager: PackageManager, packageName: String):
 
 @Composable
 private fun DiagnosticSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(20.dp),
-        colors = CardDefaults.cardColors(containerColor = ShieldSurface),
-        border = androidx.compose.foundation.BorderStroke(1.dp, com.fdzaki.adshield.ui.theme.ShieldOutline)
-    ) {
+    // v4.6.0 — Tactile wiring batch (see PROJECT_STATE.md): Card -> TactileSurface,
+    // same content/padding, no logic change.
+    TactileSurface(modifier = Modifier.fillMaxWidth()) {
         Column(Modifier.padding(16.dp)) {
             Text(title, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Spacer(Modifier.height(8.dp))
