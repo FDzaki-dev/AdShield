@@ -12,7 +12,7 @@ import androidx.compose.runtime.CompositionLocalProvider
  * Dark mode is still mandatory — no light-mode fallback exists or should be added.
  *
  * v4.7.0 — [themeVariant] param added: the panel/chassis/bevel/state-color
- * ladder below (background/surface*/primary/error) is IDENTICAL for both
+ * ladder below (background, surface family, primary, error) is IDENTICAL for both
  * [AppThemeVariant]s, only `secondary`/`secondaryContainer` and
  * [LocalTrimAccent] (what decorative components actually read — see
  * ThemeVariant.kt kdoc for why the Material3 colorScheme fields alone

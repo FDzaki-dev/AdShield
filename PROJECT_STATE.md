@@ -2,7 +2,40 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.0, toggle tema kustom ke-2 "Titanium + Lapis Lazuli" (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.7.1, hotfix CI compile error di Theme.kt (2026-08-11)
+
+**Root cause:** kdoc `Theme.kt` baris 15 (v4.7.0) berisi teks
+`background/surface*/primary/error` — urutan karakter `*/` di tengah kata
+("surface*/primary") ke-parse Kotlin sebagai PENUTUP block comment
+(`/** ... */`), bukan teks biasa. Comment tertutup prematur di situ, sisa
+kdoc (baris 15-34) ikut ke-parse sebagai kode top-level -> puluhan error
+"Expecting a top level declaration" -> `kspDebugKotlin` FAILED. Diketahui
+dari CI log yang di-upload user (run 31489667976), bukan ditemukan
+manual/nebak — cross-check baris:kolom error persis di posisi `*/` yang
+dimaksud.
+
+**Fix:** reword jadi `background, surface family, primary, error` (hilangkan
+adjacency `*` + `/`). SATU baris diubah, SATU file (`Theme.kt`). Sudah
+di-scan ULANG regex `[a-zA-Z0-9_]\*/[a-zA-Z]` ke SELURUH `.kt` di repo —
+tidak ada instance lain dari bug class yang sama.
+
+**PENTING — sesi sebelumnya di chat ini SEMPAT membangun batch lain (full
+"Neumorphism Pivot" — dual-shadow tokens, rewrite `TactileSurface`/
+`Button`/`Switch`) di atas snapshot v4.4.0 yang SUDAH BASI saat itu
+disadari. Batch itu DIBUANG, bukan digabung — proyek nyata sudah maju ke
+v4.5.0 (Silent Leak Detector) -> v4.6.0 (wiring 5 layar) -> v4.7.0 (toggle
+Titanium+Lapis Lazuli, arsitektur `LocalTrimAccent`) lewat sesi/device lain
+sebelum upload CI log ini. Kalau nemu referensi "dual-shadow neumorphic" /
+"NeumorphicLayer" di riwayat chat, itu TIDAK PERNAH masuk ke repo — abaikan,
+jangan dikira sudah ter-apply.**
+
+**Pelajaran multi-device sync:** batch berikutnya, kalau ada keraguan
+proyek mungkin sudah berubah di device/sesi lain, cross-check dulu
+`PROJECT_STATE.md`/`CHANGELOG.md` versi TERBARU yang di-upload user
+terhadap asumsi awal sesi — jangan lanjut dari snapshot lama tanpa
+verifikasi kalau user sempat upload ulang project zip di tengah sesi.
+
+## STATUS SEBELUMNYA: v4.7.0, toggle tema kustom ke-2 "Titanium + Lapis Lazuli" (2026-08-11)
 
 Toggle baru di Home (grup nav, baris terakhir) ganti trim accent dekoratif
 antara Titanium+Brass (default) dan Titanium+Lapis Lazuli. Detail lengkap:

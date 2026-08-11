@@ -1,5 +1,14 @@
 # Changelog
 
+## v4.7.1 — Hotfix: CI compile error di Theme.kt kdoc (2026-08-11)
+
+`kspDebugKotlin` FAILED (run 31489667976) — kdoc `Theme.kt` baris 15 punya
+teks `surface*/primary` yang mengandung urutan karakter `*/`, ke-parse
+Kotlin sebagai penutup block comment prematur. Sisa kdoc (baris 15-34)
+ikut ke-parse sebagai kode top-level, puluhan error "Expecting a top level
+declaration". Fix: reword ke `surface family` (hilangkan adjacency `*/`).
+1 baris, 1 file. Repo di-scan ulang regex, tidak ada instance lain.
+
 ## v4.7.0 — Toggle tema kustom ke-2: "Titanium + Lapis Lazuli" (2026-08-11)
 
 Fitur baru: toggle di Home (grup nav, baris terakhir, ikon Palette) untuk
