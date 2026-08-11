@@ -34,23 +34,32 @@ import androidx.compose.ui.graphics.Color
 // Panels are always rendered as a top->bottom gradient between
 // PanelHighlight and PanelShadow (see TactileTokens.raisedBrush), never a
 // flat fill — that gradient IS the "skeuomorphism-lite," not a texture bitmap.
+//
+// v4.7.3 — "efek timbul dimaksimalkan" (user request): highlight pushed
+// lighter and shadow pushed darker on both the panel fill gradient AND the
+// bevel edge below — a wider light/dark gap reads as more curvature (a
+// steeper embossed edge), independent of the elevation bump in
+// TactileTokens.kt. Recessed tones widened by roughly the same proportion
+// so pressed/grooved controls (switch track, pressed buttons) still read as
+// correctly BELOW the now much more pronounced raised panels, not flat by
+// comparison.
 // ============================================================
 val ChassisBg = Color(0xFF17181B)
 val PanelBase = Color(0xFF212327)
-val PanelHighlight = Color(0xFF2C2F34)      // top-of-gradient stop, raised panels
-val PanelShadow = Color(0xFF16171A)         // bottom-of-gradient stop, raised panels
-val PanelRecessedBase = Color(0xFF121316)   // pressed/inset controls sit BELOW chassis level
-val PanelRecessedHighlight = Color(0xFF1B1D21)
+val PanelHighlight = Color(0xFF3A3E45)      // top-of-gradient stop, raised panels
+val PanelShadow = Color(0xFF0C0D0F)         // bottom-of-gradient stop, raised panels
+val PanelRecessedBase = Color(0xFF0A0B0D)   // pressed/inset controls sit BELOW chassis level
+val PanelRecessedHighlight = Color(0xFF212429)
 
 // Bevel edge — a real gradient border (Compose `Modifier.border(width, Brush, shape)`,
 // not a drawn-on highlight image) from bright-top to dark-bottom simulates a light
 // source hitting the top edge of a machined metal panel.
-val BevelHighlight = Color.White.copy(alpha = 0.14f)
-val BevelShadow = Color.Black.copy(alpha = 0.65f)
+val BevelHighlight = Color.White.copy(alpha = 0.32f)
+val BevelShadow = Color.Black.copy(alpha = 0.85f)
 // Inverted bevel for recessed/pressed controls — light source now reads as coming
 // from BELOW the groove, which is what actually sells "pressed in" vs "raised."
-val BevelRecessedHighlight = Color.Black.copy(alpha = 0.55f)
-val BevelRecessedShadow = Color.White.copy(alpha = 0.08f)
+val BevelRecessedHighlight = Color.Black.copy(alpha = 0.75f)
+val BevelRecessedShadow = Color.White.copy(alpha = 0.20f)
 
 // ============================================================
 // TEXT — readability fix. Slate replaces the old ~55%-alpha "faint" text with

@@ -2,7 +2,36 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.2, perluas cakupan trim accent (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.7.3, efek "timbul" dimaksimalkan (2026-08-11)
+
+**User minta:** maksimalkan efek raised/embossed di seluruh sistem Tactile.
+Semua perubahan di token SHARED (`TactileTokens.kt` + `Color.kt`) — otomatis
+nyebar ke `TactileSurface`/`TactileButton`/`ProtectionRing` (semua baca
+`TactileTokens.elevationRaised` yang sama) tanpa sentuh screen satu-satu.
+
+**Diubah:**
+- `TactileTokens.kt` — `elevationRaised` 6dp -> **14dp** (>2x), `bevelWidth`
+  1dp -> **1.5dp**. `elevationRaisedPressed` SENGAJA tetap 1dp — kontras
+  rest(14dp) vs pressed(1dp) yang bikin animasi tekan kerasa "collapse
+  dramatis", bukan cuma bayangan lebih tebal merata.
+- `Color.kt` — kontras gradient panel + tepi bevel dilebarkan:
+  `PanelHighlight`/`PanelShadow` (fill gradient), `BevelHighlight`/
+  `BevelShadow` (tepi bevel, alpha ~2x), `PanelRecessedBase`/
+  `PanelRecessedHighlight` + `BevelRecessedHighlight`/`BevelRecessedShadow`
+  (groove/recessed, dilebarkan proporsional biar tetap kebaca "di bawah"
+  panel raised yang sekarang jauh lebih menonjol).
+- `TactileSwitch.kt` — thumb shadow literal 3dp -> **6dp** (satu-satunya
+  elevation yang TIDAK baca `TactileTokens` — konstanta lokal, ikut
+  dinaikkan manual biar konsisten).
+
+**TIDAK diubah:** semua warna STATE (`ShieldGreen`, `ShieldDanger`, dst),
+`LocalTrimAccent` scope dari v4.7.2 — ini murni intensitas depth cue, bukan
+warna/scope.
+
+**Verifikasi:** comment balance semua file disentuh OK, regex scan bug-class
+v4.7.1 diulang ke seluruh repo — bersih.
+
+## STATUS SEBELUMNYA: v4.7.2, perluas cakupan trim accent (2026-08-11)
 
 **User eksplisit minta** (screenshot toggle ON, cuma icon nav yang berubah):
 perluas `LocalTrimAccent` ke SEMUA elemen dekoratif, dipilih opsi "paling

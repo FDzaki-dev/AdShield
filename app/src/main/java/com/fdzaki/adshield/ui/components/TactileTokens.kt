@@ -34,11 +34,22 @@ import com.fdzaki.adshield.ui.theme.PanelShadow
  *  - [Modifier.panelShadow]: real elevation via `Modifier.shadow()`. Recessed
  *    surfaces intentionally get NO shadow (a groove doesn't cast one) — the
  *    inverted [bevelBorder] direction is what reads as "pressed in" instead.
+ *
+ * v4.7.3 — "efek timbul dimaksimalkan" (user request): [elevationRaised]
+ * 6dp -> 14dp (more than doubled — every card/button now casts a visibly
+ * deeper shadow) and [bevelWidth] 1dp -> 1.5dp (a thicker, more legible
+ * machined edge). [elevationRaisedPressed] left untouched at 1dp — keeping
+ * the *pressed* state shallow while the *rest* state got much taller is
+ * what makes the press animation read as a dramatic collapse, not just a
+ * uniformly bigger shadow everywhere. The actual highlight/shadow color
+ * CONTRAST driving the embossed look lives in Color.kt (`PanelHighlight`/
+ * `PanelShadow`/`BevelHighlight`/`BevelShadow` etc.) — see that file's kdoc
+ * for the specific value changes.
  */
 object TactileTokens {
-    val elevationRaised: Dp = 6.dp
+    val elevationRaised: Dp = 14.dp
     val elevationRaisedPressed: Dp = 1.dp
-    val bevelWidth: Dp = 1.dp
+    val bevelWidth: Dp = 1.5.dp
 
     fun raisedBrush(): Brush = Brush.verticalGradient(listOf(PanelHighlight, PanelShadow))
     fun raisedBrushPressed(): Brush = Brush.verticalGradient(listOf(PanelShadow, PanelHighlight))

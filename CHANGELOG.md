@@ -1,5 +1,20 @@
 # Changelog
 
+## v4.7.3 — Efek "timbul" dimaksimalkan (2026-08-11)
+
+User minta efek raised/embossed dimaksimalkan. Semua di token shared, otomatis
+nyebar ke `TactileSurface`/`TactileButton`/`ProtectionRing`.
+
+- `TactileTokens.kt`: `elevationRaised` 6dp -> 14dp, `bevelWidth` 1dp -> 1.5dp
+  (`elevationRaisedPressed` tetap 1dp — kontras rest/pressed makin dramatis).
+- `Color.kt`: kontras gradient panel + bevel dilebarkan (highlight lebih
+  terang, shadow lebih gelap, alpha bevel ~2x); recessed/groove tones ikut
+  dilebarkan proporsional.
+- `TactileSwitch.kt`: thumb shadow literal 3dp -> 6dp.
+
+Warna state (ShieldGreen dst.) dan scope trim accent v4.7.2 tidak berubah —
+murni intensitas depth, bukan warna.
+
 ## v4.7.2 — Perluas cakupan trim accent: border, divider, switch tema (2026-08-11)
 
 User: toggle Titanium+Lapis Lazuli ON tapi cuma icon nav yang kelihatan

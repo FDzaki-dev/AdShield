@@ -91,7 +91,7 @@ fun TactileSwitch(
             modifier = Modifier
                 .padding(start = thumbOffset)
                 .size(thumbSize)
-                .panelShadow(if (enabled) 3.dp else 0.dp, CircleShape)
+                .panelShadow(if (enabled) 6.dp else 0.dp, CircleShape)
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(
