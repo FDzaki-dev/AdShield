@@ -2,7 +2,41 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.1, hotfix CI compile error di Theme.kt (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.7.2, perluas cakupan trim accent (2026-08-11)
+
+**User eksplisit minta** (screenshot toggle ON, cuma icon nav yang berubah):
+perluas `LocalTrimAccent` ke SEMUA elemen dekoratif, dipilih opsi "paling
+kerasa" dari 3 opsi yang diajukan (bukan cuma icon tint v4.7.0).
+
+**Diubah (3 file kode + PROJECT_STATE.md + CHANGELOG.md + versionCode):**
+- `TactileSurface.kt` — bevel border DEFAULT (bukan `accentActive`) sekarang
+  `LocalTrimAccent`, bukan `BevelHighlight`/`BevelShadow` netral. Dampaknya
+  LUAS: karena ini komponen shared, SEMUA card di SEMUA layar yang sudah
+  wired (v4.6.0) otomatis dapat tepi bertinta tema tanpa sentuh satu-satu
+  layar. `accentActive` TETAP `ShieldGreen` hardcoded, tidak berubah — jadi
+  WarpModeCard saat aktif TETAP hijau, bukan ikut tema.
+- `TactileSwitch.kt` — param baru `accentColor: Color = ShieldGreen`
+  (default = 0 perubahan di SEMUA call site lama: WARP, IPv6, whitelist,
+  aturan blok/allow, dst — semua TETAP hijau kalau ON). HANYA
+  `NavToggleRow` (switch toggle tema itu sendiri) yang eksplisit override
+  jadi `LocalTrimAccent.current`.
+- `HomeScreen.kt` — `NavDivider()` + 2 `HorizontalDivider` di dalam
+  `WarpModeCard` retint ke `trimAccent.copy(alpha=0.45f)` (dari
+  `ShieldOutline` netral). `ProtectionRing`'s `trackColor = ShieldOutline`
+  (baris ~291) **SENGAJA TIDAK disentuh** — itu representasi state
+  (progress ring proteksi), bukan chrome dekoratif.
+
+**Prinsip yang TETAP dipegang (tidak berubah dari v4.7.0):** `ShieldGreen`
+untuk state proteksi ASLI (WARP toggle switch, ProtectionRing, StatCard,
+WarpModeCard `accentActive`) TIDAK PERNAH ikut `LocalTrimAccent` — cuma
+CHROME (border kartu, divider, switch dekoratif tema-itu-sendiri) yang
+sekarang ikut. Kalau ada permintaan lanjutan expand ke tempat lain, cek
+dulu itu representasi state atau murni dekoratif sebelum ganti warnanya.
+
+**Verifikasi:** comment balance semua file disentuh OK, regex scan bug class
+v4.7.1 (`*/` nyelip di kdoc) diulang ke SELURUH repo — bersih.
+
+## STATUS SEBELUMNYA: v4.7.1, hotfix CI compile error di Theme.kt (2026-08-11)
 
 **Root cause:** kdoc `Theme.kt` baris 15 (v4.7.0) berisi teks
 `background/surface*/primary/error` — urutan karakter `*/` di tengah kata

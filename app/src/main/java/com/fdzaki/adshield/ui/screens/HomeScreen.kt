@@ -380,6 +380,7 @@ private fun WarpModeCard(
     onToggle: (Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
+    val trimAccent = com.fdzaki.adshield.ui.theme.LocalTrimAccent.current
     TactileSurface(modifier = Modifier.fillMaxWidth(), accentActive = active) {
         Column(Modifier.padding(18.dp)) {
             Row(
@@ -452,7 +453,7 @@ private fun WarpModeCard(
             }
             if (active) {
                 Spacer(Modifier.height(12.dp))
-                HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
+                HorizontalDivider(color = trimAccent.copy(alpha = 0.45f), thickness = 1.dp)
                 Spacer(Modifier.height(12.dp))
                 WarpQualityRow(quality)
             }
@@ -462,7 +463,7 @@ private fun WarpModeCard(
             }
 
             Spacer(Modifier.height(12.dp))
-            HorizontalDivider(color = ShieldOutline, thickness = 1.dp)
+            HorizontalDivider(color = trimAccent.copy(alpha = 0.45f), thickness = 1.dp)
             Spacer(Modifier.height(10.dp))
             Row(
                 verticalAlignment = Alignment.CenterVertically,
@@ -576,8 +577,9 @@ private fun NavGroup(content: @Composable ColumnScope.() -> Unit) {
 
 @Composable
 private fun NavDivider() {
+    val trimAccent = com.fdzaki.adshield.ui.theme.LocalTrimAccent.current
     HorizontalDivider(
-        color = ShieldOutline,
+        color = trimAccent.copy(alpha = 0.45f),
         thickness = 1.dp,
         modifier = Modifier.padding(start = 60.dp)
     )
@@ -617,7 +619,7 @@ private fun NavToggleRow(
         // onCheckedChange = null: the Row above owns the toggle action via
         // `clickable`, same double-fire-avoidance pattern as LogsScreen/
         // WhitelistScreen's TactileSwitch usage.
-        TactileSwitch(checked = checked, onCheckedChange = null)
+        TactileSwitch(checked = checked, onCheckedChange = null, accentColor = trimAccent)
     }
 }
 

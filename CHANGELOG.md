@@ -1,5 +1,30 @@
 # Changelog
 
+## v4.7.2 — Perluas cakupan trim accent: border, divider, switch tema (2026-08-11)
+
+User: toggle Titanium+Lapis Lazuli ON tapi cuma icon nav yang kelihatan
+beda — minta cakupan diperluas ke "semua yang paling kerasa" dari 3 opsi
+yang diajukan (border card, divider, switch ON).
+
+**Diubah:**
+- `ui/components/TactileSurface.kt` — bevel border default (non-`accentActive`)
+  sekarang baca `LocalTrimAccent` (dulu `BevelHighlight`/`BevelShadow`
+  netral tetap). Karena `TactileSurface` dipakai di semua layar ter-wire
+  (v4.6.0), efeknya otomatis app-wide dari 1 file. `accentActive` tetap
+  hardcode `ShieldGreen` — WarpModeCard aktif tetap hijau.
+- `ui/components/TactileSwitch.kt` — param baru `accentColor: Color =
+  ShieldGreen`, default menjaga semua call site lama (WARP/IPv6/whitelist/
+  aturan) tetap hijau saat ON. Cuma dipakai non-default di 1 tempat.
+- `ui/screens/HomeScreen.kt` — `NavToggleRow`'s `TactileSwitch` pakai
+  `accentColor = trimAccent` (satu-satunya switch dekoratif, bukan state).
+  `NavDivider()` + 2 divider di `WarpModeCard` retint ke
+  `trimAccent.copy(alpha=0.45f)`. `ProtectionRing` trackColor TIDAK
+  disentuh (representasi state, bukan dekoratif).
+
+**Prinsip yang tetap:** `ShieldGreen` untuk state proteksi asli (WARP
+switch, ProtectionRing, StatCard, `accentActive`) tidak pernah ikut tema —
+cuma chrome dekoratif yang sekarang ikut.
+
 ## v4.7.1 — Hotfix: CI compile error di Theme.kt kdoc (2026-08-11)
 
 `kspDebugKotlin` FAILED (run 31489667976) — kdoc `Theme.kt` baris 15 punya

@@ -22,8 +22,8 @@ android {
         applicationId = "com.fdzaki.adshield"
         minSdk = 24
         targetSdk = 34
-        versionCode = 96
-        versionName = "4.7.1"
+        versionCode = 97
+        versionName = "4.7.2"
 
         vectorDrawables { useSupportLibrary = true }
     }

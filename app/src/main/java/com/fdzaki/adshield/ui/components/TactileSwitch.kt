@@ -14,6 +14,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.fdzaki.adshield.ui.theme.PanelRecessedBase
 import com.fdzaki.adshield.ui.theme.PanelRecessedHighlight
@@ -40,13 +41,25 @@ import com.fdzaki.adshield.ui.theme.ShieldGreen
  * a11y double-target trap — see the toggleable-row kdocs already in
  * HomeScreen/LogsScreen/WhitelistScreen for why that pattern was deliberately
  * removed).
+ *
+ * v4.7.2 — [accentColor] added, defaults to `ShieldGreen` (every EXISTING
+ * call site — WARP, IPv6, whitelist, ad-block rule toggles — is
+ * byte-for-byte unchanged, still shows protection-state green when ON).
+ * ONLY `HomeScreen.NavToggleRow`'s theme-toggle switch overrides it with
+ * `LocalTrimAccent.current` — that one specific switch controls a
+ * decorative preference, not a protection state, so it's the one place
+ * where following the theme instead of green is correct. Do NOT change the
+ * default or retrofit other call sites to pass a non-green accentColor
+ * without checking whether that switch represents actual protection state
+ * first (see Color.kt kdoc "ShieldGreen ... jangan diganti ikut tema").
  */
 @Composable
 fun TactileSwitch(
     checked: Boolean,
     onCheckedChange: ((Boolean) -> Unit)?,
     modifier: Modifier = Modifier,
-    enabled: Boolean = true
+    enabled: Boolean = true,
+    accentColor: Color = ShieldGreen
 ) {
     val trackWidth = 44.dp
     val trackHeight = 26.dp
@@ -66,7 +79,7 @@ fun TactileSwitch(
             .clip(trackShape)
             .background(
                 if (checked) {
-                    Brush.verticalGradient(listOf(ShieldGreen.copy(alpha = 0.35f), PanelRecessedBase))
+                    Brush.verticalGradient(listOf(accentColor.copy(alpha = 0.35f), PanelRecessedBase))
                 } else {
                     TactileTokens.recessedBrush()
                 }
@@ -82,7 +95,7 @@ fun TactileSwitch(
                 .clip(CircleShape)
                 .background(
                     Brush.verticalGradient(
-                        if (checked) listOf(ShieldGreen, ShieldGreen.copy(alpha = 0.85f))
+                        if (checked) listOf(accentColor, accentColor.copy(alpha = 0.85f))
                         else listOf(PanelRecessedHighlight, PanelRecessedBase)
                     )
                 )
