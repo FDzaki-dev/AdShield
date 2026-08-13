@@ -19,10 +19,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.core.graphics.drawable.toBitmap
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.fdzaki.adshield.ui.MainViewModel
 import com.fdzaki.adshield.ui.SilentLeakUiItem
+import com.fdzaki.adshield.ui.components.TactileSurface
 import com.fdzaki.adshield.ui.theme.ShieldBgDark
 import com.fdzaki.adshield.ui.theme.ShieldDanger
 import com.fdzaki.adshield.ui.theme.ShieldTextMuted
@@ -35,9 +37,13 @@ import com.fdzaki.adshield.ui.theme.ShieldWhite
  * wasn't looking at the phone at all. Entirely on-device (ScreenStateMonitor
  * + the existing domain_log Room table), no cloud, no extra permission.
  *
- * Follows the same plain Material3 pattern as LogsScreen/RulesScreen/etc —
- * PROJECT_STATE.md's Tactile wiring backlog covers those 5 screens plus
- * this new one together in a future batch, not repeated here.
+ * v4.7.8 — Tactile wiring (see CHANGELOG.md). This screen never had a
+ * Card/Button/Switch to swap 1:1 the way Logs/Rules/Whitelist/Diagnostics/
+ * Onboarding did in v4.6.0 — it's a read-only list, nothing interactive.
+ * The list is instead wrapped in one [TactileSurface] panel, same pattern
+ * as HomeScreen's `NavGroup` ("groups nav rows into a single raised
+ * panel") — not per-row cards, which has no precedent anywhere in this
+ * app (Logs/Rules/Whitelist all deliberately leave list rows flat).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,7 +67,7 @@ fun SilentLeakScreen(viewModel: MainViewModel, onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        Column(Modifier.padding(padding)) {
+        Column(Modifier.padding(padding).fillMaxSize()) {
             Text(
                 "Aplikasi di bawah ini melakukan query DNS saat layar HP mati — " +
                     "artinya mereka \"menelepon pulang\" tanpa sepengetahuan Anda, " +
@@ -71,19 +77,35 @@ fun SilentLeakScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 modifier = Modifier.padding(16.dp)
             )
 
-            if (leaks.isEmpty()) {
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(
-                        "Belum ada aktivitas diam-diam terdeteksi.\n" +
-                            "Data terkumpul selama proteksi DNS aktif.",
-                        color = ShieldTextMuted,
-                        modifier = Modifier.padding(24.dp)
-                    )
-                }
-            } else {
-                LazyColumn {
-                    items(leaks, key = { it.packageName }) { item ->
-                        SilentLeakRow(item)
+            // weight(1f) is required: a LazyColumn needs a bounded height from
+            // its parent or it crashes ("measured with an infinity maximum
+            // height constraint"). This outer Column already gets a bounded
+            // height from Scaffold's content slot; weight(1f) passes the
+            // remaining space down through TactileSurface's inner Column to
+            // the LazyColumn below.
+            TactileSurface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            ) {
+                if (leaks.isEmpty()) {
+                    Box(
+                        Modifier.fillMaxSize().padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            "Belum ada aktivitas diam-diam terdeteksi.\n" +
+                                "Data terkumpul selama proteksi DNS aktif.",
+                            color = ShieldTextMuted,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                } else {
+                    LazyColumn(Modifier.fillMaxSize()) {
+                        items(leaks, key = { it.packageName }) { item ->
+                            SilentLeakRow(item)
+                        }
                     }
                 }
             }

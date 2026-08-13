@@ -2,7 +2,42 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.7, notif WARP: icon custom + aksi "Diagnostik" (2026-08-13)
+## STATUS PROYEK: AKTIF — v4.7.8, SilentLeakScreen wired ke Tactile (2026-08-13)
+
+**Backlog terakhir dari batch wiring v4.6.0.** SilentLeakScreen dibuat di
+v4.5.0, SETELAH 5-layar batch v4.6.0 (Rules/Logs/Diagnostics/Whitelist/
+Onboarding) selesai — jadi tertinggal sendirian, dicatat di v4.5.0's kdoc
+sebagai "nanti sekalian batch depan".
+
+**Kenapa polanya beda dari 5 layar lain:** dicek satu-satu (lihat
+riwayat sesi ini) — SilentLeakScreen TIDAK PERNAH punya `Card`/`Button`/
+`Switch` sama sekali, cuma `TopAppBar` + `Text` deskripsi + `LazyColumn`
+list read-only. 5 layar lain semua punya minimal 1 dari ketiganya untuk
+di-swap 1:1 ke `TactileButton`/`TactileSwitch`/`TactileSurface`. Jadi
+"wiring" 1:1 componen tidak berlaku di sini — perlu pendekatan beda.
+
+**Diubah (`SilentLeakScreen.kt`, 1 file):**
+- List (LazyColumn + empty-state, dua-duanya) dibungkus 1 `TactileSurface`
+  panel, `Modifier.weight(1f)` WAJIB (LazyColumn butuh bounded height
+  dari parent, kalau tidak crash "infinity maximum height constraint").
+  Pola PERSIS `NavGroup` di HomeScreen.kt — satu panel timbul membungkus
+  BANYAK row, bukan per-row card.
+- Row individual (`SilentLeakRow`) SENGAJA tidak diubah — tetap `Row`
+  polos. Precedent dari 3 layar list-based (Logs/Rules/Whitelist): row
+  di dalam list SELALU dibiarkan flat, TIDAK PERNAH dibungkus
+  `TactileSurface` per-item di app ini — jangan ubah pola ini di
+  screen lain tanpa alasan kuat, ini keputusan konsisten yang disengaja,
+  bukan kelalaian.
+
+**PENTING untuk sesi lanjutan:** dengan ini, backlog "5 layar Tactile
+pending" dari v4.4.0 SECARA PRAKTIS SELESAI SEMUA (5 asli + SilentLeak
+susulan = 6/6). Kalau nanti ada layar baru dibuat dan butuh wiring: kalau
+punya Card/Button/Switch → swap 1:1 (pola Rules/Logs/Whitelist/
+Diagnostics/Onboarding). Kalau read-only list tanpa itu semua → pola
+`NavGroup`/SilentLeakScreen (satu `TactileSurface` bungkus seluruh list,
+row tetap flat).
+
+## STATUS SEBELUMNYA: v4.7.7, notif WARP: icon custom + aksi "Diagnostik" (2026-08-13)
 
 **User minta** (polish lanjutan v4.7.6): icon custom, aksi tambahan.
 

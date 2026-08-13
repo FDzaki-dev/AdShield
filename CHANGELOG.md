@@ -1,5 +1,31 @@
 # Changelog
 
+## v4.7.8 — SilentLeakScreen: wired ke Tactile design (2026-08-13)
+
+Backlog terakhir dari batch wiring v4.6.0 — screen ini dibuat di v4.5.0
+(setelah 5-layar batch v4.6.0 selesai) jadi sempat tertinggal.
+
+**Kenapa beda pola dari 5 layar lain:** SilentLeakScreen adalah layar
+read-only murni — TIDAK PERNAH punya `Card`/`Button`/`Switch` untuk
+di-swap 1:1 (Logs/Rules/Whitelist/Diagnostics/Onboarding semua punya
+minimal 1 dari ketiganya). Jadi tidak ada "swap komponen" yang berlaku di
+sini.
+
+**Diubah (`SilentLeakScreen.kt`, 1 file):**
+- Seluruh daftar (LazyColumn + empty-state) dibungkus 1 `TactileSurface`
+  panel — pola PERSIS `NavGroup` di HomeScreen.kt ("Groups nav rows into
+  a single raised panel"), BUKAN per-item card (tidak ada precedent
+  untuk itu; Logs/Rules/Whitelist semua sengaja membiarkan row-row
+  list-nya flat, tidak dibungkus apa pun).
+- Row individual (`SilentLeakRow`) TIDAK diubah — tetap `Row` polos,
+  konsisten dengan precedent Logs/Rules/Whitelist.
+- kdoc lama yang bilang "belum di-wire, nanti sekalian batch depan"
+  dihapus, diganti catatan kenapa pola wiring-nya beda dari 5 layar lain.
+
+**Verifikasi:** comment balance file OK, regex scan bug-class v4.7.1
+diulang ke seluruh repo — bersih. `NavGraph`/`MainActivity` tidak
+disentuh — rute `SilentLeakScreen` tidak berubah signature.
+
 ## v4.7.7 — Notif WARP: icon custom + aksi "Diagnostik" (2026-08-13)
 
 User minta polish lanjutan: icon custom & aksi tambahan di notif.
