@@ -1,5 +1,32 @@
 # Changelog
 
+## v4.7.5 — Notif WARP connected: info berguna (latency, loss, data) jadi headline (2026-08-13)
+
+User (dari screenshot): baris utama notif WARP connected sering menampilkan
+"Tersambung ke Cloudflare — bukan WARP resmi" alih-alih info yang lebih
+berguna — minta diganti dengan latency dkk.
+
+**Root cause bukan bug, tapi prioritas info salah:** `trafficConfirmed`
+sering stuck `false` karena keterbatasan library WireGuard Android (lihat
+kdoc `WarpConnectionQuality.Level`, sudah didokumentasikan sejak v3.28.0)
+— jadi baris utama notif jauh lebih sering menampilkan status konfirmasi
+itu ketimbang `"Aktif • N ms"`, padahal tunnel sehat dan datanya (latency,
+packet loss) sudah tersedia di `WarpConnectionQuality` sepanjang waktu.
+
+**Diubah (`WarpForegroundService.kt`, 1 file):**
+- Baris utama (collapsed) notif connected sekarang SELALU
+  `"{latency} ms • {loss}% loss • {rx}↓ {tx}↑"` (pakai `formatBytes()` baru,
+  binary/1024-based) selama tunnel UP & sudah sempat diprobe — tidak lagi
+  bergantung `trafficConfirmed`.
+- Status konfirmasi WARP resmi (+ endpoint/MTU dipakai) dipindah ke
+  `NotificationCompat.BigTextStyle` (expand notif) — informasinya TETAP
+  ada, cuma bukan headline lagi.
+- State "Menyambungkan…"/"memeriksa kualitas…"/"Menyambung ulang…" (belum
+  ada data buat ditampilkan) tidak berubah.
+
+**Verifikasi:** comment balance file disubah OK, regex scan bug-class
+v4.7.1 diulang ke seluruh repo — bersih.
+
 ## v4.7.4 — Hotfix: notif WARP nyangkut "Menyambungkan…" setelah dimatikan manual (2026-08-13)
 
 User lapor: notifikasi WARP masih bilang "Menyambungkan ke Cloudflare

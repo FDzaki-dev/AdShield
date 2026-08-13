@@ -2,7 +2,43 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.4, hotfix notif WARP nyangkut "Menyambungkan…" (2026-08-13)
+## STATUS PROYEK: AKTIF — v4.7.5, notif WARP connected: latency/loss/data jadi headline (2026-08-13)
+
+**User minta** (dari screenshot notif): baris utama notif connected
+seringnya nampilin "bukan WARP resmi" bukan info berguna — ganti dengan
+latency dkk.
+
+**Bukan bug, salah prioritas info:** `trafficConfirmed` sering stuck
+`false` karena keterbatasan library (lihat kdoc `WarpConnectionQuality.
+Level`, v3.28.0) — jadi baris utama JAUH lebih sering nampilin status
+konfirmasi itu ketimbang angka latency, padahal `WarpConnectionQuality`
+selalu punya latency/packet-loss/rx/tx yang valid selama tunnel UP &
+sudah diprobe minimal 1x.
+
+**Diubah (`WarpForegroundService.kt`, 1 file):**
+- `buildNotification()` cabang "connected & sudah diprobe": `contentText`
+  (baris collapsed) sekarang SELALU `"{latency} ms • {loss}% loss •
+  {rx}↓ {tx}↑"`, TIDAK lagi cabang berdasar `trafficConfirmed`.
+- `trafficConfirmed` + endpoint/MTU dipakai pindah ke `BigTextStyle`
+  (`expandedText`) — tetap ditampilkan pas notif di-expand, cuma bukan
+  headline. `Diagnostik` screen TIDAK disentuh — masih sumber kebenaran
+  detail lengkap kalau user mau lihat lebih jauh.
+- `formatBytes()` baru (private, di `WarpForegroundService`) — binary
+  (1024-based: KB/MB/GB) biar konsisten sama cara Android sendiri
+  ngelaporin data usage, BUKAN decimal/SI 1000-based.
+- State "connecting"/"memeriksa kualitas"/"reconnecting" (belum ada data
+  buat ditampilkan) TIDAK diubah — cuma cabang "connected & ada data".
+
+**PENTING untuk sesi lanjutan:** kalau nanti nambah field baru ke
+`WarpConnectionQuality` yang "berguna buat user lihat sekilas" (mis.
+jitter, server region), taruh di `contentText` (headline) kalau memang
+selalu punya nilai valid saat connected; taruh di `expandedText` kalau
+sifatnya diagnostik/sekunder (mirip pola `trafficConfirmed`/endpoint di
+atas) — jangan taruh keduanya di headline sekaligus, notif collapsed
+Android motong ke ~1 baris di kebanyakan device jadi field akan
+ke-truncate kalau kepanjangan.
+
+## STATUS SEBELUMNYA: v4.7.4, hotfix notif WARP nyangkut "Menyambungkan…" (2026-08-13)
 
 **User lapor:** notif WARP masih "Menyambungkan ke Cloudflare WARP…"
 (searching) walau toggle sudah dimatikan manual dari UI.

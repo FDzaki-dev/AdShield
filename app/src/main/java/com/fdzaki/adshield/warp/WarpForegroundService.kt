@@ -182,17 +182,51 @@ class WarpForegroundService : Service() {
             this, 0, Intent(this, WarpForegroundService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
-        val contentText = when {
-            state != Tunnel.State.UP -> "Menyambungkan ke Cloudflare WARP…"
-            quality == null || quality.lastCheckedAt == 0L -> "Terhubung — memeriksa kualitas jalur…"
-            quality.reconnectAttempts > 0 -> "Menyambung ulang (percobaan ke-${quality.reconnectAttempts})…"
-            quality.trafficConfirmed -> "Aktif • ${quality.latencyMs} ms lewat Cloudflare WARP"
-            // v3.28.0: was "Terhubung, tapi trafik belum terkonfirmasi lewat WARP" — implied
-            // "still checking, wait a bit". It doesn't resolve itself: this is the honest
-            // steady-state given the library limitation (see WarpConnectionQuality.Level kdoc).
-            else -> "Tersambung ke Cloudflare — bukan WARP resmi (lihat Diagnostik)"
+        // v4.7.5 (lihat CHANGELOG): sebelum ini baris utama notif connected cuma
+        // "Aktif • N ms" ATAU (jauh lebih sering di lapangan, karena keterbatasan
+        // library — lihat kdoc WarpConnectionQuality.Level) "bukan WARP resmi", yang
+        // menutupi info paling dicari user (latency/kualitas jalur) di balik status
+        // konfirmasi yang jarang true. Sekarang baris utama SELALU angka yang berguna
+        // (latency, packet loss, data terpakai) selama tunnel benar-benar UP & sudah
+        // sempat diprobe — status konfirmasi WARP resmi pindah ke baris expand
+        // (BigTextStyle), tetap ada, cuma bukan lagi headline.
+        val contentText: String
+        var expandedText: String? = null
+        when {
+            state != Tunnel.State.UP -> {
+                contentText = "Menyambungkan ke Cloudflare WARP…"
+            }
+            quality == null || quality.lastCheckedAt == 0L -> {
+                contentText = "Terhubung — memeriksa kualitas jalur…"
+            }
+            quality.reconnectAttempts > 0 -> {
+                contentText = "Menyambung ulang (percobaan ke-${quality.reconnectAttempts})…"
+            }
+            else -> {
+                val latency = quality.latencyMs?.let { "$it ms" } ?: "— ms"
+                contentText = "$latency • ${quality.packetLossPercent}% loss • " +
+                    "${formatBytes(quality.rxBytes)}↓ ${formatBytes(quality.txBytes)}↑"
+                // v3.28.0 kdoc masih relevan: trafficConfirmed sering stuck false karena
+                // keterbatasan library, bukan berarti tunnel tidak sehat — makanya statusnya
+                // di sini, bukan jadi headline yang menutupi angka latency di atas.
+                val statusNote = if (quality.trafficConfirmed) {
+                    "Traffic terkonfirmasi lewat WARP resmi"
+                } else {
+                    "Terhubung — bukan WARP resmi (lihat Diagnostik)"
+                }
+                expandedText = buildString {
+                    append(contentText)
+                    append('\n')
+                    append(statusNote)
+                    if (quality.endpointUsed.isNotBlank()) {
+                        append('\n')
+                        append("Endpoint: ${quality.endpointUsed}")
+                        if (quality.mtuUsed > 0) append(" • MTU ${quality.mtuUsed}")
+                    }
+                }
+            }
         }
-        return NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
             .setContentTitle("VPN Tunnel (WARP) aktif")
             .setContentText(contentText)
             .setSmallIcon(android.R.drawable.ic_lock_lock)
@@ -200,7 +234,20 @@ class WarpForegroundService : Service() {
             .addAction(0, "Stop", stopIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+        if (expandedText != null) {
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+        }
+        return builder.build()
+    }
+
+    /** Human-readable byte count for the notification's data-used stat (v4.7.5). Binary
+     *  (1024-based) units to match what GoBackend.getStatistics() and most data-usage UIs
+     *  on Android already report, not decimal (1000-based) SI units. */
+    private fun formatBytes(bytes: Long): String = when {
+        bytes >= 1_073_741_824L -> String.format("%.1f GB", bytes / 1_073_741_824.0)
+        bytes >= 1_048_576L -> String.format("%.1f MB", bytes / 1_048_576.0)
+        bytes >= 1_024L -> String.format("%.0f KB", bytes / 1_024.0)
+        else -> "$bytes B"
     }
 
     override fun onDestroy() {
