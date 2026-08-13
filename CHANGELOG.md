@@ -1,5 +1,41 @@
 # Changelog
 
+## v4.7.6 — Notif WARP: dot warna status GOOD/DEGRADED/BAD (2026-08-13)
+
+User minta polish lanjutan dari v4.7.5: indikator warna status di notif,
+mirror pola dot yang sudah ada di `WarpQualityRow` (HomeScreen).
+
+**Diubah (`WarpForegroundService.kt`, 1 file):**
+- `buildNotification()` sekarang hitung `level` (pakai
+  `WarpConnectionQuality.level` yang SUDAH ADA, tidak reimplement logic
+  baru) lalu map ke dot Unicode + warna: GOOD 🟢, DEGRADED/NOT_CONFIRMED
+  🟡, BAD 🔴, UNKNOWN (termasuk state masih connecting) ⚪. Mapping warna
+  PERSIS sama dengan `WarpQualityRow` di HomeScreen.kt (DEGRADED &
+  NOT_CONFIRMED sama-sama warning/kuning, bukan 2 warna beda) — bahasa
+  visual notif konsisten sama layar Home.
+- Dot ditaruh sebagai prefix teks (`"$dot $contentText"`), BUKAN cuma
+  `setColor()` tint icon — karena small-icon notification wajib
+  monochrome (dipaksa OS sejak Android 5) dan tint dari `setColor()`
+  sering diabaikan OEM/launcher di status bar. `setColor()` tetap
+  dipasang juga sebagai best-effort tambahan (kepakai di beberapa
+  device/shade), tapi dot emoji itu yang jadi jaminan visual utama.
+- 4 konstanta warna baru (`COLOR_GOOD/WARNING/DANGER/MUTED`) di
+  companion object — nilai hex literal SENGAJA di-duplikasi dari
+  `ui/theme/Color.kt` (`ShieldGreen`/`ShieldWarning`/`ShieldDanger`/
+  `ShieldTextMuted`), bukan import langsung, karena `Color.kt` pakai tipe
+  Compose (`androidx.compose.ui.graphics.Color`) sementara
+  `NotificationCompat.setColor()` butuh `Int` ARGB polos
+  (`android.graphics.Color`) — Service ini bukan konteks Compose.
+
+**PENTING untuk sesi lanjutan:** kalau nanti `ShieldGreen`/`ShieldWarning`/
+`ShieldDanger`/`ShieldTextMuted` di `Color.kt` berubah nilai hex-nya, ke-4
+konstanta `COLOR_*` di `WarpForegroundService.kt` HARUS di-update manual
+juga — tidak ada single source of truth otomatis antara Compose theme dan
+notification color di sini (keterbatasan tipe, lihat catatan di atas).
+
+**Verifikasi:** comment balance file disubah OK, regex scan bug-class
+v4.7.1 diulang ke seluruh repo — bersih.
+
 ## v4.7.5 — Notif WARP connected: info berguna (latency, loss, data) jadi headline (2026-08-13)
 
 User (dari screenshot): baris utama notif WARP connected sering menampilkan

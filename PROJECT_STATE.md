@@ -2,7 +2,40 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.5, notif WARP connected: latency/loss/data jadi headline (2026-08-13)
+## STATUS PROYEK: AKTIF — v4.7.6, notif WARP: dot warna status GOOD/DEGRADED/BAD (2026-08-13)
+
+**User minta** (polish lanjutan v4.7.5): indikator warna status di notif,
+mirror pola dot yang sudah ada di `WarpQualityRow` (HomeScreen).
+
+**Diubah (`WarpForegroundService.kt`, 1 file):**
+- `buildNotification()` hitung `level` dari `WarpConnectionQuality.level`
+  (getter yang SUDAH ADA sejak v3.28.0, tidak reimplement logic baru) lalu
+  map ke dot Unicode + warna: GOOD 🟢, DEGRADED/NOT_CONFIRMED 🟡, BAD 🔴,
+  UNKNOWN (termasuk state masih connecting, belum ada `quality`) ⚪.
+  Mapping warna PERSIS mirror `WarpQualityRow` (HomeScreen.kt) — DEGRADED
+  & NOT_CONFIRMED sengaja sama-sama kuning/warning (bukan 2 warna beda),
+  konsisten sama keputusan yang sudah ada di situ.
+- Dot = prefix Unicode di teks (`"$dot $contentText"`), BUKAN cuma
+  `setColor()` icon tint — small-icon notification wajib monochrome
+  (dipaksa OS sejak Android 5), tint dari `setColor()` sering diabaikan
+  OEM/launcher di status bar. `setColor()` tetap dipasang juga sebagai
+  best-effort (kepakai di beberapa device/shade), tapi dot emoji itu
+  jaminan visual utamanya — TIDAK butuh drawable baru.
+- 4 konstanta warna baru di companion object (`COLOR_GOOD/WARNING/
+  DANGER/MUTED`) — nilai hex DIDUPLIKASI manual dari `ui/theme/Color.kt`
+  (`ShieldGreen`/`ShieldWarning`/`ShieldDanger`/`ShieldTextMuted`), BUKAN
+  import, karena `Color.kt` pakai tipe Compose sedangkan
+  `NotificationCompat.setColor()` butuh `Int` ARGB `android.graphics.
+  Color` — beda tipe, Service ini bukan konteks Compose.
+
+**PENTING untuk sesi lanjutan:** `COLOR_GOOD/WARNING/DANGER/MUTED` di
+`WarpForegroundService.kt` TIDAK auto-sync sama `Color.kt` — kalau
+`ShieldGreen`/`ShieldWarning`/`ShieldDanger`/`ShieldTextMuted` berubah
+hex-nya (mis. batch redesign tema kayak v4.7.0-v4.7.3), 4 konstanta ini
+harus di-update manual juga atau notif & app UI akan punya warna status
+yang beda-beda.
+
+## STATUS SEBELUMNYA: v4.7.5, notif WARP connected: latency/loss/data jadi headline (2026-08-13)
 
 **User minta** (dari screenshot notif): baris utama notif connected
 seringnya nampilin "bukan WARP resmi" bukan info berguna — ganti dengan

@@ -5,6 +5,7 @@ import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
 import android.content.Intent
+import android.graphics.Color
 import android.os.Build
 import android.os.IBinder
 import android.os.SystemClock
@@ -226,16 +227,39 @@ class WarpForegroundService : Service() {
                 }
             }
         }
+        // v4.7.6 (lihat CHANGELOG): dot warna status, MIRROR persis mapping
+        // WarpQualityRow di HomeScreen.kt (level -> warna) supaya bahasa visual
+        // notif konsisten dengan layar Home — bukan skema warna baru. Dot pakai
+        // karakter Unicode (bukan drawable/setColor icon tint) karena small-icon
+        // notification WAJIB monochrome (dipaksa OS sejak Android 5, tint dari
+        // setColor() sering DIABAIKAN OEM/launcher di status bar) — emoji circle
+        // adalah satu-satunya cara warna itu dijamin tampil apa adanya lintas
+        // device/OEM tanpa nambah aset drawable baru.
+        val level = if (state != Tunnel.State.UP) {
+            WarpConnectionQuality.Level.UNKNOWN
+        } else {
+            quality?.level ?: WarpConnectionQuality.Level.UNKNOWN
+        }
+        val (dot, iconTint) = when (level) {
+            WarpConnectionQuality.Level.GOOD -> "🟢" to COLOR_GOOD
+            WarpConnectionQuality.Level.DEGRADED,
+            WarpConnectionQuality.Level.NOT_CONFIRMED -> "🟡" to COLOR_WARNING
+            WarpConnectionQuality.Level.BAD -> "🔴" to COLOR_DANGER
+            WarpConnectionQuality.Level.UNKNOWN -> "⚪" to COLOR_MUTED
+        }
         val builder = NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
             .setContentTitle("VPN Tunnel (WARP) aktif")
-            .setContentText(contentText)
+            .setContentText("$dot $contentText")
             .setSmallIcon(android.R.drawable.ic_lock_lock)
+            // Best-effort tint (lihat catatan di atas — tidak semua OEM
+            // menghormati ini di status bar, tapi biasanya kepakai di shade).
+            .setColor(iconTint)
             .setContentIntent(openIntent)
             .addAction(0, "Stop", stopIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
         if (expandedText != null) {
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(expandedText))
+            builder.setStyle(NotificationCompat.BigTextStyle().bigText("$dot $expandedText"))
         }
         return builder.build()
     }
@@ -288,5 +312,18 @@ class WarpForegroundService : Service() {
         /** True when this STOP is only the "turn off" half of switching to
          *  the other protection mode, not a standalone user stop. */
         const val EXTRA_MODE_SWITCH = "com.fdzaki.adshield.warp.extra.MODE_SWITCH"
+
+        // v4.7.6 — status-dot colors for buildNotification(). SENGAJA nilai literal
+        // duplikat dari ui/theme/Color.kt (ShieldGreen/ShieldWarning/ShieldDanger/
+        // ShieldTextMuted), BUKAN import langsung: Color.kt isinya androidx.compose.
+        // ui.graphics.Color (Compose), sedangkan NotificationCompat.setColor() butuh
+        // Int ARGB polos (android.graphics.Color) — dua tipe beda, tidak saling
+        // convert tanpa dependency Compose di kelas non-UI ini (Service). Kalau nilai
+        // di Color.kt berubah, cek balik 4 konstanta ini juga (lihat WarpQualityRow
+        // di HomeScreen.kt untuk mapping level->warna yang di-mirror sini).
+        private val COLOR_GOOD = Color.parseColor("#30D158")
+        private val COLOR_WARNING = Color.parseColor("#FFA733")
+        private val COLOR_DANGER = Color.parseColor("#FF5449")
+        private val COLOR_MUTED = Color.parseColor("#C7C0B3")
     }
 }
