@@ -20,6 +20,7 @@ import com.fdzaki.adshield.protocol.WarpVpnEngineAdapter
 import com.fdzaki.adshield.receiver.WarpRestartReceiver
 import com.fdzaki.adshield.util.AppMode
 import com.fdzaki.adshield.util.Constants
+import com.fdzaki.adshield.util.ShortcutsManager
 import com.wireguard.android.backend.Tunnel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -183,6 +184,18 @@ class WarpForegroundService : Service() {
             this, 0, Intent(this, WarpForegroundService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
+        // v4.7.7 (lihat CHANGELOG): aksi ke-2 di notif — buka MainActivity langsung
+        // ke DiagnosticsScreen (bukan cuma Home) lewat mekanisme EXTRA_SHORTCUT_DEST
+        // yang SUDAH ADA (dipakai shortcut "whitelist"/"logs" — lihat
+        // ShortcutsManager.kt + MainActivity.pendingNavDestination). requestCode 1
+        // (beda dari openIntent's requestCode 0 dan stopIntent's requestCode 0 di
+        // Service class lain) supaya PendingIntent ini tidak saling timpa cache-nya.
+        val diagnosticsIntent = PendingIntent.getActivity(
+            this, 1,
+            Intent(this, MainActivity::class.java)
+                .putExtra(ShortcutsManager.EXTRA_SHORTCUT_DEST, "diagnostics"),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+        )
         // v4.7.5 (lihat CHANGELOG): sebelum ini baris utama notif connected cuma
         // "Aktif • N ms" ATAU (jauh lebih sering di lapangan, karena keterbatasan
         // library — lihat kdoc WarpConnectionQuality.Level) "bukan WARP resmi", yang
@@ -250,11 +263,17 @@ class WarpForegroundService : Service() {
         val builder = NotificationCompat.Builder(this, Constants.NOTIF_CHANNEL_ID)
             .setContentTitle("VPN Tunnel (WARP) aktif")
             .setContentText("$dot $contentText")
-            .setSmallIcon(android.R.drawable.ic_lock_lock)
+            // v4.7.7: ganti dari android.R.drawable.ic_lock_lock (ikon kunci generik
+            // bawaan sistem, tidak ada hubungannya sama identitas app) ke
+            // ic_tile_warp — vector monochrome yang SUDAH ADA & sudah dipakai
+            // WarpTileService (QS tile), jadi TIDAK perlu aset drawable baru dan
+            // ikon konsisten antara QS tile dan notif untuk fitur yang sama.
+            .setSmallIcon(R.drawable.ic_tile_warp)
             // Best-effort tint (lihat catatan di atas — tidak semua OEM
             // menghormati ini di status bar, tapi biasanya kepakai di shade).
             .setColor(iconTint)
             .setContentIntent(openIntent)
+            .addAction(0, "Diagnostik", diagnosticsIntent)
             .addAction(0, "Stop", stopIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)

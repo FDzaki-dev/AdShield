@@ -1,5 +1,29 @@
 # Changelog
 
+## v4.7.7 — Notif WARP: icon custom + aksi "Diagnostik" (2026-08-13)
+
+User minta polish lanjutan: icon custom & aksi tambahan di notif.
+
+**Diubah (2 file):**
+- `WarpForegroundService.kt` — `setSmallIcon()` ganti dari
+  `android.R.drawable.ic_lock_lock` (ikon kunci generik bawaan sistem,
+  tidak ada hubungan sama identitas app) ke `R.drawable.ic_tile_warp` —
+  vector monochrome yang SUDAH ADA (dipakai `WarpTileService`/QS tile),
+  jadi TIDAK ada aset drawable baru & ikon konsisten antara QS tile dan
+  notif untuk fitur yang sama. Tombol aksi ke-2 "Diagnostik" ditambah
+  (`addAction`) di samping "Stop" — buka `MainActivity` langsung ke
+  `DiagnosticsScreen` lewat mekanisme `EXTRA_SHORTCUT_DEST` yang SUDAH
+  ADA (dipakai shortcut statis "whitelist"/"logs"), requestCode
+  `PendingIntent` beda (1) dari `openIntent`/`stopIntent` biar tidak
+  saling timpa cache.
+- `MainActivity.kt` — whitelist tujuan navigasi `pendingNavDestination`
+  ditambah `"diagnostics"` (sebelumnya cuma `"whitelist"`/`"logs"`), 1
+  baris, pola/mekanisme sama persis, rute `"diagnostics"` di `NavHost`
+  sudah ada dari awal.
+
+**Verifikasi:** comment balance ke-2 file OK, regex scan bug-class v4.7.1
+diulang ke seluruh repo — bersih.
+
 ## v4.7.6 — Notif WARP: dot warna status GOOD/DEGRADED/BAD (2026-08-13)
 
 User minta polish lanjutan dari v4.7.5: indikator warna status di notif,

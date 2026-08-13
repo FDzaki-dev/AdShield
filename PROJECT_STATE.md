@@ -2,7 +2,36 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.6, notif WARP: dot warna status GOOD/DEGRADED/BAD (2026-08-13)
+## STATUS PROYEK: AKTIF — v4.7.7, notif WARP: icon custom + aksi "Diagnostik" (2026-08-13)
+
+**User minta** (polish lanjutan v4.7.6): icon custom, aksi tambahan.
+
+**Diubah (2 file):**
+- `WarpForegroundService.kt` — `setSmallIcon()`: `android.R.drawable.
+  ic_lock_lock` (generik) → `R.drawable.ic_tile_warp` (vector monochrome
+  yang SUDAH ADA, dipakai `WarpTileService`) — 0 aset baru, konsisten
+  sama QS tile. Tombol aksi ke-2 "Diagnostik" (`addAction`, sebelum
+  "Stop") buka `MainActivity` → `DiagnosticsScreen` lewat
+  `EXTRA_SHORTCUT_DEST` yang SUDAH ADA (pola sama persis dgn shortcut
+  statis "whitelist"/"logs" — lihat `ShortcutsManager.kt`). PendingIntent
+  requestCode 1 (beda dari `openIntent`/`stopIntent` requestCode 0) biar
+  tidak saling timpa cache PendingIntent.
+- `MainActivity.kt` — `pendingNavDestination` LaunchedEffect: whitelist
+  tujuan navigasi ditambah `"diagnostics"` (1 baris). Rute NavHost
+  `"diagnostics"` SUDAH ADA dari awal (dipakai `HomeScreen`'s
+  `onOpenDiagnostics`) — tidak ada rute baru, cuma nambah 1 entry point
+  ke rute yang sudah ada.
+
+**PENTING untuk sesi lanjutan:** kalau nanti nambah aksi notif lain yang
+buka layar tertentu (pola sama), REUSE `EXTRA_SHORTCUT_DEST` + tambah 1
+string ke whitelist di `MainActivity.kt` — JANGAN bikin mekanisme deep-link
+baru, ini sudah general-purpose (aslinya buat shortcut statis, sekarang
+dipakai juga oleh notif).
+
+**Verifikasi:** comment balance ke-2 file OK, regex scan bug-class v4.7.1
+diulang ke seluruh repo — bersih.
+
+## STATUS SEBELUMNYA: v4.7.6, notif WARP: dot warna status GOOD/DEGRADED/BAD (2026-08-13)
 
 **User minta** (polish lanjutan v4.7.5): indikator warna status di notif,
 mirror pola dot yang sudah ada di `WarpQualityRow` (HomeScreen).

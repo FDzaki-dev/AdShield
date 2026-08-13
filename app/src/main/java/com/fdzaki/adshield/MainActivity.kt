@@ -186,7 +186,11 @@ class MainActivity : ComponentActivity() {
 
                 LaunchedEffect(pendingNavDestination) {
                     val dest = pendingNavDestination
-                    if (dest == "whitelist" || dest == "logs") {
+                    // v4.7.7: tambah "diagnostics" — dipakai aksi notif WARP baru
+                    // (WarpForegroundService.buildNotification()'s tombol "Diagnostik").
+                    // Pola & mekanisme SAMA PERSIS dengan "whitelist"/"logs" yang sudah
+                    // ada (shortcut statis) — cuma nambah 1 string ke whitelist ini.
+                    if (dest == "whitelist" || dest == "logs" || dest == "diagnostics") {
                         navController.navigate(dest)
                     }
                     pendingNavDestination = null
