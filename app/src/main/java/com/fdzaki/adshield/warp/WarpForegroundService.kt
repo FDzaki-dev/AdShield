@@ -58,6 +58,17 @@ class WarpForegroundService : Service() {
     private lateinit var warpEngine: WarpVpnEngineAdapter
     private lateinit var settingsRepository: SettingsRepository
 
+    /** Job for [observeQualityForNotification]'s collector, tracked separately from [scope]
+     *  so ACTION_STOP can cancel it immediately (see kdoc there) instead of waiting for
+     *  [onDestroy], which only runs after the Service message queue drains. */
+    private var notificationJob: Job? = null
+
+    /** True from the moment ACTION_STOP is handled. Belt-and-suspenders alongside cancelling
+     *  [notificationJob]: guards the tiny window where a state/quality emission already
+     *  in-flight through [combine] could reach the collector body between the cancel call
+     *  and the coroutine actually stopping. */
+    @Volatile private var stopping = false
+
     override fun onCreate() {
         super.onCreate()
         tunnelManager = WarpTunnelManager.getInstance(applicationContext)
@@ -71,6 +82,21 @@ class WarpForegroundService : Service() {
         when (intent?.action) {
             ACTION_STOP -> {
                 val isModeSwitch = intent.getBooleanExtra(EXTRA_MODE_SWITCH, false)
+                // BUGFIX (lihat CHANGELOG): notif "Menyambungkan ke Cloudflare WARP…" nyangkut
+                // walau user sudah matikan manual. Root cause: observeQualityForNotification()'s
+                // collector tetap hidup sampai onDestroy() (yang baru jalan setelah message queue
+                // Service ini kosong, BUKAN langsung saat stopForeground()/stopSelf() dipanggil).
+                // warpEngine.disconnect() di bawah men-drive tunnelManager.state ke DOWN lewat
+                // Tunnel.onStateChange() — combine() collector yang masih hidup itu ikut menangkap
+                // emission DOWN itu dan notify() ULANG notifikasi ("state != UP" -> teks
+                // "Menyambungkan…") PERSIS di jendela setelah stopForeground(REMOVE) menghapusnya,
+                // jadi notif "connecting" hantu itu tidak lagi terikat foreground service manapun
+                // dan tidak pernah hilang sampai user swipe manual. Fix: hentikan collector INI
+                // DULU (cancel notificationJob + set `stopping`) sebelum disconnect() dipanggil,
+                // supaya tidak ada notify() lagi yang bisa lolos di jendela balapan itu.
+                stopping = true
+                notificationJob?.cancel()
+                notificationJob = null
                 scope.launch {
                     warpEngine.disconnect()
                     // See AdBlockVpnService.stopVpn() for why: during a
@@ -135,9 +161,10 @@ class WarpForegroundService : Service() {
     /** Refreshes the persistent notification whenever tunnel state or connection quality
      *  changes, so the user can see latency/reconnect status without opening the app. */
     private fun observeQualityForNotification() {
-        scope.launch {
+        notificationJob = scope.launch {
             combine(tunnelManager.state, tunnelManager.quality) { state, quality -> state to quality }
                 .collect { (state, quality) ->
+                    if (stopping) return@collect
                     runCatching {
                         NotificationManagerCompat.from(this@WarpForegroundService)
                             .notify(Constants.WARP_NOTIF_ID, buildNotification(state, quality))
@@ -188,6 +215,11 @@ class WarpForegroundService : Service() {
         // gets cancelled right after launching it — without that, cancelling `scope`
         // immediately could interrupt disconnect() mid-teardown (interface left half torn
         // down) instead of letting it finish cleanly.
+        // Covers teardown paths that reach onDestroy() without going through ACTION_STOP
+        // (e.g. process death after onTaskRemoved's watchdog window) — same guard as the
+        // ACTION_STOP branch above, belt-and-suspenders with scope.cancel() right after.
+        stopping = true
+        notificationJob?.cancel()
         scope.launch {
             withContext(NonCancellable) {
                 warpEngine.disconnect()

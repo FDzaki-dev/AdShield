@@ -1,5 +1,34 @@
 # Changelog
 
+## v4.7.4 — Hotfix: notif WARP nyangkut "Menyambungkan…" setelah dimatikan manual (2026-08-13)
+
+User lapor: notifikasi WARP masih bilang "Menyambungkan ke Cloudflare
+WARP…" (searching) walau toggle sudah dimatikan manual.
+
+**Root cause:** `WarpForegroundService.observeQualityForNotification()`'s
+collector tetap hidup sampai `onDestroy()` — yang baru jalan setelah
+message queue Service kosong, BUKAN langsung saat `stopForeground()`/
+`stopSelf()` dipanggil di ACTION_STOP. `warpEngine.disconnect()` di jalur
+stop yang sama men-drive `tunnelManager.state` ke DOWN lewat
+`Tunnel.onStateChange()`; collector yang masih hidup itu ikut menangkap
+emission DOWN itu dan `notify()` ULANG notifikasi (logic `buildNotification`:
+`state != UP -> "Menyambungkan…"`, dimaksudkan untuk startup, tapi kepicu
+juga oleh DOWN saat shutdown) — persis di jendela setelah
+`stopForeground(REMOVE)` menghapusnya. Notif hantu itu lalu tidak terikat
+foreground service manapun lagi dan tidak pernah hilang sendiri.
+
+**Fix (`WarpForegroundService.kt`, 1 file):** collector job (`notificationJob`)
+di-cancel EKSPLISIT di awal ACTION_STOP, sebelum `disconnect()` dipanggil —
+bukan menunggu `scope.cancel()` di `onDestroy()`. Ditambah flag `stopping`
+sebagai guard kedua di dalam `collect{}` untuk menutup jendela balapan kalau
+ada emission yang sudah terlanjur in-flight lewat `combine()` saat cancel
+diproses. `onDestroy()` juga di-hardening dengan guard yang sama untuk jalur
+teardown yang tidak lewat ACTION_STOP (mis. process death setelah
+`onTaskRemoved`).
+
+**Verifikasi:** comment balance file disubah OK, regex scan bug-class
+v4.7.1 (`*/` nyelip di kdoc) diulang ke seluruh repo — bersih.
+
 ## v4.7.3 — Efek "timbul" dimaksimalkan (2026-08-11)
 
 User minta efek raised/embossed dimaksimalkan. Semua di token shared, otomatis

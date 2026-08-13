@@ -2,7 +2,55 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.3, efek "timbul" dimaksimalkan (2026-08-11)
+## STATUS PROYEK: AKTIF — v4.7.4, hotfix notif WARP nyangkut "Menyambungkan…" (2026-08-13)
+
+**User lapor:** notif WARP masih "Menyambungkan ke Cloudflare WARP…"
+(searching) walau toggle sudah dimatikan manual dari UI.
+
+**Root cause:** `WarpForegroundService.observeQualityForNotification()`'s
+`combine(tunnelManager.state, tunnelManager.quality).collect{}` tidak
+pernah di-cancel sampai `onDestroy()` — yang baru jalan setelah message
+queue Service kosong, BUKAN serentak dengan `stopForeground()`/
+`stopSelf()` di ACTION_STOP. `warpEngine.disconnect()` (dipanggil di jalur
+stop yang sama, SEBELUM `stopForeground()`) men-drive
+`tunnelManager.state` ke `DOWN` lewat `Tunnel.onStateChange()` — collector
+lama itu ikut menangkap emission DOWN itu dan `notify()` ULANG notifikasi.
+`buildNotification()`'s logic `state != UP -> "Menyambungkan…"` awalnya
+dimaksudkan buat startup (state DOWN sebelum UP pertama kali), tapi
+kepicu juga oleh DOWN saat SHUTDOWN — teks yang sama, konteks beda total.
+notify() ulang ini kejadian PERSIS di jendela setelah
+`stopForeground(STOP_FOREGROUND_REMOVE)` sudah menghapus notif asli, jadi
+notif "connecting" hasil notify() ulang itu jadi notif berdiri sendiri
+yang tidak terikat foreground-service state apa pun lagi — tidak pernah
+hilang sendiri sampai user swipe manual dari tray.
+
+**Fix (`WarpForegroundService.kt`, 1 file, bukan Atomic Change — cukup 1
+file untuk fix ini):**
+- `notificationJob` (referensi ke Job collector) di-cancel EKSPLISIT di
+  AWAL blok ACTION_STOP, SEBELUM `warpEngine.disconnect()` dipanggil —
+  bukan menunggu `scope.cancel()` di `onDestroy()` yang telat.
+- Flag `@Volatile stopping` sebagai guard kedua DI DALAM `collect{}`
+  (`if (stopping) return@collect`) — menutup jendela balapan kalau ada
+  emission yang SUDAH terlanjur in-flight lewat `combine()` tepat saat
+  `cancel()` diproses (cancel Job Kotlin tidak instan-interrupt kalau
+  collector body sedang di tengah eksekusi).
+- `onDestroy()` di-hardening dengan guard yang sama (`stopping = true` +
+  `notificationJob?.cancel()` sebelum `scope.cancel()`) untuk jalur
+  teardown yang TIDAK lewat ACTION_STOP (mis. process death setelah
+  watchdog `onTaskRemoved`) — supaya konsisten, bukan cuma nutup 1 jalur.
+
+**PENTING untuk sesi lanjutan:** kalau nanti nambah sumber emission baru
+ke `observeQualityForNotification()` (state tambahan, quality field baru,
+dll), INGAT pola ini — `notify()` dengan `WARP_NOTIF_ID` yang sama BISA
+"membangkitkan" notif yang sudah di-`stopForeground(REMOVE)` selama
+collector-nya belum benar-benar berhenti. Jangan asumsikan
+`stopForeground()`/`stopSelf()` langsung mematikan semua coroutine
+Service — keduanya cuma request, bukan sinkron.
+
+**Verifikasi:** comment balance file disubah OK, regex scan bug-class
+v4.7.1 (`*/` nyelip di kdoc) diulang ke seluruh repo — bersih.
+
+## STATUS SEBELUMNYA: v4.7.3, efek "timbul" dimaksimalkan (2026-08-11)
 
 **User minta:** maksimalkan efek raised/embossed di seluruh sistem Tactile.
 Semua perubahan di token SHARED (`TactileTokens.kt` + `Color.kt`) — otomatis
