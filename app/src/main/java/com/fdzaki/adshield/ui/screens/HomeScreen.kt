@@ -96,6 +96,7 @@ fun HomeScreen(
     val warpError by viewModel.warpLastError.collectAsState()
     val warpQuality by viewModel.warpQuality.collectAsState()
     val warpRouteIpv6 by viewModel.warpRouteIpv6.collectAsState()
+    val warpKillSwitch by viewModel.warpKillSwitchEnabled.collectAsState()
     val warpUp = warpState == Tunnel.State.UP
     // v4.7.0 — custom theme #2 toggle (see PROJECT_STATE.md / ThemeVariant.kt).
     val themeVariant by viewModel.themeVariant.collectAsState()
@@ -196,6 +197,8 @@ fun HomeScreen(
             quality = warpQuality,
             routeIpv6 = warpRouteIpv6,
             onToggleRouteIpv6 = { viewModel.setWarpRouteIpv6(it) },
+            killSwitch = warpKillSwitch,
+            onToggleKillSwitch = { viewModel.setWarpKillSwitchEnabled(it) },
             onToggle = { turnOn ->
                 if (turnOn) onRequestWarpStart() else onStopWarp()
             }
@@ -377,6 +380,8 @@ private fun WarpModeCard(
     quality: WarpConnectionQuality,
     routeIpv6: Boolean,
     onToggleRouteIpv6: (Boolean) -> Unit,
+    killSwitch: Boolean,
+    onToggleKillSwitch: (Boolean) -> Unit,
     onToggle: (Boolean) -> Unit
 ) {
     val haptic = LocalHapticFeedback.current
@@ -497,6 +502,44 @@ private fun WarpModeCard(
                     // here prevents a double-fire when tapping directly on
                     // the Switch's own hit target (same pattern as the two
                     // tunnel cards above, Logs, and Whitelist).
+                    onCheckedChange = null
+                )
+            }
+
+            Spacer(Modifier.height(10.dp))
+            HorizontalDivider(color = trimAccent.copy(alpha = 0.45f), thickness = 1.dp)
+            Spacer(Modifier.height(10.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                // v4.8.0 "Lock In" kill switch — same toggleable-row pattern as
+                // routeIpv6 above (single TalkBack stop, Switch below just mirrors).
+                modifier = Modifier.toggleable(
+                    value = killSwitch,
+                    role = Role.Switch,
+                    onValueChange = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onToggleKillSwitch(it)
+                    }
+                )
+            ) {
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        "Kill Switch",
+                        fontSize = 12.sp,
+                        color = ShieldTextMuted
+                    )
+                    Text(
+                        "Default aktif — kalau auto-reconnect WARP menyerah, trafik " +
+                            "DIKUNCI (tidak bocor ke jaringan asli) sampai kamu matikan " +
+                            "WARP manual. Nonaktifkan kalau lebih pilih tetap online " +
+                            "walau lewat jaringan biasa.",
+                        fontSize = 10.sp,
+                        color = ShieldTextFaint
+                    )
+                }
+                Spacer(Modifier.width(8.dp))
+                TactileSwitch(
+                    checked = killSwitch,
                     onCheckedChange = null
                 )
             }

@@ -2,7 +2,58 @@
 
 Baca file ini SEBELUM lanjut kerja di proyek ini pada sesi baru mana pun.
 
-## STATUS PROYEK: AKTIF — v4.7.8, SilentLeakScreen wired ke Tactile (2026-08-13)
+## STATUS PROYEK: AKTIF — v4.8.0, WARP: MTU paralel + Kill Switch (2026-08-14)
+
+**User minta** (scope eksplisit: "warp aja"): dongkrak performa reconnect +
+fitur lock-in/kill switch, dibatasi ke modul WARP saja — TIDAK menyentuh
+mode DNS Ad-Block.
+
+**Interpretasi "dongkrak performance + lock in dipuncaknya":** 2 fitur
+terpisah tapi 1 batch (Atomic Change, 4 file):
+1. **Performance** — `probeBestMtu()` di `WarpTunnelManager.kt` diparalelkan
+   (dulu sequential loop, worst-case ~3.2s; sekarang `async`+`awaitAll` pola
+   sama persis `WarpEndpointSelector`, dibatasi 1x800ms). Plus
+   `ENDPOINT_CACHE_TTL_MS` 30min->4h — reconnect network-switch tetap selalu
+   re-probe (tidak kena cache, lihat `immediate` branch di
+   `attemptReconnect()`), jadi extend ini murni win tanpa kompromi akurasi.
+2. **Lock In (kill switch)** — baca "puncaknya" sebagai "kondisi tersambung
+   yang sudah dicapai, dikunci — jangan biarkan bocor ke jaringan asli kalau
+   hilang". Diimplementasi di titik `attemptReconnect()` MAX_RECONNECT_
+   ATTEMPTS terlampaui: default sekarang TIDAK menurunkan interface
+   (`setState(DOWN)` di-skip), tunnel dibiarkan macet di config
+   terakhir supaya OS tetap rutekan semua trafik ke situ (blackhole),
+   bukan fail-open seperti perilaku lama. Toggle `warpKillSwitchEnabled`
+   (default ON) buat yang mau fail-open lagi — ditaruh di `HomeScreen.kt`
+   `WarpModeCard`, persis di bawah toggle "Rutekan IPv6" (pola
+   `toggleable`+`TactileSwitch` di-copy 1:1).
+
+**File yang diubah:** `WarpTunnelManager.kt`, `SettingsRepository.kt`,
+`MainViewModel.kt`, `HomeScreen.kt`. Tidak ada file baru, tidak ada rute
+NavGraph baru, `AndroidManifest.xml` tidak disentuh — murni logic + 1
+toggle row di layar yang sudah ada.
+
+**PENTING untuk sesi lanjutan:**
+- Kill switch mengunci dengan CARA TIDAK memanggil `setState(DOWN)` —
+  bukan mekanisme block-list/firewall terpisah. Kalau nanti WireGuard
+  library/GoBackend berubah perilaku (mis. auto-teardown interface sendiri
+  saat peer dianggap unreachable dalam durasi tertentu), asumsi "interface
+  tetap claim semua route selama tidak di-set DOWN" ini perlu dicek ulang.
+- `disconnect()` adalah SATU-SATUNYA jalur lain yang masih memanggil
+  `setState(DOWN)` setelah lock aktif — itu cara user "matikan WARP manual"
+  yang disebut di pesan error. Jangan tambah jalur teardown lain tanpa
+  update pesan errornya juga.
+- `trafficConfirmed`/dot kualitas di Home TIDAK direset saat terkunci
+  (perilaku lama, di luar scope batch ini) — kalau nanti ada sesi yang mau
+  "benerin" dot-nya supaya ikut menunjukkan status terkunci, itu perubahan
+  terpisah di `WarpConnectionQuality.level` atau `registerProbeFailure()`,
+  bukan bagian dari fitur kill switch ini.
+- MTU probe paralel: urutan `WARP_MTU_CANDIDATES` (`[1420,1400,1360,1280]`,
+  besar->kecil) MASIH dipakai buat memilih pemenang (`firstOrNull` di list
+  hasil yang urutannya ikut urutan `candidates`, BUKAN urutan selesai
+  coroutine) — kalau nanti nambah kandidat, taruh tetap terurut besar->kecil
+  atau logic pemilihan pemenang harus diubah juga.
+
+## STATUS SEBELUMNYA: v4.7.8, SilentLeakScreen wired ke Tactile (2026-08-13)
 
 **Backlog terakhir dari batch wiring v4.6.0.** SilentLeakScreen dibuat di
 v4.5.0, SETELAH 5-layar batch v4.6.0 (Rules/Logs/Diagnostics/Whitelist/

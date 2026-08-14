@@ -38,6 +38,7 @@ class SettingsRepository(private val context: Context) {
         val BLOCKLIST_LAST_UPDATED = longPreferencesKey("blocklist_last_updated")
         val BLOCKLIST_UPDATE_STATUS = stringPreferencesKey("blocklist_update_status")
         val WARP_ROUTE_IPV6 = booleanPreferencesKey("warp_route_ipv6")
+        val WARP_KILL_SWITCH_ENABLED = booleanPreferencesKey("warp_kill_switch_enabled")
         // v3.7.0 — Internet Surfing Optimization: cache the winner of the last
         // endpoint-latency probe / MTU probe so a reconnect within the cache
         // window (see WarpTunnelManager.ENDPOINT_CACHE_TTL_MS) can skip
@@ -225,6 +226,21 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setWarpRouteIpv6(enabled: Boolean) {
         context.dataStore.edit { it[Keys.WARP_ROUTE_IPV6] = enabled }
+    }
+
+    /** v4.8.0 — "Lock In" kill switch. Default ON (fail-closed): when auto-reconnect
+     *  gives up after MAX_RECONNECT_ATTEMPTS, [WarpTunnelManager] leaves the dead
+     *  tunnel interface established instead of tearing it down, so 0.0.0.0/0 + ::/0
+     *  keep routing into it and traffic is silently blackholed rather than leaking
+     *  onto the raw network. OFF restores the old fail-open behavior (tunnel torn
+     *  down, device falls back to normal internet) for anyone who'd rather have
+     *  connectivity than a hard lock. Read at the moment reconnect budget runs out,
+     *  not cached at connect() time — a mid-session toggle takes effect immediately. */
+    val warpKillSwitchEnabled: Flow<Boolean> =
+        context.dataStore.data.map { it[Keys.WARP_KILL_SWITCH_ENABLED] ?: true }
+
+    suspend fun setWarpKillSwitchEnabled(enabled: Boolean) {
+        context.dataStore.edit { it[Keys.WARP_KILL_SWITCH_ENABLED] = enabled }
     }
 
     // v3.7.0 — cached winner of the last endpoint/MTU probe, plus when it was cached.

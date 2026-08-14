@@ -17,6 +17,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -248,32 +251,40 @@ class WarpTunnelManager(context: Context) {
         runCatching { settingsRepository.setWarpEndpointCache(activeEndpoint, activeMtu) }
     }
 
-    /** Auto MTU tuning (v3.7.0): tries each candidate MTU from largest to smallest and keeps
-     *  the first one a plain UDP datagram of that size can actually round-trip through to
-     *  Cloudflare without fragmenting — larger MTU = less per-packet overhead = better real
-     *  throughput, but only if the path actually supports it (cellular/carrier NAT often
-     *  doesn't). Falls back to the conservative 1280 default (see WARP_MTU) on total failure. */
-    private suspend fun probeBestMtu(): Int = withContext(Dispatchers.IO) {
-        for (candidate in com.fdzaki.adshield.util.Constants.WARP_MTU_CANDIDATES) {
-            val ok = runCatching {
-                val socket = DatagramSocket()
-                socket.soTimeout = 800
-                // WireGuard overhead is ~60 bytes; probe with a payload sized to what the
-                // resulting encrypted packet would roughly be, sent at the candidate MTU's
-                // IP-layer size. Cloudflare's endpoint silently drops non-handshake packets
-                // either way, so we only care whether send() itself succeeds without an
-                // immediate "message too long" style IOException (which is what a path with
-                // a lower real MTU throws back for an oversized UDP datagram).
-                val host = activeEndpoint.substringBeforeLast(":")
-                val port = activeEndpoint.substringAfterLast(":").toIntOrNull() ?: 2408
-                val payload = ByteArray((candidate - 60).coerceAtLeast(1))
-                socket.send(DatagramPacket(payload, payload.size, InetSocketAddress(host, port)))
-                socket.close()
-                true
-            }.getOrDefault(false)
-            if (ok) return@withContext candidate
-        }
-        WARP_MTU
+    /** Auto MTU tuning (v3.7.0, parallelized v4.8.0): probes every candidate MTU
+     *  concurrently instead of sequentially — larger MTU = less per-packet overhead =
+     *  better real throughput, but only if the path actually supports it (cellular/
+     *  carrier NAT often doesn't). Picks the LARGEST candidate that round-tripped a
+     *  same-sized UDP datagram to Cloudflare without an immediate "message too long"
+     *  style IOException, same selection outcome as the old first-to-succeed loop —
+     *  just bounded by one 800ms timeout total instead of up to N of them stacked back
+     *  to back (this only runs on a cache miss; see [selectEndpointAndMtu]'s
+     *  [ENDPOINT_CACHE_TTL_MS], so most connects skip this entirely). Falls back to the
+     *  conservative 1280 default (see WARP_MTU) on total failure. */
+    private suspend fun probeBestMtu(): Int = coroutineScope {
+        val host = activeEndpoint.substringBeforeLast(":")
+        val port = activeEndpoint.substringAfterLast(":").toIntOrNull() ?: 2408
+        val candidates = com.fdzaki.adshield.util.Constants.WARP_MTU_CANDIDATES
+        val results = candidates.map { candidate ->
+            async(Dispatchers.IO) {
+                val ok = runCatching {
+                    val socket = DatagramSocket()
+                    socket.soTimeout = 800
+                    // WireGuard overhead is ~60 bytes; probe with a payload sized to what the
+                    // resulting encrypted packet would roughly be, sent at the candidate MTU's
+                    // IP-layer size. Cloudflare's endpoint silently drops non-handshake packets
+                    // either way, so we only care whether send() itself succeeds without an
+                    // immediate "message too long" style IOException (which is what a path
+                    // with a lower real MTU throws back for an oversized UDP datagram).
+                    val payload = ByteArray((candidate - 60).coerceAtLeast(1))
+                    socket.send(DatagramPacket(payload, payload.size, InetSocketAddress(host, port)))
+                    socket.close()
+                    true
+                }.getOrDefault(false)
+                candidate to ok
+            }
+        }.awaitAll()
+        results.firstOrNull { it.second }?.first ?: WARP_MTU
     }
 
     private fun registerNetworkWatcher() {
@@ -459,15 +470,33 @@ class WarpTunnelManager(context: Context) {
                 // sementara" was misleading: nothing ever actually paused, it just silently
                 // failed the same way every ~25s indefinitely (wasted probes/battery, and no
                 // real path back to UP without the user force-toggling the mode off and on).
-                // Now: actually stop the watchdog and cleanly tear the interface down, so the
-                // state is deterministic (fully DOWN + a clear error) instead of a limbo of
-                // infinite silent no-op retries.
-                _lastError.value = "WARP terputus berulang kali — auto-reconnect dihentikan. " +
-                    "Tunnel dimatikan; nyalakan manual untuk mencoba lagi."
+                // Now: stop the watchdog deterministically either way; whether the interface
+                // itself comes down depends on the v4.8.0 Lock In kill switch below.
                 desiredRunning = false
                 watchdogJob?.cancel()
                 unregisterNetworkWatcher()
-                runCatching { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+                val killSwitch = runCatching { settingsRepository.warpKillSwitchEnabled.first() }
+                    .getOrDefault(true)
+                if (killSwitch) {
+                    // v4.8.0 "Lock In": do NOT tear the interface down. The WireGuard
+                    // tunnel object stays UP (unchanged Config, dead peer) so Android
+                    // keeps routing 0.0.0.0/0 + ::/0 into it — every packet is silently
+                    // blackholed at the OS level instead of falling back onto the raw
+                    // network the instant we give up reconnecting. This is the "peak"
+                    // state getting locked in: whatever endpoint/MTU/keys were last
+                    // applied stay claimed until the user explicitly turns WARP off
+                    // (disconnect() is the only path that calls setState(..., DOWN, ...)
+                    // from here on), which is exactly what actually releases the lock.
+                    _lastError.value = "WARP terputus berulang kali — auto-reconnect " +
+                        "dihentikan. Kill Switch aktif: semua trafik DIKUNCI (tidak ada " +
+                        "yang bocor ke jaringan asli) sampai kamu matikan WARP manual."
+                } else {
+                    // Fail-open path — old pre-v4.8.0 default, kept behind the toggle for
+                    // anyone who wants connectivity back over a hard lock.
+                    _lastError.value = "WARP terputus berulang kali — auto-reconnect dihentikan. " +
+                        "Tunnel dimatikan; nyalakan manual untuk mencoba lagi."
+                    runCatching { backend.setState(tunnel, Tunnel.State.DOWN, null) }
+                }
                 accountRepository.setWasTunnelRunning(false)
                 return
             }
@@ -618,7 +647,14 @@ class WarpTunnelManager(context: Context) {
         // How long a probed endpoint+MTU stays trusted before selectEndpointAndMtu() re-probes
         // from scratch on a fresh connect() — long enough to avoid re-probing on every quick
         // toggle, short enough that a genuinely bad pick doesn't stick around for days.
-        private const val ENDPOINT_CACHE_TTL_MS = 30 * 60 * 1000L
+        // v4.8.0 — bumped 30min -> 4h. A network-switch reconnect (immediate=true)
+        // always re-probes regardless of this TTL (see attemptReconnect()), so this
+        // value only governs plain app-restart / manual toggle-off-on connects on an
+        // otherwise-unchanged network path — those don't need a fresh probe every half
+        // hour, and skipping probeBestMtu()/WarpEndpointSelector on a cache hit is the
+        // single biggest latency win available in connect() (parallelized in v4.8.0,
+        // but zero calls still beats even the fastest parallel probe).
+        private const val ENDPOINT_CACHE_TTL_MS = 4 * 60 * 60 * 1000L
         private const val PACKET_LOSS_WINDOW = 8
         // MTU left unset (library auto/default) before v3.2.0 could push MTU higher than what
         // many mobile networks (esp. cellular, carrier NAT/tunneling overhead) actually pass

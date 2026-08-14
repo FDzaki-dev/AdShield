@@ -110,6 +110,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val warpRouteIpv6: StateFlow<Boolean> = settingsRepository.warpRouteIpv6
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
+    /** v4.8.0 "Lock In" kill switch — default true. See SettingsRepository.
+     *  warpKillSwitchEnabled doc; read live by WarpTunnelManager the moment
+     *  auto-reconnect gives up, so toggling this mid-session is safe. */
+    val warpKillSwitchEnabled: StateFlow<Boolean> = settingsRepository.warpKillSwitchEnabled
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     // v4.7.0 — custom theme #2 toggle (see PROJECT_STATE.md / ThemeVariant.kt).
     // Mapped from SettingsRepository's plain-String storage key here (the
     // one place in the app allowed to depend on both `data` and `ui.theme`)
@@ -317,6 +323,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setWarpRouteIpv6(enabled: Boolean) {
         viewModelScope.launch { settingsRepository.setWarpRouteIpv6(enabled) }
+    }
+
+    fun setWarpKillSwitchEnabled(enabled: Boolean) {
+        viewModelScope.launch { settingsRepository.setWarpKillSwitchEnabled(enabled) }
     }
 
     fun setAutoStartOnBoot(enabled: Boolean) {

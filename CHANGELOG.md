@@ -1,5 +1,51 @@
 # Changelog
 
+## v4.8.0 — WARP: probe MTU paralel + Kill Switch "Lock In" (2026-08-14)
+
+User minta dorong performa reconnect WARP + fitur lock-in (kill switch) —
+dibatasi khusus modul WARP saja.
+
+**Diubah (4 file, 1 fitur):**
+- `WarpTunnelManager.kt`:
+  - `probeBestMtu()` dulu sequential (loop candidate besar->kecil, tiap gagal
+    nunggu timeout 800ms penuh sebelum coba kandidat berikutnya, worst-case
+    ~3.2s). Sekarang paralel (`async`+`awaitAll`, pola sama persis dgn
+    `WarpEndpointSelector`), pilih kandidat TERBESAR yang berhasil — hasil
+    seleksi identik, cuma dibatasi 1x800ms bukan ditumpuk N kali.
+  - `ENDPOINT_CACHE_TTL_MS` 30 menit -> 4 jam. Reconnect akibat pindah
+    jaringan (`immediate=true`) SELALU re-probe berapa pun TTL-nya (tidak
+    kena cache), jadi extend ini aman — cuma bikin toggle off/on atau
+    restart app biasa (network sama) skip probe sama sekali, itu win
+    latency terbesar karena 0 probe ngalahin probe paralel tercepat sekalipun.
+  - `attemptReconnect()`: cabang MAX_RECONNECT_ATTEMPTS terlampaui sekarang
+    baca setting `warpKillSwitchEnabled` (default true). ON (default):
+    interface TIDAK di-`setState(DOWN)` — sengaja dibiarkan macet di config
+    terakhir supaya Android tetap rutekan `0.0.0.0/0`+`::/0` ke situ, semua
+    trafik diam-diam ke-blackhole alih-alih jatuh balik ke jaringan asli.
+    Terkunci sampai user matikan WARP manual (`disconnect()`, satu-satunya
+    jalur yang masih panggil `setState(DOWN)` dari titik ini). OFF: perilaku
+    lama (fail-open, tunnel dimatikan) dipertahankan di balik toggle.
+- `SettingsRepository.kt` — key + Flow + setter baru
+  `warpKillSwitchEnabled` (DataStore boolean, default true), pola identik
+  `warpRouteIpv6`.
+- `MainViewModel.kt` — expose `warpKillSwitchEnabled: StateFlow<Boolean>` +
+  `setWarpKillSwitchEnabled()`, pola identik `warpRouteIpv6`/
+  `setWarpRouteIpv6`.
+- `HomeScreen.kt` — 1 toggle row baru "Kill Switch" di `WarpModeCard`,
+  di bawah toggle "Rutekan IPv6", pola `toggleable` + `TactileSwitch`
+  identik (row polos, TIDAK dibungkus `TactileSurface` per-toggle, ikut
+  precedent panel yang sudah ada).
+
+**Catatan desain (bukan bug):** `trafficConfirmed`/dot warna kualitas TIDAK
+direset saat kill switch mengunci — ini perilaku lama (`registerProbeFailure`
+tidak pernah menyentuh `trafficConfirmed`, sudah ada dari v3.28.0), di luar
+scope perubahan ini. Sinyal utama status terkunci ada di `_lastError`
+(muncul di UI sebagai teks "Gagal: ..."), bukan di dot.
+
+**Verifikasi:** brace/paren balance ke-4 file dicek manual — OK. 1 call
+site `WarpModeCard(...)`, tidak ada pemanggil lain yang butuh update.
+`AndroidManifest.xml`/route NavGraph tidak disentuh.
+
 ## v4.7.8 — SilentLeakScreen: wired ke Tactile design (2026-08-13)
 
 Backlog terakhir dari batch wiring v4.6.0 — screen ini dibuat di v4.5.0
